@@ -1,0 +1,51 @@
+{
+  "version": "1.0.0",
+  "name": "sosh",
+  "type": "node",
+  "slug": "sosh",
+  "description": "Fetches your sosh bills",
+  "source": "git://github.com/cozy/cozy-konnector-sosh.git",
+  "fields": {
+    "save_folder": {
+      "doctype": "io.cozy.files",
+      "type": "folder"
+    },
+    "account": {
+      "doctype": "io.cozy.accounts",
+      "account_type": "sosh",
+      "accountFormat": "login,password"
+    }
+  },
+  "locales": {
+    "fr": {
+      "description": "Récupère vos factures Sosh",
+      "permissions": {
+        "bills": {
+          "description": "Utilisé pour sauvegarder les données de facturation venant de sosh"
+        },
+        "files": {
+          "description": "Utilisé pour sauvegarder les factures Sosh"
+        }
+      }
+    }
+  },
+  "permissions": {
+    "bills": {
+      "description": "Required to save the bills data",
+      "type": "io.cozy.bills"
+    },
+    "files": {
+      "description": "Required to save the bills",
+      "type": "io.cozy.files"
+    },
+    "accounts": {
+      "description": "Required to get the account's data",
+      "type": "io.cozy.accounts",
+      "verbs": ["GET"]
+    }
+  },
+  "developer": {
+    "name": "doubleface",
+    "url": "https://github.com/doubleface"
+  }
+}

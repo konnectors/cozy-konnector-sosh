@@ -1,0 +1,38 @@
+{
+  "name": "cozy-konnector-sosh",
+  "version": "1.0.0",
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cozy/cozy-konnector-sosh.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "cozy-konnector-libs": "^2.4.1",
+    "node-polyglot": "^2.2.2",
+    "request": "^2.81.0",
+    "request-json": "^0.6.2"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "oauth": "env-cmd ./data/env.js cozy-authenticate manifest.konnector",
+    "predev": "npm run oauth && env-cmd ./data/env.js cozy-init-dev-account ./data/account.txt ./data/env_fields.json",
+    "dev": "env-cmd ./data/env_development.js npm start",
+    "standalone": "env-cmd ./data/env_standalone.js npm start",
+    "build": "webpack"
+  },
+  "devDependencies": {
+    "cz-conventional-changelog": "^2.0.0",
+    "env-cmd": "^5.1.0",
+    "request-debug": "^0.2.0",
+    "webpack": "^2.5.1"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  }
+}

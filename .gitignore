@@ -1,0 +1,8 @@
+node_modules/*
+data/*
+!data/env.js
+!data/env_development.js
+!data/env_standalone.js
+!data/env_fields.json.template
+!data/fixture.json
+
