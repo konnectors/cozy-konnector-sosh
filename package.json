@@ -22,11 +22,14 @@
     "predev": "npm run oauth && env-cmd ./data/env.js cozy-init-dev-account ./data/account.txt ./data/env_fields.json",
     "dev": "env-cmd ./data/env_development.js npm start",
     "standalone": "env-cmd ./data/env_standalone.js npm start",
-    "build": "webpack"
+    "build": "webpack",
+    "deploy": "git-directory-deploy --username Cozy --email contact@cozycloud.cc --directory build/ --repo=https://$GITHUB_TOKEN@github.com/cozy/cozy-konnector-sosh.git"
   },
   "devDependencies": {
+    "copy-webpack-plugin": "^4.0.1",
     "cz-conventional-changelog": "^2.0.0",
     "env-cmd": "^5.1.0",
+    "git-directory-deploy": "^1.5.1",
     "request-debug": "^0.2.0",
     "webpack": "^2.5.1"
   },
