@@ -3,7 +3,6 @@
   "name": "sosh",
   "type": "node",
   "slug": "sosh",
-  "description": "Fetches your sosh bills",
   "source": "git://github.com/cozy/cozy-konnector-sosh.git",
   "fields": {
     "save_folder": {
