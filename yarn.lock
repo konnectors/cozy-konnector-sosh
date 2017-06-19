@@ -439,9 +439,9 @@ cozy-client-js@^0.3.4:
   version "0.3.5"
   resolved "https://registry.yarnpkg.com/cozy-client-js/-/cozy-client-js-0.3.5.tgz#1e5c8d10000b302bb90e7c59670602c147449d27"
 
-cozy-konnector-libs@^2.4.4:
-  version "2.4.4"
-  resolved "https://registry.yarnpkg.com/cozy-konnector-libs/-/cozy-konnector-libs-2.4.4.tgz#5d9d1016d219471aa5dad079908989b6a6df5f01"
+cozy-konnector-libs@^2.4.5:
+  version "2.4.5"
+  resolved "https://registry.yarnpkg.com/cozy-konnector-libs/-/cozy-konnector-libs-2.4.5.tgz#b193f77a7a3321e085803aad9017127c9d81dddd"
   dependencies:
     async "^2.4.1"
     btoa "^1.1.2"
