@@ -41,6 +41,10 @@
       "description": "Required to get the account's data",
       "type": "io.cozy.accounts",
       "verbs": ["GET"]
+    },
+    "bank": {
+      "description": "Required to link bills to a bank operation",
+      "type": "io.cozy.bank.operations"
     }
   },
   "developer": {
