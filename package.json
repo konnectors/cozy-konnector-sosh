@@ -10,32 +10,22 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "cheerio": "^0.22.0",
-    "cozy-konnector-libs": "^2.5.7",
-    "node-polyglot": "^2.2.2",
-    "request": "^2.81.0",
-    "request-json": "^0.6.2"
+    "cozy-konnector-libs": "^3.0.4",
+    "moment": "^2.19.1"
   },
   "scripts": {
     "start": "node index.js",
-    "oauth": "env-cmd ./data/env.js cozy-authenticate manifest.konnector",
-    "predev": "npm run oauth && env-cmd ./data/env.js cozy-init-dev-account ./data/account.txt ./data/env_fields.json",
-    "dev": "env-cmd ./data/env_development.js npm start",
-    "standalone": "env-cmd ./data/env_standalone.js npm start",
+    "dev": "cozy-konnector-dev",
+    "standalone": "cozy-konnector-standalone",
+    "standalone:record": "REPLAY=record cozy-konnector-standalone",
+    "standalone:replay": "REPLAY=replay cozy-konnector-standalone",
     "build": "webpack",
-    "deploy": "git-directory-deploy --username Cozy --email contact@cozycloud.cc --directory build/ --repo=https://$GITHUB_TOKEN@github.com/cozy/cozy-konnector-sosh.git"
+    "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/cozy/cozy-konnector-sosh.git",
+    "deploy:travis": "git-directory-deploy --username Cozy --email contact@cozycloud.cc --directory build/ --repo=https://$GITHUB_TOKEN@github.com/cozy/cozy-konnector-sosh.git"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^4.0.1",
-    "cz-conventional-changelog": "^2.0.0",
-    "env-cmd": "^5.1.0",
     "git-directory-deploy": "^1.5.1",
-    "request-debug": "^0.2.0",
-    "webpack": "^2.5.1"
-  },
-  "config": {
-    "commitizen": {
-      "path": "./node_modules/cz-conventional-changelog"
-    }
+    "webpack": "^3.6.0"
   }
 }

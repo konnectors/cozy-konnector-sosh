@@ -1,8 +1,34 @@
-node_modules/*
-data/*
-!data/env.js
-!data/env_development.js
-!data/env_standalone.js
-!data/env_fields.json.template
-!data/fixture.json
+# Connector config
+.account
+.token.json
+konnector-dev-config.json*
 
+# NPM
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build
+build/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+
+# Editors / IDEs
+.floo
+.flooignore
+.idea/
+
+# Default
+# /!\ KEEP THIS SECTION THE LAST ONE
+!.gitkeep
+
+fixtures/*
