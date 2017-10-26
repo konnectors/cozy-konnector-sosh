@@ -60093,6 +60093,7 @@ function logIn (fields) {
     }
   })
   .catch(err => {
+    log('error', 'LOGIN_FAILED')
     log('error', 'Error while trying to login')
     log('error', err)
     this.terminate('LOGIN_FAILED')
