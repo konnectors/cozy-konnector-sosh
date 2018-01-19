@@ -25721,8 +25721,8 @@ const getDateRangeFromBill = (bill, options) => {
   const date = getOperationDateFromBill(bill, options)
 
   return {
-    minDate: subDays(date, options.minDateDelta),
-    maxDate: addDays(date, options.maxDateDelta)
+    minDate: subDays(date, options.pastWindow),
+    maxDate: addDays(date, options.futureWindow)
   }
 }
 
@@ -55406,7 +55406,8 @@ const { findDebitOperation, findCreditOperation } = __webpack_require__(952)
 
 const DOCTYPE_OPERATIONS = 'io.cozy.bank.operations'
 const DEFAULT_AMOUNT_DELTA = 0.001
-const DEFAULT_DATE_DELTA = 15
+const DEFAULT_PAST_WINDOW = 15
+const DEFAULT_FUTURE_WINDOW = 29
 
 class Linker {
   constructor (cozyClient) {
@@ -55535,9 +55536,8 @@ module.exports = (bills, doctype, fields, options = {}) => {
   options.minAmountDelta = options.minAmountDelta || options.amountDelta
   options.maxAmountDelta = options.maxAmountDelta || options.amountDelta
 
-  options.dateDelta = options.dateDelta || DEFAULT_DATE_DELTA
-  options.minDateDelta = options.minDateDelta || options.dateDelta
-  options.maxDateDelta = options.maxDateDelta || options.dateDelta
+  options.pastWindow = options.pastWindow || DEFAULT_PAST_WINDOW
+  options.futureWindow = options.futureWindow || DEFAULT_FUTURE_WINDOW
 
   const cozyClient = __webpack_require__(52)
   const linker = new Linker(cozyClient)

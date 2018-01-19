@@ -1201,9 +1201,9 @@ cozy-client-js@^0.3.17:
   version "0.3.21"
   resolved "https://registry.yarnpkg.com/cozy-client-js/-/cozy-client-js-0.3.21.tgz#d27d0288077ce95139333c41dfb537b8584ff254"
 
-cozy-konnector-libs@3.2.2:
-  version "3.2.2"
-  resolved "https://registry.yarnpkg.com/cozy-konnector-libs/-/cozy-konnector-libs-3.2.2.tgz#53ce4f3e971f6bdbbd4ca5c775eb3b088bae1eba"
+cozy-konnector-libs@3.2.3:
+  version "3.2.3"
+  resolved "https://registry.yarnpkg.com/cozy-konnector-libs/-/cozy-konnector-libs-3.2.3.tgz#8eaf053a23154d63b40cc74adff128eedafe53a2"
   dependencies:
     babel-plugin-transform-object-rest-spread "^6.26.0"
     babel-preset-env "^1.6.0"
