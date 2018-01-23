@@ -55492,13 +55492,18 @@ class Linker {
       const linkBillToCreditOperation = debitOperation => {
         return findCreditOperation(this.cozyClient, bill, options)
           .then(creditOperation => {
-            if (creditOperation && debitOperation) {
+            const creditPromise = Promise.resolve()
+            if (creditOperation) {
               res.creditOperation = creditOperation
+              creditPromise.then(() => this.addBillToOperation(bill, creditOperation))
+            }
+            const debitPromise = Promise.resolve()
+            if (creditOperation && debitOperation) {
               log('debug', bill, 'Matching bill')
               log('debug', creditOperation, 'Matching credit creditOperation')
-              return this.addReimbursementToOperation(bill, debitOperation, creditOperation)
-              .then(() => this.addBillToOperation(bill, creditOperation))
+              debitPromise.then(() => this.addReimbursementToOperation(bill, debitOperation, creditOperation))
             }
+            return Promise.all([creditOperation, debitOperation])
           })
       }
 
@@ -100363,13 +100368,24 @@ const { getIdentifiers, getDateRangeFromBill, getAmountRangeFromBill } = __webpa
 
 const HEALTH_VENDORS = ['Ameli', 'Harmonie', 'Malakoff Mederic', 'MGEN'] // TODO: to import from each konnector
 const HEALTH_CAT_ID_OPERATION = '400610' // TODO: import it from cozy-bank
+const UNCATEGORIZED_CAT_ID_OPERATION = '0' // TODO: import it from cozy-bank
 
 // helpers
 
-const getCategoryId = o => o.manualCategoryId || o.automaticCategoryId
+const getCategoryId = o => {
+  return o.manualCategoryId
+    || o.automaticCategoryId
+    || UNCATEGORIZED_CAT_ID_OPERATION
+}
 
+const checkOperationCategory = (operation, categoryId) => {
+  return categoryId === getCategoryId(operation)
+}
 const isHealthOperation = operation => {
-  return HEALTH_CAT_ID_OPERATION === getCategoryId(operation)
+  return checkOperationCategory(operation, HEALTH_CAT_ID_OPERATION)
+}
+const isUncategorizedOperation = operation => {
+  return checkOperationCategory(operation, UNCATEGORIZED_CAT_ID_OPERATION)
 }
 
 const isHealthBill = bill => {
@@ -100396,8 +100412,8 @@ const filterByAmounts = ({ minAmount, maxAmount }) => operation => {
 
 const filterByCategory = bill => operation => {
   return isHealthBill(bill)
-    ? isHealthOperation(operation)
-    : !isHealthOperation(operation)
+    ? isHealthOperation(operation) || isUncategorizedOperation(operation)
+    : !isHealthOperation(operation) || isUncategorizedOperation(operation)
 }
 
 // combine filters
