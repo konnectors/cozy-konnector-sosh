@@ -24,8 +24,8 @@
     "deploy:travis": "git-directory-deploy --username Cozy --email contact@cozycloud.cc --directory build/ --repo=https://$GITHUB_TOKEN@github.com/cozy/cozy-konnector-sosh.git"
   },
   "devDependencies": {
-    "copy-webpack-plugin": "4.4.1",
+    "copy-webpack-plugin": "4.3.1",
     "git-directory-deploy": "1.5.1",
-    "webpack": "3.10.0"
+    "webpack": "3.11.0"
   }
 }
