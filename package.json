@@ -10,7 +10,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "cozy-konnector-libs": "3.5.3",
+    "cozy-konnector-libs": "3.2.5",
     "moment": "2.20.1"
   },
   "scripts": {
@@ -24,7 +24,7 @@
     "deploy:travis": "git-directory-deploy --username Cozy --email contact@cozycloud.cc --directory build/ --repo=https://$GITHUB_TOKEN@github.com/cozy/cozy-konnector-sosh.git"
   },
   "devDependencies": {
-    "copy-webpack-plugin": "4.3.1",
+    "copy-webpack-plugin": "4.5.1",
     "git-directory-deploy": "1.5.1",
     "webpack": "3.10.0"
   }
