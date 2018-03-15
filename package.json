@@ -20,8 +20,8 @@
     "standalone:record": "REPLAY=record cozy-konnector-standalone",
     "standalone:replay": "REPLAY=replay cozy-konnector-standalone",
     "build": "webpack",
-    "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/cozy/cozy-konnector-sosh.git",
-    "deploy:travis": "git-directory-deploy --username Cozy --email contact@cozycloud.cc --directory build/ --repo=https://$GITHUB_TOKEN@github.com/cozy/cozy-konnector-sosh.git"
+    "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/konnectors/cozy-konnector-sosh.git",
+    "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=https://github.com/konnectors/cozy-konnector-sosh.git"
   },
   "devDependencies": {
     "copy-webpack-plugin": "4.3.1",
