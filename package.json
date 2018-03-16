@@ -8,20 +8,21 @@
   },
   "keywords": [],
   "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "cozy-konnector-libs": "3.2.5",
-    "moment": "2.20.1"
-  },
+  "license": "AGPL-3.0",
+  "main": "./src/index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "cozy-konnector-dev",
-    "standalone": "cozy-konnector-standalone",
-    "standalone:record": "REPLAY=record cozy-konnector-standalone",
-    "standalone:replay": "REPLAY=replay cozy-konnector-standalone",
+    "start": "node ./src/index.js",
+    "dev": "cozy-konnector-dev ./src/index.js",
+    "standalone": "cozy-konnector-standalone ./src/index.js",
+    "standalone:record": "REPLAY=record cozy-konnector-standalone ./src/index.js",
+    "standalone:replay": "REPLAY=replay cozy-konnector-standalone ./src/index.js",
     "build": "webpack",
     "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/konnectors/cozy-konnector-sosh.git",
     "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=https://github.com/konnectors/cozy-konnector-sosh.git"
+  },
+  "dependencies": {
+    "cozy-konnector-libs": "3.2.5",
+    "moment": "2.20.1"
   },
   "devDependencies": {
     "copy-webpack-plugin": "4.3.1",
