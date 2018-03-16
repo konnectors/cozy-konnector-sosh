@@ -4,6 +4,7 @@ node_js:
 env:
   global:
     # kosssi GITHUB_TOKEN
+    # to generate yours : travis encrypt GITHUB_TOKEN=<your_GITHUB_TOKEN>
     - secure: "e1Mv5er7Tet+0xdqnASRJHzEU/lD1bYkN75FuIoikbdJpPVpRoBTKR6+FSLmDhnRY9cwJj/Tq9M24fw9KiV5Bzv70RHZ+EKVr58skhrkM/6IR7WPXq1LseNSXEbdkCcKM704KxAx3BbYsR4Cf5J8tS8n+24vBrgmG621s5XHr2ORT3cVkYWdVcgyuPPpgykLkkExYHVkCmjMwIhULI4BI8nPlmbb6jL4ACuNm2TxMiF6ZmMH/ETDmdgtAFSXK0z5EO5SXVd3ZJ62J3s0R07rHYCc1GsRZh7J+F2RN0HaZHVx2QIXYhrggmVnj414owZoCGHeTiBV8RMc1lcb1/RU1vMxsOrOOkUlzT70PTGLu5Hg5TpOvWBACEqYYN/gy513dPFlWpG2/gKr48uXfX5MNtKz4EQ9qtpPUMFFSx1gVnnw7GAEnATa5h9tob+5rfzyM51t0CgHnNqtYZ5wSuxyIsavGnpJu6vpswAdR+pumY2/ARI1F23xzHjDAwFh0ecN9T5UFwNg2KqhGwL3tuYDVW33OtBrNBCtUt/5Ef/assbegaK8aiON+PDiyQj/0w0H+IRYLcBlMvtbNch1YvNb+HztcP/9BPUwIFvETSNILSLPYD+XpgRZBzUTWE19TKyok7KXFUE0mJQmOWw6rYEtTwa76qpmPh9LLuAgS7tI4+I="
 cache:
   yarn: true
@@ -14,13 +15,13 @@ script:
   - yarn lint
 deploy:
   - provider: script
-    repo: konnectors/cozy-konnector-harmonie
+    repo: konnectors/cozy-konnector-sosh
     skip-cleanup: true
     script: yarn deploy
     on:
       branch: master
   - provider: script
-    repo: konnectors/cozy-konnector-harmonie
+    repo: konnectors/cozy-konnector-sosh
     skip-cleanup: true
     script: yarn deploy:prod
     on:
