@@ -10,6 +10,10 @@
   "author": "",
   "license": "AGPL-3.0",
   "main": "./src/index.js",
+  "prettier": {
+    "semi": false,
+    "singleQuote": true
+  },
   "scripts": {
     "start": "node ./src/index.js",
     "dev": "cozy-konnector-dev ./src/index.js",
@@ -17,6 +21,7 @@
     "standalone:record": "REPLAY=record cozy-konnector-standalone ./src/index.js",
     "standalone:replay": "REPLAY=replay cozy-konnector-standalone ./src/index.js",
     "build": "webpack",
+    "format": "prettier --write '**/*.{js,json}'",
     "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/konnectors/cozy-konnector-sosh.git",
     "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=https://github.com/konnectors/cozy-konnector-sosh.git"
   },
@@ -27,6 +32,7 @@
   "devDependencies": {
     "copy-webpack-plugin": "4.3.1",
     "git-directory-deploy": "1.5.1",
+    "prettier": "1.11.1",
     "webpack": "3.10.0"
   }
 }
