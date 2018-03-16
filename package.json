@@ -10,6 +10,19 @@
   "author": "",
   "license": "AGPL-3.0",
   "main": "./src/index.js",
+  "eslintConfig": {
+    "env": {
+      "es6": true,
+      "jest": true,
+      "node": true
+    },
+    "extends": [
+      "eslint-config-cozy-app"
+    ]
+  },
+  "eslintIgnore": [
+    "build"
+  ],
   "prettier": {
     "semi": false,
     "singleQuote": true
@@ -22,6 +35,7 @@
     "standalone:replay": "REPLAY=replay cozy-konnector-standalone ./src/index.js",
     "build": "webpack",
     "format": "prettier --write '**/*.{js,json}'",
+    "lint": "eslint .",
     "deploy": "git-directory-deploy --directory build/ --branch build --repo=https://github.com/konnectors/cozy-konnector-sosh.git",
     "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=https://github.com/konnectors/cozy-konnector-sosh.git"
   },
@@ -31,6 +45,8 @@
   },
   "devDependencies": {
     "copy-webpack-plugin": "4.3.1",
+    "eslint": "4.18.2",
+    "eslint-config-cozy-app": "0.4.0",
     "git-directory-deploy": "1.5.1",
     "prettier": "1.11.1",
     "webpack": "3.10.0"
