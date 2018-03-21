@@ -6,13 +6,18 @@ env:
     # kosssi GITHUB_TOKEN
     # to generate yours : travis encrypt GITHUB_TOKEN=<your_GITHUB_TOKEN>
     - secure: "e1Mv5er7Tet+0xdqnASRJHzEU/lD1bYkN75FuIoikbdJpPVpRoBTKR6+FSLmDhnRY9cwJj/Tq9M24fw9KiV5Bzv70RHZ+EKVr58skhrkM/6IR7WPXq1LseNSXEbdkCcKM704KxAx3BbYsR4Cf5J8tS8n+24vBrgmG621s5XHr2ORT3cVkYWdVcgyuPPpgykLkkExYHVkCmjMwIhULI4BI8nPlmbb6jL4ACuNm2TxMiF6ZmMH/ETDmdgtAFSXK0z5EO5SXVd3ZJ62J3s0R07rHYCc1GsRZh7J+F2RN0HaZHVx2QIXYhrggmVnj414owZoCGHeTiBV8RMc1lcb1/RU1vMxsOrOOkUlzT70PTGLu5Hg5TpOvWBACEqYYN/gy513dPFlWpG2/gKr48uXfX5MNtKz4EQ9qtpPUMFFSx1gVnnw7GAEnATa5h9tob+5rfzyM51t0CgHnNqtYZ5wSuxyIsavGnpJu6vpswAdR+pumY2/ARI1F23xzHjDAwFh0ecN9T5UFwNg2KqhGwL3tuYDVW33OtBrNBCtUt/5Ef/assbegaK8aiON+PDiyQj/0w0H+IRYLcBlMvtbNch1YvNb+HztcP/9BPUwIFvETSNILSLPYD+XpgRZBzUTWE19TKyok7KXFUE0mJQmOWw6rYEtTwa76qpmPh9LLuAgS7tI4+I="
+  matrix:
+    # yannick account
+    # to generate yours : travis encrypt KONNECTOR_CONFIG=\'"`cat konnector-dev-config.json | tr -d '\n'`"\' -r konnectors/cozy-konnector-sosh
+    - secure: "tdhcsUzsm3lD/QGZ89lFe8yA48QGOIgvFwn5doayS5nfH0KJJ6ydM0cKOzsK50cdComVtcrmj/jzTbHvBg5hNoEZl8YUDfB1iw+6SPGAsOoh53wKoL4lJL5js9L3Bjofjd8GeDtwX24T2N88o2W59N8aNJrItfjzPqmy9Ni2O5Y6MTlwYUrzFReKGLtge8xIwoAXHW+QWIP0SmqXdDtF6tvfVOl+g5xKmIICCWgFW23zM1sdTV1m2iHoz+UlnjqPC3HbPDhqLfQtQkvaXuO+zm5jiI05Gtukscylh4TBuZGNMUvp3/6fOx+VByqAp9PvluGowgnfx39bfEh0iq6XbsBl9xT0sUN9xupB1RsnOFMomrrGPOIb0gjuf2+ALOOnNx1rBBkD0gwIXqlFd7EAtrsCSDekUnFzG3C3LYRMeeXrEZ+UaaRwSBP0Cb6k/QUzw8VbbLB9PWeRZqv5ydx5cdGGJc9KqYXQ4OvcIAuaUjx/LR/3k7/igrVlRIEkguUx+m2z0uOf6EcyImjlB7kIQFgyRh2WvySAdGRrmgSAqssw8QIJz5k6T73m+JXAuvsXSNT7aGbON6rqlUKcKrtxKtIqSguh3BlcOlSZNTbq5V1gPtHLZs8VlCg8fE0B7jndmn6W6zfy9O3pxGBSlyjJ3Ewl5mqT8DubCpBl4bXjWkU="
 cache:
   yarn: true
   directories:
     - node_modules
 script:
-  - yarn build
   - yarn lint
+  - yarn build
+  - if [ $TRAVIS_SECURE_ENV_VARS = "true" ]; then yarn test; fi
 deploy:
   - provider: script
     repo: konnectors/cozy-konnector-sosh
