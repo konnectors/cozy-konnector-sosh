@@ -62,6 +62,8 @@ function logIn(fields) {
         this.terminate('LOGIN_FAILED')
       })
       .then(() => {
+        log('info', 'Successfully logged in.')
+
         rq = request({
           json: false,
           cheerio: true,

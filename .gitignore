@@ -32,3 +32,5 @@ desktop.ini
 !.gitkeep
 
 fixtures/*
+
+*.pdf

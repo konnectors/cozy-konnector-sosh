@@ -30,6 +30,7 @@
     "format": "prettier --write '**/*.{js,json}'",
     "precommit": "yarn lint",
     "lint": "eslint .",
+    "test": "konitor testit .",
     "deploy": "git-directory-deploy --directory build/ --branch build --repo=${DEPLOY_REPOSITORY:-https://$GITHUB_TOKEN@github.com/konnectors/cozy-konnector-sosh.git}",
     "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=${DEPLOY_REPOSITORY:-https://$GITHUB_TOKEN@github.com/konnectors/cozy-konnector-sosh.git}"
   },
@@ -44,6 +45,7 @@
     "eslint-config-cozy-app": "0.4.0",
     "git-directory-deploy": "1.5.1",
     "husky": "0.14.3",
+    "konitor": "0.5.3",
     "prettier": "1.11.1",
     "webpack": "4.1.1",
     "webpack-cli": "2.0.12"
