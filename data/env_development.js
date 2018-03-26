@@ -7,6 +7,7 @@ let accountId = null
 if (fs.existsSync(accountIdPath)) {
   accountId = fs.readFileSync(accountIdPath, 'utf-8').trim()
 } else {
+  /* eslint-disable-next-line no-console */
   console.log(
     `No account id file found. Please first run yarn init:dev:account`
   )
