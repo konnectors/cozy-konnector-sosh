@@ -30,7 +30,7 @@
     "deploy:prod": "git-directory-deploy --directory build/ --branch latest --repo=${DEPLOY_REPOSITORY:-https://$GITHUB_TOKEN@github.com/konnectors/cozy-konnector-sosh.git}"
   },
   "dependencies": {
-    "cozy-konnector-libs": "3.7.4",
+    "cozy-konnector-libs": "3.8.0",
     "moment": "2.21.0"
   },
   "devDependencies": {
