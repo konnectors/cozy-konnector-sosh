@@ -42,6 +42,6 @@
     "husky": "0.14.3",
     "konitor": "0.5.3",
     "webpack": "4.4.1",
-    "webpack-cli": "2.0.13"
+    "webpack-cli": "2.0.14"
   }
 }
