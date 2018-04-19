@@ -1,33 +1,32 @@
 {
   "version": "1.0.0",
-  "name": "sosh",
-  "type": "node",
+  "name": "Sosh",
+  "type": "konnector",
+  "language": "node",
+  "icon": "sosh.svg",
   "slug": "sosh",
-  "source": "git://github.com/cozy/cozy-konnector-sosh.git",
+  "source": "git://github.com/konnectors/cozy-konnector-sosh.git#build",
+  "editor": "Cozy",
+  "vendor_link": "https://www.sosh.fr/",
+  "categories": ["telecom"],
+  "screenshots": [],
   "fields": {
-    "save_folder": {
-      "doctype": "io.cozy.files",
-      "type": "folder"
+    "login": {
+      "type": "text"
     },
-    "account": {
-      "doctype": "io.cozy.accounts",
-      "account_type": "sosh",
-      "accountFormat": "login,password"
-    }
-  },
-  "locales": {
-    "fr": {
-      "description": "Récupère vos factures Sosh",
-      "permissions": {
-        "bills": {
-          "description": "Utilisé pour sauvegarder les données de facturation venant de sosh"
-        },
-        "files": {
-          "description": "Utilisé pour sauvegarder les factures Sosh"
-        }
+    "password": {
+      "type": "password"
+    },
+    "advancedFields": {
+      "folderPath": {
+        "advanced": true,
+        "isRequired": false
       }
     }
   },
+  "data_types": [
+    "bill"
+  ],
   "permissions": {
     "bills": {
       "description": "Required to save the bills data",
@@ -48,7 +47,18 @@
     }
   },
   "developer": {
-    "name": "doubleface",
-    "url": "https://github.com/doubleface"
+    "name": "Cozy Cloud",
+    "url": "https://cozy.io"
+  },
+  "langs": ["fr"],
+  "locales": {
+    "fr": {
+      "short_description": "Récupérer vos données Sosh dans votre Cozy",
+      "long_description": "Ce fournisseur vous permettra de récupérer l'ensemble de vos factures Sosh dans votre Cozy."
+    },
+    "en": {
+      "short_description": "Fetch your Sosh data in your Cozy",
+      "long_description": "This provider will allow you to fetch all your Sosh bills in your Cozy."
+    }
   }
 }
