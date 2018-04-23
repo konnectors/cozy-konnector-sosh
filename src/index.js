@@ -35,21 +35,46 @@ module.exports = new BaseKonnector(function fetch(fields) {
 
 // Layer to login to Orange website.
 function logIn(fields) {
+  const resolveWithFullResponse = true // FIXME: Doesn't work in requestFactory
+
   // Get cookies from login page.
   log('info', 'Get login form')
   return (
-    rq('https://id.orange.fr/auth_user/bin/auth_user.cgi')
+    rq({
+      uri: 'https://login.orange.fr/',
+      resolveWithFullResponse
+    })
       // Log in orange.fr
-      .then(() =>
-        rq({
+      .then(response => {
+        const headers = {
+          'x-auth-id': response.headers['x-auth-id'],
+          'x-xsrf-token': response.headers['x-xsrf-token']
+        }
+        const { login, password } = fields
+
+        log('info', 'Send login with first XSRF token...')
+        return rq({
           method: 'POST',
-          url: 'https://id.orange.fr/auth_user/bin/auth_user.cgi',
-          form: {
-            credential: fields.login,
-            password: fields.password
-          }
+          url: 'https://login.orange.fr/front/login',
+          headers,
+          body: {
+            login
+          },
+          resolveWithFullResponse
+        }).then(response => {
+          headers['x-xsrf-token'] = response.headers['x-xsrf-token']
+          log('info', 'Send password with second XSRF token...')
+          return rq({
+            method: 'POST',
+            url: 'https://login.orange.fr/front/password',
+            headers,
+            body: {
+              login,
+              password
+            }
+          })
         })
-      )
+      })
       .then(body => {
         if (body.credential != null || body.password != null) {
           throw new Error(body.credential || body.password)
