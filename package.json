@@ -31,7 +31,7 @@
     "cozyPublish": "cozy-app-publish --token $REGISTRY_TOKEN --build-commit $(git rev-parse ${DEPLOY_BRANCH:-build})"
   },
   "dependencies": {
-    "cozy-konnector-libs": "4.1.7",
+    "cozy-konnector-libs": "4.1.8",
     "moment": "2.22.1"
   },
   "devDependencies": {
