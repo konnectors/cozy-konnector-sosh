@@ -11,10 +11,10 @@ const {
   log,
   BaseKonnector,
   saveBills,
-  request
+  requestFactory
 } = require('cozy-konnector-libs')
 
-let rq = request({
+let request = requestFactory({
   // debug: true,
   jar: true
 })
@@ -40,7 +40,7 @@ function logIn(fields) {
   // Get cookies from login page.
   log('info', 'Get login form')
   return (
-    rq({
+    request({
       uri: 'https://login.orange.fr/',
       resolveWithFullResponse
     })
@@ -53,7 +53,7 @@ function logIn(fields) {
         const { login, password } = fields
 
         log('info', 'Send login with first XSRF token...')
-        return rq({
+        return request({
           method: 'POST',
           url: 'https://login.orange.fr/front/login',
           headers,
@@ -64,7 +64,7 @@ function logIn(fields) {
         }).then(response => {
           headers['x-xsrf-token'] = response.headers['x-xsrf-token']
           log('info', 'Send password with second XSRF token...')
-          return rq({
+          return request({
             method: 'POST',
             url: 'https://login.orange.fr/front/password',
             headers,
@@ -89,12 +89,14 @@ function logIn(fields) {
       .then(() => {
         log('info', 'Successfully logged in.')
 
-        rq = request({
+        request = requestFactory({
           json: false,
           cheerio: true,
           jar: true
         })
-        return rq('https://espaceclientv3.orange.fr/?page=factures-historique')
+        return request(
+          'https://espaceclientv3.orange.fr/?page=factures-historique'
+        )
       })
       .then($ => {
         // if multiple contracts choices, choose the first one
@@ -110,7 +112,7 @@ function logIn(fields) {
           .filter(value => value.text.includes('Sosh'))
         if (contractChoices.length) {
           // take the first sosh contract at the moment
-          return rq(
+          return request(
             `https://espaceclientv3.orange.fr/${contractChoices[0].link}`
           )
         } else return $
