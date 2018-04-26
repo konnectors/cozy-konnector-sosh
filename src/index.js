@@ -11,7 +11,9 @@ const {
   log,
   BaseKonnector,
   saveBills,
-  requestFactory
+  requestFactory,
+  errors,
+  retry
 } = require('cozy-konnector-libs')
 
 let request = requestFactory({
@@ -84,19 +86,24 @@ function logIn(fields) {
         log('error', 'LOGIN_FAILED')
         log('error', 'Error while trying to login')
         log('error', err)
-        this.terminate('LOGIN_FAILED')
+        this.terminate(errors.LOGIN_FAILED)
       })
       .then(() => {
         log('info', 'Successfully logged in.')
-
-        request = requestFactory({
-          json: false,
-          cheerio: true,
-          jar: true
+        return retry(getHistory, {
+          interval: 10000,
+          throw_original: true,
+          // retry only if we get a timeout error
+          predicate: err => {
+            const isTimeout = err.cause && err.cause.code === 'ETIMEDOUT'
+            if (isTimeout)
+              log(
+                'info',
+                'We go the famous timeout error. Trying multiple times'
+              )
+            return isTimeout
+          }
         })
-        return request(
-          'https://espaceclientv3.orange.fr/?page=factures-historique'
-        )
       })
       .then($ => {
         // if multiple contracts choices, choose the first one
@@ -164,5 +171,17 @@ function parsePage($) {
 }
 
 function getFileName(date) {
-  return `${date.format('YYYYMM')}_sosh.pdf`
+  return `${date.format('YYYYMM')}_orange.pdf`
+}
+
+function getHistory() {
+  request = requestFactory({
+    json: false,
+    cheerio: true,
+    jar: true
+  })
+  return request({
+    url: 'https://espaceclientv3.orange.fr/?page=factures-historique',
+    timeout: 5000
+  })
 }
