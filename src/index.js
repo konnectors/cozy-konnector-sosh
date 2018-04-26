@@ -105,6 +105,14 @@ function logIn(fields) {
           }
         })
       })
+      .catch(err => {
+        const isTimeout = err.cause && err.cause.code === 'ETIMEDOUT'
+        if (isTimeout) {
+          throw new Error(errors.VENDOR_DOWN)
+        } else {
+          throw err
+        }
+      })
       .then($ => {
         // if multiple contracts choices, choose the first one
         const contractChoices = $('.ec-contractPanel-description a')
