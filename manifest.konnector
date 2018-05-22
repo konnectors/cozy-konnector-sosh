@@ -9,7 +9,6 @@
   "editor": "Cozy",
   "vendor_link": "https://www.sosh.fr/",
   "categories": ["telecom"],
-  "screenshots": [],
   "fields": {
     "login": {
       "type": "text"
@@ -27,7 +26,12 @@
   "data_types": [
     "bill"
   ],
+  "screenshots": [],
   "permissions": {
+    "bank": {
+      "description": "Required to link bills to a bank operation",
+      "type": "io.cozy.bank.operations"
+    },
     "bills": {
       "description": "Required to save the bills data",
       "type": "io.cozy.bills"
@@ -40,10 +44,6 @@
       "description": "Required to get the account's data",
       "type": "io.cozy.accounts",
       "verbs": ["GET"]
-    },
-    "bank": {
-      "description": "Required to link bills to a bank operation",
-      "type": "io.cozy.bank.operations"
     }
   },
   "developer": {
