@@ -4,7 +4,7 @@
   "description": "",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cozy/cozy-konnector-sosh.git"
+    "url": "git+https://github.com/konnectors/cozy-konnector-sosh.git"
   },
   "keywords": [],
   "author": "Cozy Cloud",
