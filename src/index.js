@@ -83,10 +83,13 @@ function logIn(fields) {
         }
       })
       .catch(err => {
-        log('error', 'LOGIN_FAILED')
-        log('error', 'Error while trying to login')
         log('error', err)
-        this.terminate(errors.LOGIN_FAILED)
+        if (err && err.message.includes('bloqué')) {
+          throw new Error('LOGIN_FAILED.TOO_MANY_ATTEMPTS')
+        } else if (err && err.message.includes('un problème technique')) {
+          throw new Error(errors.VENDOR_DOWN)
+        }
+        throw new Error(errors.LOGIN_FAILED)
       })
       .then(() => {
         log('info', 'Successfully logged in.')
