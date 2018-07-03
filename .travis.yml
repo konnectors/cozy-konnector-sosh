@@ -13,6 +13,10 @@ cache:
   yarn: true
   directories:
   - node_modules
+branches:
+  except:
+  - build
+  - latest
 script:
 - yarn lint
 - yarn build
@@ -22,11 +26,6 @@ deploy:
   script: DEPLOY_BRANCH=build yarn deploy && yarn cozyPublish
   on:
     branch: master
-- provider: script
-  skip-cleanup: true
-  script: DEPLOY_BRANCH=latest yarn deploy
-  on:
-    branch: prod
 - provider: script
   skip-cleanup: true
   script: DEPLOY_BRANCH=build yarn deploy && yarn cozyPublish
