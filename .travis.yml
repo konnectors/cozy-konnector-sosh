@@ -1,0 +1,42 @@
+language: node_js
+node_js:
+- '8'
+env:
+  global:
+  - GH_USER_EMAIL="travis@example.org"
+  - GH_USER_NAME="cozy-bot"
+  - DEPLOY_REPOSITORY="git@github.com:konnectors/cozy-konnector-sosh.git"
+  - secure: PO4JfJdiw4K7LXASD96oqOh3lv1vfGmxrE0WJ/29f/rB50QeWwULR2A62zk5OfjvivM23D48iONGhxtW/TBjNEg6MzDDBiLIas5pFJuZg9EovS178lBKnU2GqJXqTuPsi1k53LVAlOsSV5J/x4KipKFxPlcFwCdthV4wYKJJAAhUXVeZxUm01iydk++iFuw7UeJ76JFRWTPRmN99zyS/0+rDfA6g19O9S4WSIk5fhc6q0QIyn0YwiryeQU0WpWCr/GaoVbTgNeJFRSv6SxD0YvdcACihzIEYhnjxZdhA0ZRQvr4O646PGSCCum/hHBJhTt5/h9tS1quN0fGkCwx/P80Aaht+1CIay/uIhUZQVPI7yzeYzS586aPH6McLYeJ9H+wUqB+/Ev7aEHMp+E+egSF+YUxXthCJ/ykQyIPFZuBlmaZKpqo0OTkpJScizCvrGBkIRcFx5mWHT0ScQVzkWhiCJpF8kHl/031620fNEPY367OZn5fL7Xb+yK7S/uqWASFGSbWe3x6mXbZ37i53/CiDJdrNB6ZQnx80rtVun0/UmgI1nOZjpnxfNkFrQA9Qdhk8NwtIPdiiEiP0a+e6A5mjSnDtkGXqR/MYA5SnYHGD4b3kBblo2VYuR01QRUHlQAIj2RhX/O8emD7+rb15Uz4rzbxzxco4qx1TUA7dGfU=
+  matrix:
+  - secure: tdhcsUzsm3lD/QGZ89lFe8yA48QGOIgvFwn5doayS5nfH0KJJ6ydM0cKOzsK50cdComVtcrmj/jzTbHvBg5hNoEZl8YUDfB1iw+6SPGAsOoh53wKoL4lJL5js9L3Bjofjd8GeDtwX24T2N88o2W59N8aNJrItfjzPqmy9Ni2O5Y6MTlwYUrzFReKGLtge8xIwoAXHW+QWIP0SmqXdDtF6tvfVOl+g5xKmIICCWgFW23zM1sdTV1m2iHoz+UlnjqPC3HbPDhqLfQtQkvaXuO+zm5jiI05Gtukscylh4TBuZGNMUvp3/6fOx+VByqAp9PvluGowgnfx39bfEh0iq6XbsBl9xT0sUN9xupB1RsnOFMomrrGPOIb0gjuf2+ALOOnNx1rBBkD0gwIXqlFd7EAtrsCSDekUnFzG3C3LYRMeeXrEZ+UaaRwSBP0Cb6k/QUzw8VbbLB9PWeRZqv5ydx5cdGGJc9KqYXQ4OvcIAuaUjx/LR/3k7/igrVlRIEkguUx+m2z0uOf6EcyImjlB7kIQFgyRh2WvySAdGRrmgSAqssw8QIJz5k6T73m+JXAuvsXSNT7aGbON6rqlUKcKrtxKtIqSguh3BlcOlSZNTbq5V1gPtHLZs8VlCg8fE0B7jndmn6W6zfy9O3pxGBSlyjJ3Ewl5mqT8DubCpBl4bXjWkU=
+cache:
+  yarn: true
+  directories:
+  - node_modules
+branches:
+  except:
+  - build
+  - latest
+script:
+- yarn lint
+- yarn build
+deploy:
+- provider: script
+  skip-cleanup: true
+  script: DEPLOY_BRANCH=build yarn deploy && yarn cozyPublish
+  on:
+    branch: master
+- provider: script
+  skip-cleanup: true
+  script: DEPLOY_BRANCH=build yarn deploy && yarn cozyPublish
+  on:
+    tags: true
+before_install:
+- openssl aes-256-cbc -K $encrypted_a2963cc1a6c1_key -iv $encrypted_a2963cc1a6c1_iv
+  -in github_deploy_key.enc -out /tmp/github_deploy_key -d
+- eval "$(ssh-agent -s)"
+- chmod 600 /tmp/github_deploy_key
+- ssh-add /tmp/github_deploy_key
+after_deploy:
+- rm /tmp/github_deploy_key
+- ssh-add -D
