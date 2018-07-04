@@ -61,5 +61,6 @@
       "long_description": "This provider will allow you to fetch all your Sosh bills in your Cozy."
     }
   },
+  "banksTransactionRegExp": "\\bsosh\\b",
   "manifest_version": "2"
 }
