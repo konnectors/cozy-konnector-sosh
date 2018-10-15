@@ -1,11 +1,11 @@
 {
-  "version": "1.0.3",
+  "version": "1.1.0",
   "name": "Sosh",
   "type": "konnector",
   "language": "node",
   "icon": "sosh.svg",
   "slug": "sosh",
-  "source": "git://github.com/konnectors/cozy-konnector-sosh.git#build",
+  "source": "git://github.com/konnectors/cozy-konnector-sosh.git",
   "editor": "Cozy",
   "vendor_link": "https://www.sosh.fr/",
   "categories": ["telecom"],
