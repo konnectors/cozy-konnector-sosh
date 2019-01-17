@@ -88,8 +88,11 @@ function logIn(fields) {
           throw new Error('LOGIN_FAILED.TOO_MANY_ATTEMPTS')
         } else if (err && err.message.includes('un problème technique')) {
           throw new Error(errors.VENDOR_DOWN)
+        } else if (err.statusCode === 401) {
+          throw new Error(errors.LOGIN_FAILED)
+        } else {
+          throw new Error(errors.VENDOR_DOWN)
         }
-        throw new Error(errors.LOGIN_FAILED)
       })
       .then(() => {
         log('info', 'Successfully logged in.')
