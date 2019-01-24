@@ -25,6 +25,10 @@
       }
     }
   },
+  "time_interval": [
+    15,
+    21
+  ],
   "data_types": [
     "bill"
   ],
