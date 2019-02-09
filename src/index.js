@@ -47,29 +47,24 @@ function logIn(fields) {
       resolveWithFullResponse
     })
       // Log in orange.fr
+      // eslint-disable-next-line no-unused-vars
       .then(response => {
-        const headers = {
-          'x-auth-id': response.headers['x-auth-id'],
-          'x-xsrf-token': response.headers['x-xsrf-token']
-        }
         const { login, password } = fields
 
-        log('info', 'Send login with first XSRF token...')
+        log('info', 'Send Orange login')
         return request({
           method: 'POST',
           url: 'https://login.orange.fr/front/login',
-          headers,
           body: {
             login
           },
           resolveWithFullResponse
+          // eslint-disable-next-line no-unused-vars
         }).then(response => {
-          headers['x-xsrf-token'] = response.headers['x-xsrf-token']
-          log('info', 'Send password with second XSRF token...')
+          log('info', 'Send Orange password')
           return request({
             method: 'POST',
             url: 'https://login.orange.fr/front/password',
-            headers,
             body: {
               login,
               password
