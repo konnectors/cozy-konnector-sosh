@@ -7,12 +7,7 @@ process.env.SENTRY_DSN =
 const moment = require('moment')
 moment.locale('fr')
 
-const {
-  log,
-  CookieKonnector,
-  errors,
-  retry
-} = require('cozy-konnector-libs')
+const { log, CookieKonnector, errors, retry } = require('cozy-konnector-libs')
 
 class SoshConnector extends CookieKonnector {
   async testSession() {
