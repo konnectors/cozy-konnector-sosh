@@ -10,7 +10,6 @@ moment.locale('fr')
 const {
   log,
   CookieKonnector,
-  saveBills,
   errors,
   retry
 } = require('cozy-konnector-libs')
@@ -38,8 +37,8 @@ class SoshConnector extends CookieKonnector {
       await this.logIn(fields)
     }
     const $ = await this.fetchPage()
-    const entries = await this.parsePage($)
-    return saveBills(entries, fields.folderPath, {
+    const entries = this.parsePage($)
+    return this.saveBills(entries, fields.folderPath, {
       timeout: Date.now() + 60 * 1000,
       identifiers: ['sosh'],
       dateDelta: 12,
@@ -155,7 +154,7 @@ class SoshConnector extends CookieKonnector {
   }
 
   // Layer to parse the fetched page to extract bill data.
-  async parsePage($) {
+  parsePage($) {
     const entries = []
 
     // Anaylyze bill listing table.
@@ -200,8 +199,7 @@ class SoshConnector extends CookieKonnector {
   async getHistory() {
     this.request = this.requestFactory({
       json: false,
-      cheerio: true,
-      jar: true
+      cheerio: true
     })
     return this.request({
       url: 'https://espaceclientv3.orange.fr/?page=factures-historique',
