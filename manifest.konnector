@@ -9,7 +9,8 @@
   "editor": "Cozy",
   "vendor_link": "https://www.sosh.fr/",
   "categories": [
-    "telecom"
+    "telecom",
+    "isp"
   ],
   "fields": {
     "login": {
