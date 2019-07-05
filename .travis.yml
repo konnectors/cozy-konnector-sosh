@@ -3,10 +3,10 @@ node_js:
 - '8'
 env:
   global:
-  - GH_USER_EMAIL="travis@example.org"
-  - GH_USER_NAME="cozy-bot"
+  - MATTERMOST_CHANNEL=teamconnecteurs
   - DEPLOY_REPOSITORY="git@github.com:konnectors/cozy-konnector-sosh.git"
   - secure: PO4JfJdiw4K7LXASD96oqOh3lv1vfGmxrE0WJ/29f/rB50QeWwULR2A62zk5OfjvivM23D48iONGhxtW/TBjNEg6MzDDBiLIas5pFJuZg9EovS178lBKnU2GqJXqTuPsi1k53LVAlOsSV5J/x4KipKFxPlcFwCdthV4wYKJJAAhUXVeZxUm01iydk++iFuw7UeJ76JFRWTPRmN99zyS/0+rDfA6g19O9S4WSIk5fhc6q0QIyn0YwiryeQU0WpWCr/GaoVbTgNeJFRSv6SxD0YvdcACihzIEYhnjxZdhA0ZRQvr4O646PGSCCum/hHBJhTt5/h9tS1quN0fGkCwx/P80Aaht+1CIay/uIhUZQVPI7yzeYzS586aPH6McLYeJ9H+wUqB+/Ev7aEHMp+E+egSF+YUxXthCJ/ykQyIPFZuBlmaZKpqo0OTkpJScizCvrGBkIRcFx5mWHT0ScQVzkWhiCJpF8kHl/031620fNEPY367OZn5fL7Xb+yK7S/uqWASFGSbWe3x6mXbZ37i53/CiDJdrNB6ZQnx80rtVun0/UmgI1nOZjpnxfNkFrQA9Qdhk8NwtIPdiiEiP0a+e6A5mjSnDtkGXqR/MYA5SnYHGD4b3kBblo2VYuR01QRUHlQAIj2RhX/O8emD7+rb15Uz4rzbxzxco4qx1TUA7dGfU=
+  - secure: F1nDvP0H8Mrtr73Cdn+S8EvaLs1SgdCdN/AyHhVR4Ny6UpoqQMW1nB3uvsga1bl9QkplAHx2F0ziFqiEAmx/uR/jCHuY4BehF9NiTb4NFrxKJj61PI2HWM1tgac+KzCh8hHI9WbAU0GwigLODslyZgCdRlZeu2MAaGpTsKjGyNg+jn5TQj6hLTlc9chBttyQixznYcv8IFDQ7b8g98WUcyKTlkPq9U1tSAOE2kytLMDJIoDjHypp50+JvWh9cscmjofb+WdirQdUQzw8qzaUB4xGoMunuHconNkNCjM7uCGjeqVUCu5vNQ6R9SZp2eOiSKJ7y91fsKMm/4Ja4OB2pvf6r3ndb9APToktgeqbAnnUP7enB2CRV1Pz+0VEYxHRoN6TsXeZZHGnTE4657w3cM1JUOXHAntpouvwtl2gIVXqcMSHDW1bhWc/eK0STM3LCdGCuLIGz+TFEmfMx5Q3VKsrkJqqjs8yg/RvGjmQLxfrLfpZOoHYiFJzI3t7fFwT1yaBJX2QE4L3s9UBSfmgwGw7GIb3j+B2HmpJeJ4Qy9EMlRwQtAOWiNZBg8JlxaGE8uyV4pTtUNOxtxtaxpKMDZtFnixUFHWIWo4Civ6RPxoir3hZoADUCz+irYJnYun9zikSFVeIqxwipaRW+tlh+JQuvHp+yW9Aht05K/XZCu8=
 cache:
   yarn: true
   directories:
@@ -18,7 +18,6 @@ branches:
 script:
 - yarn lint
 - yarn build
-# - yarn run check
 deploy:
 - provider: script
   skip-cleanup: true
@@ -27,7 +26,7 @@ deploy:
     branch: master
 - provider: script
   skip-cleanup: true
-  script: DEPLOY_BRANCH=build yarn deploy && yarn cozyPublish
+  script: DEPLOY_BRANCH=build yarn deploy && yarn cozyPublish --postpublish mattermost
   on:
     tags: true
 before_install:

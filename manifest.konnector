@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "name": "Sosh",
   "type": "konnector",
   "language": "node",
@@ -9,7 +9,8 @@
   "editor": "Cozy",
   "vendor_link": "https://www.sosh.fr/",
   "categories": [
-    "telecom"
+    "telecom",
+    "isp"
   ],
   "fields": {
     "login": {
@@ -50,7 +51,8 @@
       "description": "Required to get the account's data",
       "type": "io.cozy.accounts",
       "verbs": [
-        "GET", "PUT"
+        "GET",
+        "PUT"
       ]
     }
   },
