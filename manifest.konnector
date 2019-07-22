@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.6.1",
   "name": "Sosh",
   "type": "konnector",
   "language": "node",
@@ -51,7 +51,8 @@
       "description": "Required to get the account's data",
       "type": "io.cozy.accounts",
       "verbs": [
-        "GET", "PUT"
+        "GET",
+        "PUT"
       ]
     }
   },
