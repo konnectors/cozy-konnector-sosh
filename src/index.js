@@ -2,6 +2,12 @@ process.env.SENTRY_DSN =
   process.env.SENTRY_DSN ||
   'https://8dd590a871184166afd7e6827339f6a2:3a25ed70fb0249d68d5ab3fbf51a58f3@sentry.cozycloud.cc/27'
 
+const secrets = JSON.parse(process.env.COZY_PARAMETERS || '{}').secret
+if (secrets.proxyUrl) {
+  process.env.http_proxy = secrets.proxyUrl
+  process.env.https_proxy = secrets.proxyUrl
+}
+
 const moment = require('moment')
 moment.locale('fr')
 
@@ -23,6 +29,12 @@ class SoshConnector extends CookieKonnector {
   }
 
   async fetch(fields) {
+    this.request = this.requestFactory({
+      json: true,
+      cheerio: false
+    })
+    log('info', 'before lumtest')
+
     if (!(await this.testSession())) {
       await this.logIn(fields)
     }
