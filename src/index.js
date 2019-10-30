@@ -29,12 +29,6 @@ class SoshConnector extends CookieKonnector {
   }
 
   async fetch(fields) {
-    this.request = this.requestFactory({
-      json: true,
-      cheerio: false
-    })
-    log('info', 'before lumtest')
-
     if (!(await this.testSession())) {
       await this.logIn(fields)
     }
