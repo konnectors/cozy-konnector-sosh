@@ -1,5 +1,5 @@
 {
-  "version": "1.7.0",
+  "version": "1.7.1",
   "name": "Sosh",
   "type": "konnector",
   "language": "node",
@@ -28,7 +28,7 @@
   },
   "time_interval": [
     0,
-   23
+    23
   ],
   "data_types": [
     "bill"
