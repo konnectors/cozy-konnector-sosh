@@ -3,7 +3,7 @@ process.env.SENTRY_DSN =
   'https://8dd590a871184166afd7e6827339f6a2:3a25ed70fb0249d68d5ab3fbf51a58f3@sentry.cozycloud.cc/27'
 
 const secrets = JSON.parse(process.env.COZY_PARAMETERS || '{}').secret
-if (secrets.proxyUrl) {
+if (secrets && secrets.proxyUrl) {
   process.env.http_proxy = secrets.proxyUrl
   process.env.https_proxy = secrets.proxyUrl
 }
@@ -49,7 +49,7 @@ class SoshConnector extends CookieKonnector {
 
     return this.saveBills(bills, fields.folderPath, {
       timeout: Date.now() + 60 * 1000,
-      identifiers: ['sosh'],
+      identifiers: ['sosh', 'orange'],
       dateDelta: 12,
       amountDelta: 5
     })
