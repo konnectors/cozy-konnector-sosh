@@ -1,5 +1,5 @@
 {
-  "version": "1.8.0",
+  "version": "1.7.1",
   "name": "Sosh",
   "type": "konnector",
   "language": "node",
@@ -73,6 +73,6 @@
       "long_description": "This provider will allow you to fetch all your Sosh bills in your Cozy."
     }
   },
-  "banksTransactionRegExp": "\\bsosh\\b",
+  "banksTransactionRegExp": "\\bsosh|orange\\b",
   "manifest_version": "2"
 }
