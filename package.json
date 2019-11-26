@@ -1,6 +1,6 @@
 {
   "name": "cozy-konnector-sosh",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "",
   "repository": {
     "type": "git",
@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "cozy-konnector-libs": "4.32.0",
+    "lodash": "4.17.15",
     "moment": "2.24.0"
   },
   "devDependencies": {
