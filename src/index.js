@@ -130,22 +130,27 @@ class SoshConnector extends CookieKonnector {
         'X-Orange-Caller-Id': 'ECQ'
       }
     })
-    const bills = await this.request({
-      url: `https://sso-f.orange.fr/omoi_erb/facture/v2.0/billsAndPaymentInfos/users/current/contracts/${contractId}`,
-      timeout: 5000
-    })
+    try {
+      const bills = await this.request({
+        url: `https://sso-f.orange.fr/omoi_erb/facture/v2.0/billsAndPaymentInfos/users/current/contracts/${contractId}`,
+        timeout: 5000
+      })
 
-    if (!get(bills, 'billsHistory.billList')) return []
-    return bills.billsHistory.billList.map(bill => ({
-      vendorRef: bill.id,
-      contractNumber: contractId,
-      date: moment(bill.date, 'YYYY-MM-DD').toDate(),
-      vendor: 'Orange',
-      amount: bill.amount / 100,
-      fileurl:
-        'https://sso-f.orange.fr/omoi_erb/facture/v1.0/pdf' + bill.hrefPdf,
-      filename: getFileName(bill.date)
-    }))
+      if (!get(bills, 'billsHistory.billList')) return []
+      return bills.billsHistory.billList.map(bill => ({
+        vendorRef: bill.id,
+        contractNumber: contractId,
+        date: moment(bill.date, 'YYYY-MM-DD').toDate(),
+        vendor: 'Orange',
+        amount: bill.amount / 100,
+        fileurl:
+          'https://sso-f.orange.fr/omoi_erb/facture/v1.0/pdf' + bill.hrefPdf,
+        filename: getFileName(bill.date)
+      }))
+    } catch (err) {
+      log('error', err.message)
+      throw new Error(errors.VENDOR_DOWN)
+    }
   }
 
   async getContracts() {
