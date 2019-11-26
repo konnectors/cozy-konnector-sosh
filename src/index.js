@@ -8,6 +8,8 @@ if (secrets && secrets.proxyUrl) {
   process.env.https_proxy = secrets.proxyUrl
 }
 
+const get = require('lodash/get')
+
 const moment = require('moment')
 moment.locale('fr')
 
@@ -126,6 +128,7 @@ class SoshConnector extends CookieKonnector {
       timeout: 5000
     })
 
+    if (!get(bills, 'billsHistory.billList')) return []
     return bills.billsHistory.billList.map(bill => ({
       vendorRef: bill.id,
       contractNumber: contractId,
