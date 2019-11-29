@@ -47,7 +47,10 @@ class SoshConnector extends CookieKonnector {
       timeout: Date.now() + 60 * 1000,
       identifiers: ['sosh', 'orange'],
       dateDelta: 12,
-      amountDelta: 5
+      amountDelta: 5,
+      sourceAccount: this.accountId,
+      sourceAccountIdentifier: fields.login,
+      fileIdAttributes: ['contractNumber', 'vendorRef']
     })
   }
 
