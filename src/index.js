@@ -35,15 +35,24 @@ class SoshConnector extends CookieKonnector {
       await this.logIn(fields)
     }
 
-    const contract = await this.getContracts()
+    const contracts = await this.getContracts()
 
-    if (!contract) {
+    if (!contracts) {
       log('warn', 'Could not find any valid contract')
       return
     }
-    const bills = await this.getBills(contract.contractId)
+    const bills = await this.getBills(contracts[0].contractId)
 
-    return this.saveBills(bills, fields.folderPath, {
+    try {
+      for (const contract of contracts) {
+        getContractLabel(contract)
+      }
+    } catch (e) {
+      log('warn', 'Contract Label problem')
+      log('debug', e)
+    }
+
+    this.saveBills(bills, fields.folderPath, {
       timeout: Date.now() + 60 * 1000,
       identifiers: ['sosh', 'orange'],
       dateDelta: 12,
@@ -172,7 +181,7 @@ class SoshConnector extends CookieKonnector {
       return doc.offerName.includes('Sosh') || doc.brand === 'Sosh'
     })
 
-    return contracts[0]
+    return contracts
   }
 }
 
@@ -184,4 +193,17 @@ connector.run()
 
 function getFileName(date) {
   return `${moment(date, 'YYYY-MM-DD').format('YYYYMM')}_orange.pdf`
+}
+
+function getContractLabel(contract) {
+  log(
+    'warn',
+    `Unknown account type ${contract.type} and subtype ${contract.subType}`
+  )
+  if (contract.lineNumber === undefined) {
+    log('warn', 'Line number undefined')
+  }
+  if (!contract.lineNumber.replace(/\s/g, '').match(/\d{10}/)) {
+    log('warn', 'Line number not formatted')
+  }
 }
