@@ -13,9 +13,15 @@ const get = require('lodash/get')
 const moment = require('moment')
 moment.locale('fr')
 
-const { log, CookieKonnector, errors } = require('cozy-konnector-libs')
+const {
+  log,
+  CookieKonnector,
+  cozyClient,
+  utils,
+  errors
+} = require('cozy-konnector-libs')
 
-class SoshConnector extends CookieKonnector {
+class OrangeConnector extends CookieKonnector {
   async testSession() {
     try {
       if (!this._jar._jar.toJSON().cookies.length) {
@@ -24,8 +30,8 @@ class SoshConnector extends CookieKonnector {
       log('info', 'Testing session')
       await this.getContracts()
     } catch (err) {
-      log('warn', err.message)
-      log('warn', 'Session failed')
+      log('debug', err.message)
+      log('info', 'Saved session usage failed, connecting')
       return false
     }
   }
@@ -35,32 +41,48 @@ class SoshConnector extends CookieKonnector {
       await this.logIn(fields)
     }
 
-    const contracts = await this.getContracts()
-
-    if (!contracts) {
-      log('warn', 'Could not find any valid contract')
+    let contracts = await this.getContracts()
+    if (!contracts || contracts.length === 0) {
+      log('warn', 'Could not find any valid contract, exiting')
       return
     }
-    const bills = await this.getBills(contracts[0].contractId)
 
-    try {
-      for (const contract of contracts) {
-        getContractLabel(contract)
+    let bills = []
+    for (const contract of contracts) {
+      // Test contract for brand name, for futur orange/sosh fusion
+      if (contract.brand != 'Orange' && contract.brand != 'Sosh') {
+        log('warn', `Contract with unknown brand ${contract.brand}`)
       }
-    } catch (e) {
-      log('warn', 'Contract Label problem')
-      log('debug', e)
+      let contractBills = []
+      try {
+        contractBills = await this.getBills(contract)
+      } catch (e) {
+        // Unknown error that lead to no bill available
+        if (e.message && e.message.includes('omoifars-452')) {
+          log(
+            'warn',
+            `Contract #${contracts.indexOf(contract) +
+              1} impossible to fetch bills, type ${contract.type}`
+          )
+          // Jump to next contract
+          continue
+        } else {
+          throw e
+        }
+      }
+      bills = bills.concat(contractBills)
     }
-
-    this.saveBills(bills, fields.folderPath, {
+    await this.saveBills(bills, fields.folderPath, {
       timeout: Date.now() + 60 * 1000,
-      identifiers: ['sosh', 'orange'],
-      dateDelta: 12,
-      amountDelta: 5,
+      identifiers: ['orange'],
+      linkBankOperations: false,
       sourceAccount: this.accountId,
       sourceAccountIdentifier: fields.login,
       fileIdAttributes: ['contractNumber', 'vendorRef']
     })
+    // Deleting old bills and files from this month and 11 older
+    await cleanScrapableBillsAndFiles(fields)
+    return
   }
 
   async logIn(fields) {
@@ -134,7 +156,7 @@ class SoshConnector extends CookieKonnector {
     log('info', 'Successfully logged in.')
   }
 
-  async getBills(contractId) {
+  async getBills(contract) {
     this.request = this.requestFactory({
       json: true,
       cheerio: false,
@@ -144,20 +166,21 @@ class SoshConnector extends CookieKonnector {
     })
     try {
       const bills = await this.request({
-        url: `https://sso-f.orange.fr/omoi_erb/facture/v2.0/billsAndPaymentInfos/users/current/contracts/${contractId}`,
+        url: `https://sso-f.orange.fr/omoi_erb/facture/v2.0/billsAndPaymentInfos/users/current/contracts/${contract.contractId}`,
         timeout: 5000
       })
-
+      const contractLabel = getContractLabel(contract)
       if (!get(bills, 'billsHistory.billList')) return []
       return bills.billsHistory.billList.map(bill => ({
         vendorRef: bill.id,
-        contractNumber: contractId,
+        contractId: contract.contractId,
+        contractLabel: contractLabel,
         date: moment(bill.date, 'YYYY-MM-DD').toDate(),
         vendor: 'Orange',
         amount: bill.amount / 100,
         fileurl:
           'https://sso-f.orange.fr/omoi_erb/facture/v1.0/pdf' + bill.hrefPdf,
-        filename: getFileName(bill.date)
+        filename: getFileName(bill.date, bill.amount / 100)
       }))
     } catch (err) {
       log('error', err.message)
@@ -177,33 +200,96 @@ class SoshConnector extends CookieKonnector {
       url:
         'https://sso-f.orange.fr/omoi_erb/portfoliomanager/v2.0/contractSelector/users/current',
       timeout: 5000
-    })).contracts.filter(doc => {
-      return doc.offerName.includes('Sosh') || doc.brand === 'Sosh'
-    })
-
+    })).contracts
+    log('debug', `${contracts.length} contracts object found`)
     return contracts
   }
 }
 
-const connector = new SoshConnector({
+const connector = new OrangeConnector({
   // debug: true
 })
 
 connector.run()
 
-function getFileName(date) {
-  return `${moment(date, 'YYYY-MM-DD').format('YYYYMM')}_orange.pdf`
+function getFileName(date, amount) {
+  return `${moment(date, 'YYYY-MM-DD').format(
+    'YYYYMM'
+  )}_orange_${amount.toFixed(2)}€.pdf`
 }
 
 function getContractLabel(contract) {
-  log(
-    'warn',
-    `Unknown account type ${contract.type} and subtype ${contract.subType}`
-  )
-  if (contract.lineNumber === undefined) {
-    log('warn', 'Line number undefined')
+  let subLabel = ''
+  if (contract.type.includes('mobile')) {
+    // match type mobilePostpaid & mobilePrepaid
+    subLabel = 'Mobile'
+  } else if (contract.type == 'internet') {
+    subLabel = 'Internet'
+  } else if (contract.type == 'fixe') {
+    subLabel = 'Fixe'
+  } else if (contract.type == 'open') {
+    subLabel = 'Offre Open'
+  } else if (contract.type == 'pro') {
+    subLabel = 'Offre Pro'
+  } else if (contract.type == 'autre' && contract.subType == 'airbox') {
+    subLabel = 'Airbox'
+  } else {
+    log(
+      'warn',
+      `Unknown account type ${contract.type} and subtype ${contract.subType}`
+    )
+    subLabel = 'Inconnu'
   }
-  if (!contract.lineNumber.replace(/\s/g, '').match(/\d{10}/)) {
-    log('warn', 'Line number not formatted')
+  return `${subLabel} (${contract.lineNumber.replace(/\s/g, '')})`
+}
+
+function generate12LastOldFilename() {
+  let filenameList = []
+  for (let i = 0; i < 12; i++) {
+    const oldMonth = moment()
+      .subtract(i, 'months')
+      .format('YYYYMM')
+    const filename = oldMonth + '_orange.pdf'
+    filenameList.push(filename)
   }
+  return filenameList
+}
+
+async function cleanScrapableBillsAndFiles(fields) {
+  const filenamesToDelete = generate12LastOldFilename()
+  const parentDir = await cozyClient.files.statByPath(fields.folderPath)
+  const filesAndDirOrange = await utils.queryAll('io.cozy.files', {
+    dir_id: parentDir._id
+  })
+  const filesOrange = filesAndDirOrange.filter(file => file.type === 'file') // Remove directories
+  const billsOrange = await utils.queryAll('io.cozy.bills', {
+    vendor: 'Orange'
+  })
+  const filesDeleted = []
+  const billsToDelete = []
+  for (const file of filesOrange) {
+    if (filenamesToDelete.includes(file.name)) {
+      filesDeleted.push(file)
+      // Deleting file
+      await cozyClient.files.trashById(file._id)
+      // Deleting bill
+      const bill = isABillMatch(file, billsOrange)
+      if (bill) {
+        billsToDelete.push(bill)
+      }
+    }
+  }
+  // Deleting all necessary bills at once
+  await utils.batchDelete('io.cozy.bills', billsToDelete)
+}
+
+/* Return the first bill matching the file passed
+ */
+function isABillMatch(file, bills) {
+  for (const bill of bills) {
+    if (bill.invoice === `io.cozy.files:${file._id}`) {
+      return bill
+    }
+  }
+  return false
 }
