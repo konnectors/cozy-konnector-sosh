@@ -54,22 +54,7 @@ class OrangeConnector extends CookieKonnector {
         log('warn', `Contract with unknown brand ${contract.brand}`)
       }
       let contractBills = []
-      try {
-        contractBills = await this.getBills(contract)
-      } catch (e) {
-        // Unknown error that lead to no bill available
-        if (e.message && e.message.includes('omoifars-452')) {
-          log(
-            'warn',
-            `Contract #${contracts.indexOf(contract) +
-              1} impossible to fetch bills, type ${contract.type}`
-          )
-          // Jump to next contract
-          continue
-        } else {
-          throw e
-        }
-      }
+      contractBills = await this.getBills(contract)
       bills = bills.concat(contractBills)
     }
     await this.saveBills(bills, fields.folderPath, {
@@ -183,8 +168,19 @@ class OrangeConnector extends CookieKonnector {
         filename: getFileName(bill.date, bill.amount / 100)
       }))
     } catch (err) {
-      log('error', err.message)
-      throw new Error(errors.VENDOR_DOWN)
+      if (err.message && err.message.includes('omoifars-452')) {
+        log(
+          'warn',
+          `Impossible to fetch bill page for the contract type ${contract.type}, ` +
+            ` status ${contract.contractStatus}, ` +
+            `state ${contract.state}`
+        )
+        // return an empty array bills
+        return []
+      } else {
+        log('error', err.message)
+        throw err
+      }
     }
   }
 
