@@ -63,7 +63,7 @@ class OrangeConnector extends CookieKonnector {
       linkBankOperations: false,
       sourceAccount: this.accountId,
       sourceAccountIdentifier: fields.login,
-      fileIdAttributes: ['contractNumber', 'vendorRef']
+      fileIdAttributes: ['contractId', 'vendorRef']
     })
     // Deleting old bills and files from this month and 11 older
     await cleanScrapableBillsAndFiles(fields)
