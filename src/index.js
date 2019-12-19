@@ -168,11 +168,12 @@ class OrangeConnector extends CookieKonnector {
         filename: getFileName(bill.date, bill.amount / 100)
       }))
     } catch (err) {
-      if (err.message && err.message.includes('omoifars-452')) {
+      if (err.message && err.message.includes('omoifars')) {
         log(
           'warn',
-          `Impossible to fetch bill page for the contract type ${contract.type}, ` +
-            ` status ${contract.contractStatus}, ` +
+          `Impossible to fetch bill page (error omoifars) for the contract ` +
+            `type ${contract.type}, ` +
+            `status ${contract.contractStatus}, ` +
             `state ${contract.state}`
         )
         // return an empty array bills
