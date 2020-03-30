@@ -31,6 +31,7 @@ class OrangeConnector extends CookieKonnector {
       await this.getContracts()
     } catch (err) {
       log('debug', err.message)
+      this.resetSession()
       log('info', 'Saved session usage failed, connecting')
       return false
     }
@@ -59,10 +60,7 @@ class OrangeConnector extends CookieKonnector {
     }
     await this.saveBills(bills, fields.folderPath, {
       timeout: Date.now() + 60 * 1000,
-      identifiers: ['orange'],
       linkBankOperations: false,
-      sourceAccount: this.accountId,
-      sourceAccountIdentifier: fields.login,
       fileIdAttributes: ['contractId', 'vendorRef']
     })
     // Deleting old bills and files from this month and 11 older
@@ -73,8 +71,19 @@ class OrangeConnector extends CookieKonnector {
   async logIn(fields) {
     try {
       this.request = this.requestFactory({
-        json: true,
-        cheerio: false
+        json: false,
+        cheerio: false,
+        gzip: true,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:74.0) Gecko/20100101 Firefox/74.0',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'fr,fr-FR;q=0.8,en-US;q=0.5,en;q=0.3',
+          'Upgrade-Insecure-Requests': '1',
+          Pragma: 'no-cache',
+          'Cache-Control': 'no-cache'
+        }
       })
       const resolveWithFullResponse = true
 
@@ -84,6 +93,10 @@ class OrangeConnector extends CookieKonnector {
         uri: 'https://login.orange.fr/',
         resolveWithFullResponse
       })
+
+      if (response.request.uri.href.includes('captcha')) {
+        throw new Error('CAPTCHA_RESOLUTION_FAILED')
+      }
 
       const headers = {
         'x-auth-id': response.headers['x-auth-id'],
@@ -97,6 +110,7 @@ class OrangeConnector extends CookieKonnector {
         method: 'POST',
         url: 'https://login.orange.fr/front/login',
         headers,
+        json: true,
         body: {
           login
         },
@@ -108,6 +122,7 @@ class OrangeConnector extends CookieKonnector {
 
       const body = await this.request({
         method: 'POST',
+        json: true,
         url: 'https://login.orange.fr/front/password',
         headers,
         body: {
@@ -134,6 +149,8 @@ class OrangeConnector extends CookieKonnector {
         throw new Error(errors.LOGIN_FAILED)
       } else if (err.message === 'changePassword') {
         throw new Error(errors.USER_ACTION_NEEDED)
+      } else if (err.message === 'CAPTCHA_RESOLUTION_FAILED') {
+        throw err
       } else {
         throw new Error(errors.VENDOR_DOWN)
       }
