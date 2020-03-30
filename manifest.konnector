@@ -28,7 +28,7 @@
   },
   "time_interval": [
     0,
-    23
+    24
   ],
   "data_types": [
     "bill"
@@ -66,11 +66,11 @@
   "locales": {
     "fr": {
       "short_description": "Récupérer vos données Sosh dans votre Cozy",
-      "long_description": "Ce fournisseur vous permettra de récupérer l'ensemble de vos factures Sosh dans votre Cozy."
+      "long_description": "Orange est une société française de télécommunication  accessible sur [https://www.orange.fr/](www.orange.fr)\n\n**Connectez votre compte Orange à votre Cozy pour récupérer**\n\n- toutes vos factures\n\n**Accédez directement à vos documents dans votre Drive personnel**\n\nEn connectant votre compte Orange, votre Cozy crée automatiquement un dossier dans **Drive > Administratif > Orange**. Vos factures sont à portée de main et toujours accessibles !\n\n**Suivez le montant de vos factures avec Banks**\n\nLes factures récupérées sont automatiquement liées aux opérations bancaires Orange associées à votre compte si vous utilisez l’application Banks. Finis les maux de tête à faire les comptes !\n\n**Sauvegardez vos identifiants avec Pass**\n\nEn installant le gestionnaire de mots de passe, vos identifiants sont sauvegardés une bonne fois\npour toutes pour vous faciliter la connexion au site de Orange. Adieu les mots de passe oubliés !\n\n**Configuration**\n\nPour connecter votre compte, il vous suffit de renseigner dans les champs :\n\n- votre login\n- votre mot de passe\n\nUne fois connecté, votre Cozy se connectera régulièrement à votre compte Orange pour récupérer les\nnouveaux éléments et les historiser dans un dossier Orange dans Drive.\n\nSi vous déconnectez votre compte Orange, les informations déjà sauvegardées dans votre Cozy restent disponibles. Vous pouvez les supprimer manuellement par ailleurs."
     },
     "en": {
       "short_description": "Fetch your Sosh data in your Cozy",
-      "long_description": "This provider will allow you to fetch all your Sosh bills in your Cozy."
+      "long_description": "Orange is a French telecom company.\n\n**Connect your Orange account to your Cozy for getting**\n\n- your bills\n\n**Access directly to your documents in your personal Drive**\n\nBy connecting your Orange account, your Cozy automatically creates a folder in **Drive > Administrative\nOrange**.\n\n**Follow the amount of your bills with Banks**\n\nThe recovered certificates are automatically linked to the Orange banking transactions associated with your account if you use the Banks application.\n\n**Save your credentials with Pass**\nWith Pass, you will never forget a password again as your credentials are automatically saved in by activating the password manager.\n\n**Configuration**\nTo connect your account, you just have to fill in the fields :\n- your login (email)\n- your password\n\nOnce logged in, your Cozy will automatically connect to your Orange account to retrieve new items and\nstore them in a Orange folder in Drive.\n\nIf you disconnect your Orange account, the information already saved in your Cozy remains available. You can delete them manually elsewhere."
     }
   },
   "banksTransactionRegExp": "\\bsosh|orange\\b",
