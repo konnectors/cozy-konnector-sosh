@@ -22,11 +22,10 @@ let userInfos = []
 var proxied = window.XMLHttpRequest.prototype.open
 // Overriding the open() method
 window.XMLHttpRequest.prototype.open = function () {
+  var originalResponse = this
   // Intercepting response for recent bills information.
   if (arguments[1].includes('/users/current/contracts')) {
-    var originalResponse = this
-
-    originalResponse.addEventListener('readystatechange', function (event) {
+    originalResponse.addEventListener('readystatechange', function () {
       if (originalResponse.readyState === 4) {
         // The response is a unique string, in order to access information parsing into JSON is needed.
         const jsonBills = JSON.parse(originalResponse.responseText)
@@ -37,9 +36,7 @@ window.XMLHttpRequest.prototype.open = function () {
   }
   // Intercepting response for old bills information.
   if (arguments[1].includes('/facture/historicBills?')) {
-    var originalResponse = this
-
-    originalResponse.addEventListener('readystatechange', function (event) {
+    originalResponse.addEventListener('readystatechange', function () {
       if (originalResponse.readyState === 4) {
         const jsonBills = JSON.parse(originalResponse.responseText)
         oldBills.push(jsonBills)
@@ -49,9 +46,7 @@ window.XMLHttpRequest.prototype.open = function () {
   }
   // Intercepting user infomations for Identity object
   if (arguments[1].includes('/ecd_wp/portfoliomanager/portfolio?')) {
-    var originalResponse = this
-
-    originalResponse.addEventListener('readystatechange', function (event) {
+    originalResponse.addEventListener('readystatechange', function () {
       if (originalResponse.readyState === 4) {
         const jsonInfos = JSON.parse(originalResponse.responseText)
         userInfos.push(jsonInfos)
@@ -61,8 +56,7 @@ window.XMLHttpRequest.prototype.open = function () {
   }
   // Intercepting response for recent bills blobs.
   if (arguments[1].includes('facture/v1.0/pdf?billDate')) {
-    var originalResponse = this
-    originalResponse.addEventListener('readystatechange', function (event) {
+    originalResponse.addEventListener('readystatechange', function () {
       if (originalResponse.readyState === 4) {
         // Pushing in an array the converted to base64 blob and pushing in another array it's href to match the indexes.
         recentPromisesToConvertBlobToBase64.push(
@@ -77,8 +71,7 @@ window.XMLHttpRequest.prototype.open = function () {
   }
   // Intercepting response for old bills blobs.
   if (arguments[1].includes('ecd_wp/facture/historicPDF?')) {
-    var originalResponse = this
-    originalResponse.addEventListener('readystatechange', function (event) {
+    originalResponse.addEventListener('readystatechange', function () {
       if (originalResponse.readyState === 4) {
         oldPromisesToConvertBlobToBase64.push(
           blobToBase64(originalResponse.response)
@@ -353,7 +346,6 @@ class SoshContentScript extends ContentScript {
     const accountListElement = document.querySelectorAll('a[data-oevent-action="clic_liste"]')
     for (let i = 0; i < accountListElement.length; i++) {
       let listedEmail = accountListElement[i].childNodes[1].children[0].childNodes[0].innerHTML
-      console.log(listedEmail)
       accountList.push(listedEmail)
     }
     return accountList
@@ -364,10 +356,6 @@ class SoshContentScript extends ContentScript {
     await this.waitForElementInWorker('#oecs__aide-contact')
     const helloMessage = await this.runInWorker('getHelloMessage')
     if(helloMessage){
-      // await this.waitForElementInWorker(
-      //   '[pause_connected]',
-      // )
-
       //If helloMessage is found, return true to continue the process as we are already logged in
       return true
     }
@@ -500,7 +488,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async waitForFullLoading(){
-    window.addEventListener('load', (event) => {
+    window.addEventListener('load', () => {
       this.log('Page fully loaded')
       this.log(document.location.href)
       return true
@@ -724,7 +712,7 @@ connector
     ]
   })
   .catch(err => {
-    console.warn(err)
+    log.warn(err)
   })
 
 // Used for debug purposes only
