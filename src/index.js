@@ -1,4 +1,4 @@
-import ContentScript from 'cozy-clisk/contentscript'
+import { ContentScript } from 'cozy-clisk/contentscript'
 import { blobToBase64 } from 'cozy-clisk/contentscript/utils'
 import Minilog from '@cozy/minilog'
 
@@ -92,15 +92,15 @@ class SoshContentScript extends ContentScript {
 
   async ensureAuthenticated() {
     const credentials = await this.getCredentials()
-    if (credentials){
+    if (credentials) {
       await this.checkAuthWithCredentials(credentials)
       return true
     }
-    if (!credentials){
+    if (!credentials) {
       await this.checkAuthWithoutCredentials()
       return true
     }
-    
+
     log.debug('Not authenticated')
     throw new Error('LOGIN_FAILED')
   }
@@ -116,7 +116,7 @@ class SoshContentScript extends ContentScript {
     const emailSelector = '#login'
     const passwordInputSelector = '#password'
     const loginButton = '#btnSubmit'
-    if (type === 'half'){
+    if (type === 'half') {
       this.log('wait for password field')
       await this.waitForElementInWorker(passwordInputSelector)
       await this.runInWorker('fillingForm', credentials)
@@ -154,10 +154,12 @@ class SoshContentScript extends ContentScript {
 
   async fetch(context) {
     log.debug('fetch start')
-    if(this.store !== undefined){
+    if (this.store !== undefined) {
       await this.saveCredentials(this.store.userCredentials)
     }
-    await this.waitForElementInWorker('a[class="o-link-arrow text-primary pt-0"]')
+    await this.waitForElementInWorker(
+      'a[class="o-link-arrow text-primary pt-0"]'
+    )
     const clientRef = await this.runInWorker('findClientRef')
     if (clientRef) {
       this.log('clientRef found')
@@ -168,128 +170,132 @@ class SoshContentScript extends ContentScript {
       await this.clickAndWait(
         '[data-e2e="bp-tile-historic"]',
         '[aria-labelledby="bp-billsHistoryTitle"]'
-        )
-        const redFrame = await this.runInWorker('checkRedFrame')
-        if (redFrame !== null) {
+      )
+      const redFrame = await this.runInWorker('checkRedFrame')
+      if (redFrame !== null) {
         this.log('Website did not load the bills')
         throw new Error('VENDOR_DOWN')
+      }
+      let recentPdfNumber = await this.runInWorker('getPdfNumber')
+      await this.clickAndWait(
+        '[data-e2e="bh-more-bills"]',
+        '[aria-labelledby="bp-historicBillsHistoryTitle"]'
+      )
+      let allPdfNumber = await this.runInWorker('getPdfNumber')
+      let oldPdfNumber = allPdfNumber - recentPdfNumber
+      for (let i = 0; i < recentPdfNumber; i++) {
+        // If something went wrong during the loading of the pdf board, a red frame with an error message appears
+        // So we need to check every lap to see if we got one
+        const redFrame = await this.runInWorker('checkRedFrame')
+        if (redFrame !== null) {
+          this.log('Something went wrong during recent pdfs loading')
+          throw new Error('VENDOR_DOWN')
         }
-        let recentPdfNumber = await this.runInWorker('getPdfNumber')
+        await this.runInWorker('waitForRecentPdfClicked', i)
         await this.clickAndWait(
-            '[data-e2e="bh-more-bills"]',
-            '[aria-labelledby="bp-historicBillsHistoryTitle"]',
+          'a[class="o-link"]',
+          '[data-e2e="bp-tile-historic"]'
         )
-        let allPdfNumber = await this.runInWorker('getPdfNumber')
-        let oldPdfNumber = allPdfNumber - recentPdfNumber
-        for (let i = 0; i < recentPdfNumber; i++){
-          // If something went wrong during the loading of the pdf board, a red frame with an error message appears
-          // So we need to check every lap to see if we got one
-          const redFrame = await this.runInWorker('checkRedFrame')
-          if(redFrame !== null){
-            this.log('Something went wrong during recent pdfs loading')
-            throw new Error('VENDOR_DOWN')
-          }
-          await this.runInWorker('waitForRecentPdfClicked', i)
-          await this.clickAndWait(
-            'a[class="o-link"]',
-            '[data-e2e="bp-tile-historic"]',
-          )
-          await this.clickAndWait(
+        await this.clickAndWait(
           '[data-e2e="bp-tile-historic"]',
-          '[aria-labelledby="bp-billsHistoryTitle"]',
-          )
-          await this.clickAndWait(
-            '[data-e2e="bh-more-bills"]',
-            '[aria-labelledby="bp-historicBillsHistoryTitle"]',
-          )
+          '[aria-labelledby="bp-billsHistoryTitle"]'
+        )
+        await this.clickAndWait(
+          '[data-e2e="bh-more-bills"]',
+          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
+        )
+      }
+      this.log('recentPdf loop ended')
+      for (let i = 0; i < oldPdfNumber; i++) {
+        // Same as above with the red frame, but for old bills board
+        const redFrame = await this.runInWorker('checkOldBillsRedFrame')
+        if (redFrame !== null) {
+          this.log('Something went wrong during old pdfs loading')
+          throw new Error('VENDOR_DOWN')
         }
-        this.log('recentPdf loop ended')
-        for (let i = 0; i < oldPdfNumber; i++){
-          // Same as above with the red frame, but for old bills board
-          const redFrame = await this.runInWorker('checkOldBillsRedFrame')
-          if(redFrame !== null){
-            this.log('Something went wrong during old pdfs loading')
-            throw new Error('VENDOR_DOWN')
-          }
-          await this.runInWorker('waitForOldPdfClicked', i)
-          await this.clickAndWait(
-            'a[class="o-link"]',
-            '[data-e2e="bp-tile-historic"]',
-          )
-          await this.clickAndWait(
+        await this.runInWorker('waitForOldPdfClicked', i)
+        await this.clickAndWait(
+          'a[class="o-link"]',
+          '[data-e2e="bp-tile-historic"]'
+        )
+        await this.clickAndWait(
           '[data-e2e="bp-tile-historic"]',
-          '[aria-labelledby="bp-billsHistoryTitle"]',
-          )
-          await this.clickAndWait(
-            '[data-e2e="bh-more-bills"]',
-            '[aria-labelledby="bp-historicBillsHistoryTitle"]',
-          )
-        }
-        this.log('oldPdf loop ended')
-        this.log('pdfButtons all clicked')
-        await this.runInWorker('processingBills')
-        this.store.dataUri = []
-        for (let i = 0; i < this.store.resolvedBase64.length; i++) {
-          let dateArray = this.store.resolvedBase64[i].href.match(
-            /([0-9]{4})-([0-9]{2})-([0-9]{2})/g,
-          )
-          this.store.resolvedBase64[i].date = dateArray[0]
-          const index = this.store.allBills.findIndex(function (bill) {
-            return bill.date === dateArray[0]
-          })
-          this.store.dataUri.push({
-            vendor: 'sosh.fr',
-            date: this.store.allBills[index].date,
-            amount: this.store.allBills[index].amount / 100,
-            recurrence: 'monthly',
-            vendorRef: this.store.allBills[index].id
-              ? this.store.allBills[index].id
-              : this.store.allBills[index].tecId,
-            filename: await getFileName(
-              this.store.allBills[index].date,
-              this.store.allBills[index].amount / 100,
-              this.store.allBills[index].id || this.store.allBills[index].tecId,
-            ),
-            dataUri: this.store.resolvedBase64[i].uri,
-            fileAttributes: {
-              metadata: {
-                invoiceNumber: this.store.allBills[index].id
-                  ? this.store.allBills[index].id
-                  : this.store.allBills[index].tecId,
-                contentAuthor: 'sosh',
-                datetime: this.store.allBills[index].date,
-                datetimeLabel: 'startDate',
-                isSubscription: true,
-                startDate: this.store.allBills[index].date,
-                carbonCopy: true,
-              },
-            },
-          })
-        }
-        await this.saveIdentity({
-          mailAdress: this.store.infosIdentity.mail,
-          city: this.store.infosIdentity.city,
-          phoneNumber: this.store.infosIdentity.phoneNumber,
+          '[aria-labelledby="bp-billsHistoryTitle"]'
+        )
+        await this.clickAndWait(
+          '[data-e2e="bh-more-bills"]',
+          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
+        )
+      }
+      this.log('oldPdf loop ended')
+      this.log('pdfButtons all clicked')
+      await this.runInWorker('processingBills')
+      this.store.dataUri = []
+      for (let i = 0; i < this.store.resolvedBase64.length; i++) {
+        let dateArray = this.store.resolvedBase64[i].href.match(
+          /([0-9]{4})-([0-9]{2})-([0-9]{2})/g
+        )
+        this.store.resolvedBase64[i].date = dateArray[0]
+        const index = this.store.allBills.findIndex(function (bill) {
+          return bill.date === dateArray[0]
         })
-        await this.saveBills(this.store.dataUri, {
-          context,
-          fileIdAttributes: ['filename'],
-          contentType: 'application/pdf',
-          qualificationLabel: 'isp_invoice',
+        this.store.dataUri.push({
+          vendor: 'sosh.fr',
+          date: this.store.allBills[index].date,
+          amount: this.store.allBills[index].amount / 100,
+          recurrence: 'monthly',
+          vendorRef: this.store.allBills[index].id
+            ? this.store.allBills[index].id
+            : this.store.allBills[index].tecId,
+          filename: await getFileName(
+            this.store.allBills[index].date,
+            this.store.allBills[index].amount / 100,
+            this.store.allBills[index].id || this.store.allBills[index].tecId
+          ),
+          dataUri: this.store.resolvedBase64[i].uri,
+          fileAttributes: {
+            metadata: {
+              invoiceNumber: this.store.allBills[index].id
+                ? this.store.allBills[index].id
+                : this.store.allBills[index].tecId,
+              contentAuthor: 'sosh',
+              datetime: this.store.allBills[index].date,
+              datetimeLabel: 'startDate',
+              isSubscription: true,
+              startDate: this.store.allBills[index].date,
+              carbonCopy: true
+            }
+          }
         })
+      }
+      await this.saveIdentity({
+        mailAdress: this.store.infosIdentity.mail,
+        city: this.store.infosIdentity.city,
+        phoneNumber: this.store.infosIdentity.phoneNumber
+      })
+      await this.saveBills(this.store.dataUri, {
+        context,
+        fileIdAttributes: ['filename'],
+        contentType: 'application/pdf',
+        qualificationLabel: 'isp_invoice'
+      })
     }
-    await this.clickAndWait('#oecs__popin-ident-button', '#oecs__connecte-se-deconnecter')
+    await this.clickAndWait(
+      '#oecs__popin-ident-button',
+      '#oecs__connecte-se-deconnecter'
+    )
     await this.clickAndWait('#oecs__connecte-se-deconnecter', '#o-ribbon')
     // // Putting a falsy selector allows you to stay on the wanted page for debugging purposes when DEBUG is activated.
     //   await this.waitForElementInWorker(
     //    '[pause_end]',
     //   )
-
   }
 
   findMoreBillsButton() {
     this.log('Starting findMoreBillsButton')
-    const button = Array.from(document.querySelector('[data-e2e="bh-more-bills"]'))
+    const button = Array.from(
+      document.querySelector('[data-e2e="bh-more-bills"]')
+    )
     this.log('Exiting findMoreBillsButton')
     return button
   }
@@ -297,7 +303,7 @@ class SoshContentScript extends ContentScript {
   findPdfButtons() {
     this.log('Starting findPdfButtons')
     const buttons = Array.from(
-      document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]'),
+      document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
     )
     return buttons
   }
@@ -308,68 +314,77 @@ class SoshContentScript extends ContentScript {
     return button
   }
 
-  findPdfNumber(){
+  findPdfNumber() {
     this.log('Starting findPdfNumber')
     const buttons = Array.from(
-      document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]'),
+      document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
     )
     return buttons.length
   }
 
-  findStayLoggedButton(){
+  findStayLoggedButton() {
     this.log('Starting findStayLoggedButton')
-    const button = document.querySelector('[data-oevent-label="bouton_rester_identifie"]')
+    const button = document.querySelector(
+      '[data-oevent-label="bouton_rester_identifie"]'
+    )
     return button
   }
 
-  findHelloMessage(){
+  findHelloMessage() {
     this.log('Starting findStayLoggedButton')
-    const messageSpan = document.querySelector('span[class="d-block text-center"]')
+    const messageSpan = document.querySelector(
+      'span[class="d-block text-center"]'
+    )
     return messageSpan
   }
 
-  findLoginButton(){
+  findLoginButton() {
     this.log('Starting findLoginButton')
     const loginButton = document.querySelector('#oecs__connexion')
     return loginButton
   }
 
-  findAccountPage(){
+  findAccountPage() {
     this.log('Starting findLoginButton')
     const loginButton = document.querySelector('#oecs__connexion')
     return loginButton
   }
 
-  findAccountList(){
+  findAccountList() {
     this.log('Starting findAccountList')
     let accountList = []
-    const accountListElement = document.querySelectorAll('a[data-oevent-action="clic_liste"]')
+    const accountListElement = document.querySelectorAll(
+      'a[data-oevent-action="clic_liste"]'
+    )
     for (let i = 0; i < accountListElement.length; i++) {
-      let listedEmail = accountListElement[i].childNodes[1].children[0].childNodes[0].innerHTML
+      let listedEmail =
+        accountListElement[i].childNodes[1].children[0].childNodes[0].innerHTML
       accountList.push(listedEmail)
     }
     return accountList
   }
 
-  async checkAuthWithCredentials(credentials){
+  async checkAuthWithCredentials(credentials) {
     await this.goto(DEFAULT_PAGE_URL)
     await this.waitForElementInWorker('#oecs__aide-contact')
     const helloMessage = await this.runInWorker('getHelloMessage')
-    if(helloMessage){
-      //If helloMessage is found, return true to continue the process as we are already logged in
+    if (helloMessage) {
+      // If helloMessage is found, return true to continue the process as we are already logged in
       return true
     }
     const loginPage = await this.runInWorker('getLoginPage')
-    
-    if (!loginPage){
+
+    if (!loginPage) {
       const accountPage = await this.runInWorker('getAccountPage')
-      if (!accountPage){
+      if (!accountPage) {
         const accountListElement = await this.runInWorker('getAccountList')
         for (let i = 0; i < accountListElement.length; i++) {
           this.log('getting in accountList loop')
           const findMail = accountListElement[i]
-          if (findMail === credentials.email){
-            this.log('One mail in accountList match saved credentials, continue')
+          if (findMail === credentials.email) {
+            this.log(
+              'One mail in accountList match saved credentials, continue'
+            )
             await this.runInWorker('accountSelection', i)
             break
           }
@@ -378,60 +393,70 @@ class SoshContentScript extends ContentScript {
     }
     this.log('found credentials, processing')
 
-    await this.clickAndWait('#oecs__connexion', 'p[data-testid="selected-account-login"]')
+    await this.clickAndWait(
+      '#oecs__connexion',
+      'p[data-testid="selected-account-login"]'
+    )
     // await this.waitForElementInWorker('p[data-testid="selected-account-login"]')
-    
+
     const testEmail = await this.runInWorker('getTestEmail')
-    
-    
-    if (credentials.email === testEmail ){
+
+    if (credentials.email === testEmail) {
       await this.sameMailLogin(credentials)
-      
     }
-    
-    if (credentials.email != testEmail){
+
+    if (credentials.email != testEmail) {
       await this.differentMailLogin(credentials)
     }
   }
 
-  async checkAuthWithoutCredentials(){
+  async checkAuthWithoutCredentials() {
     await this.goto(BASE_URL)
     await this.waitForElementInWorker('#oecs__aide-contact')
     const helloMessage = await this.runInWorker('getHelloMessage')
-    this.log(helloMessage)
-    if(helloMessage){
+    if (helloMessage) {
       this.log('no credentials found but user is still logged in')
       return true
     }
     const loginPage = await this.runInWorker('getLoginPage')
-    if(loginPage){
+    if (loginPage) {
       await this.runInWorker('clickLoginPage')
       const accountPage = await this.runInWorker('getAccountPage')
-      if (accountPage){
-        await this.clickAndWait('#oecs__connexion','#changeAccountLink')
+      if (accountPage) {
+        this.log('info', 'accountPage condition')
+        await this.clickAndWait('#oecs__connexion', '#login-label')
         await this.waitForUserAuthentication()
         return true
       }
-      if (!accountPage){
-        await this.clickAndWait('#oecs__connexion','p[data-testid="selected-account-login"]')
+      if (!accountPage) {
+        await this.clickAndWait(
+          '#oecs__connexion',
+          'p[data-testid="selected-account-login"]'
+        )
       }
     }
     const alreadyConnected = await this.runInWorker('getLogoutButton')
-    if (alreadyConnected){
-      await this.clickAndWait('span[class="oecs__popin-button-icon"]', '#oecs__connecte-se-deconnecter')
-      await this.clickAndWait('#oecs__connecte-se-deconnecter', '#oecs__connexion')
+    if (alreadyConnected) {
+      await this.clickAndWait(
+        'span[class="oecs__popin-button-icon"]',
+        '#oecs__connecte-se-deconnecter'
+      )
+      await this.clickAndWait(
+        '#oecs__connecte-se-deconnecter',
+        '#oecs__connexion'
+      )
     }
-    log.debug('no credentials found, use normal user login')
+    this.log('info', 'no credentials found, use normal user login')
     await this.clickAndWait('#oecs__connexion', '#changeAccountLink')
-    await this.clickAndWait('#changeAccountLink','#undefined-label')
-    await this.clickAndWait('#undefined-label','#login')
+    await this.clickAndWait('#changeAccountLink', '#undefined-label')
+    await this.clickAndWait('#undefined-label', '#login')
     await this.waitForUserAuthentication()
     return true
   }
 
-  async sameMailLogin(credentials){
+  async sameMailLogin(credentials) {
     const stayLogButton = await this.runInWorker('getStayLoggedButton')
-    if ( stayLogButton != null) {
+    if (stayLogButton != null) {
       stayLogButton.click()
       await this.waitForElementInWorker('#oecs__connecte')
       return true
@@ -441,10 +466,10 @@ class SoshContentScript extends ContentScript {
     return true
   }
 
-  async differentMailLogin(credentials){
+  async differentMailLogin(credentials) {
     log.debug('getting in different testEmail conditions')
-    await this.clickAndWait('#changeAccountLink','#undefined-label')
-    await this.clickAndWait('#undefined-label','#login')
+    await this.clickAndWait('#changeAccountLink', '#undefined-label')
+    await this.clickAndWait('#undefined-label', '#login')
     await this.tryAutoLogin(credentials, 'full')
     return true
   }
@@ -453,41 +478,43 @@ class SoshContentScript extends ContentScript {
   // WORKER//
   // ////////
 
-  getLogoutButton(){
+  getLogoutButton() {
     this.log('Starting getLogoutButton')
-    const logoutButton = document.querySelector('#oecs__connecte-se-deconnecter')
+    const logoutButton = document.querySelector(
+      '#oecs__connecte-se-deconnecter'
+    )
     return logoutButton
   }
 
-  async getAccountList(){
+  async getAccountList() {
     this.log('Starting getAccountList')
     const accountList = this.findAccountList()
     return accountList
   }
 
-  async clickLoginPage(){
+  async clickLoginPage() {
     this.log('Starting clickLoginPage')
     document.querySelector('#oecs__connexion').click()
   }
 
-  async accountSelection(i){
+  async accountSelection(i) {
     this.log('Starting accountSelection')
     document.querySelectorAll('a[data-oevent-action="clic_liste"]')[i].click()
   }
 
-  async getAccountPage(){
+  async getAccountPage() {
     this.log('Starting getAccountPage')
     const accountButton = this.findAccountPage()
     return accountButton
   }
 
-  async getLoginPage(){
+  async getLoginPage() {
     this.log('Starting findLoginButton')
     const loginButton = this.findLoginButton()
     return loginButton
   }
 
-  async waitForFullLoading(){
+  async waitForFullLoading() {
     window.addEventListener('load', () => {
       this.log('Page fully loaded')
       this.log(document.location.href)
@@ -498,34 +525,39 @@ class SoshContentScript extends ContentScript {
 
   async findAndSendCredentials(loginField) {
     this.log('getting in findAndSendCredentials')
-    let userLogin = loginField.innerHTML.replace('<strong>', '').replace('</strong>', '')
+    let userLogin = loginField.innerHTML
+      .replace('<strong>', '')
+      .replace('</strong>', '')
     let divPassword = document.querySelector('#password').value
     const userCredentials = {
       email: userLogin,
-      password:divPassword,
+      password: divPassword
     }
-      
-    return userCredentials
 
+    return userCredentials
   }
 
-  waitForRecentPdfClicked(i){
-    let recentPdfs = document.querySelectorAll('[aria-labelledby="bp-billsHistoryTitle"] a[class="icon-pdf-file bp-downloadIcon"]')
+  waitForRecentPdfClicked(i) {
+    let recentPdfs = document.querySelectorAll(
+      '[aria-labelledby="bp-billsHistoryTitle"] a[class="icon-pdf-file bp-downloadIcon"]'
+    )
     recentPdfs[i].click()
   }
 
-  waitForOldPdfClicked(i){
-    let oldPdfs = document.querySelectorAll('[aria-labelledby="bp-historicBillsHistoryTitle"] a[class="icon-pdf-file bp-downloadIcon"]')
+  waitForOldPdfClicked(i) {
+    let oldPdfs = document.querySelectorAll(
+      '[aria-labelledby="bp-historicBillsHistoryTitle"] a[class="icon-pdf-file bp-downloadIcon"]'
+    )
     oldPdfs[i].click()
   }
 
   async fillingForm(credentials) {
-    if(document.querySelector('#login')){
+    if (document.querySelector('#login')) {
       this.log('filling email field')
       document.querySelector('#login').value = credentials.email
       return
     }
-    if (document.querySelector('#password')){
+    if (document.querySelector('#password')) {
       this.log('filling password field')
       document.querySelector('#password').value = credentials.password
       return
@@ -533,19 +565,21 @@ class SoshContentScript extends ContentScript {
   }
 
   async checkAuthenticated() {
-    const loginField = document.querySelector('p[data-testid="selected-account-login"]')
+    const loginField = document.querySelector(
+      'p[data-testid="selected-account-login"]'
+    )
     const passwordField = document.querySelector('#password')
     if (loginField && passwordField) {
-       const userCredentials = await this.findAndSendCredentials.bind(this)(loginField)
-       this.log('Sending user credentials to Pilot')
-       this.sendToPilot({
-         userCredentials
-        })
-      }
-      if (
-        document.location.href.includes(
-          DEFAULT_PAGE_URL
-      ) &&
+      const userCredentials = await this.findAndSendCredentials.bind(this)(
+        loginField
+      )
+      this.log('Sending user credentials to Pilot')
+      this.sendToPilot({
+        userCredentials
+      })
+    }
+    if (
+      document.location.href.includes(DEFAULT_PAGE_URL) &&
       document.querySelector('#oecs__connecte')
     ) {
       this.log('Check Authenticated succeeded')
@@ -577,7 +611,7 @@ class SoshContentScript extends ContentScript {
     return false
   }
 
-  async getHelloMessage(){
+  async getHelloMessage() {
     this.log('Starting findHelloMessage')
     const messageSpan = this.findHelloMessage()
     return messageSpan
@@ -589,8 +623,8 @@ class SoshContentScript extends ContentScript {
     if (document.querySelector('a[class="o-link-arrow text-primary pt-0"]')) {
       this.log('clientRef founded')
       parsedElem = document
-      .querySelector('a[class="o-link-arrow text-primary pt-0"]')
-      .getAttribute('href')
+        .querySelector('a[class="o-link-arrow text-primary pt-0"]')
+        .getAttribute('href')
 
       const clientRefArray = parsedElem.match(/([0-9]*)/g)
       this.log(clientRefArray.length)
@@ -623,7 +657,7 @@ class SoshContentScript extends ContentScript {
     return redFrame
   }
 
-  async getStayLoggedButton(){
+  async getStayLoggedButton() {
     this.log('Starting getStayLoggedButton')
     const button = this.findStayLoggedButton()
     return button
@@ -631,9 +665,10 @@ class SoshContentScript extends ContentScript {
 
   async getTestEmail() {
     this.log('Getting in getTestEmail')
-    const result = document.querySelector(
-      'p[data-testid="selected-account-login"]',
-    ).innerHTML.replace('<strong>', '').replace('</strong>', '')
+    const result = document
+      .querySelector('p[data-testid="selected-account-login"]')
+      .innerHTML.replace('<strong>', '')
+      .replace('</strong>', '')
     if (result) {
       return result
     }
