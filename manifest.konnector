@@ -1,59 +1,36 @@
 {
-  "version": "1.12.0",
+  "version": "2.0.0",
   "name": "Sosh",
   "type": "konnector",
   "language": "node",
-  "icon": "sosh.svg",
+  "clientSide": true,
+  "icon": "icon.svg",
   "slug": "sosh",
   "source": "git@github.com:konnectors/cozy-konnector-sosh.git",
   "editor": "Cozy",
-  "vendor_link": "https://www.sosh.fr/",
+  "vendor_link": "https://www.sosh.fr/mentions-legales#information-legales",
   "categories": [
     "telecom",
     "isp"
   ],
-  "fields": {
-    "login": {
-      "type": "text"
-    },
-    "password": {
-      "type": "password"
-    },
-    "advancedFields": {
-      "folderPath": {
-        "advanced": true,
-        "isRequired": false
-      }
+  "folders": [
+    {
+      "defaultDir": "$administrative/$konnector/$account"
     }
-  },
-  "time_interval": [
-    0,
-    24
   ],
-  "data_types": [
-    "bill"
-  ],
-  "screenshots": [],
+  "fields": { },
   "permissions": {
-    "bank": {
-      "description": "Required to link bills to a bank operation",
-      "type": "io.cozy.bank.operations"
+    "carbon_copy": {
+      "type": "io.cozy.certified.carbon_copy"
     },
     "bills": {
-      "description": "Required to save the bills data",
       "type": "io.cozy.bills"
     },
     "files": {
-      "description": "Required to save the bills",
       "type": "io.cozy.files"
     },
-    "accounts": {
-      "description": "Required to get the account's data",
-      "type": "io.cozy.accounts",
-      "verbs": [
-        "GET",
-        "PUT"
-      ]
+    "identities": {
+      "type": "io.cozy.identities"
     }
   },
   "developer": {
@@ -61,18 +38,47 @@
     "url": "https://cozy.io"
   },
   "langs": [
-    "fr"
+    "fr",
+    "en"
   ],
   "locales": {
     "fr": {
-      "short_description": "Récupérer vos données Sosh dans votre Cozy",
-      "long_description": "Orange est une société française de télécommunication  accessible sur [https://www.orange.fr/](www.orange.fr)\n\n**Connectez votre compte Orange à votre Cozy pour récupérer**\n\n- toutes vos factures\n\n**Accédez directement à vos documents dans votre Drive personnel**\n\nEn connectant votre compte Orange, votre Cozy crée automatiquement un dossier dans **Drive > Administratif > Orange**. Vos factures sont à portée de main et toujours accessibles !\n\n**Suivez le montant de vos factures avec Banks**\n\nLes factures récupérées sont automatiquement liées aux opérations bancaires Orange associées à votre compte si vous utilisez l’application Banks. Finis les maux de tête à faire les comptes !\n\n**Sauvegardez vos identifiants avec Pass**\n\nEn installant le gestionnaire de mots de passe, vos identifiants sont sauvegardés une bonne fois\npour toutes pour vous faciliter la connexion au site de Orange. Adieu les mots de passe oubliés !\n\n**Configuration**\n\nPour connecter votre compte, il vous suffit de renseigner dans les champs :\n\n- votre login\n- votre mot de passe\n\nUne fois connecté, votre Cozy se connectera régulièrement à votre compte Orange pour récupérer les\nnouveaux éléments et les historiser dans un dossier Orange dans Drive.\n\nSi vous déconnectez votre compte Orange, les informations déjà sauvegardées dans votre Cozy restent disponibles. Vous pouvez les supprimer manuellement par ailleurs."
+      "short_description": "Récupère vos factures Sosh",
+      "long_description": "Récupère vos factures Sosh sur les sites respectif. Une fois votre authentication effectuée, le connecteur va detecter la redirection et sauvegardée vos factures disponibles en fonction du site présenté.",
+      "permissions": {
+        "bank operations": {
+          "description": "Utilisé pour relier les factures à des operations bancaires"
+        },
+        "bills": {
+          "description": "Utilisé pour sauver les données des factures"
+        },
+        "files": {
+          "description": "Utilisé pour sauvegarder les factures"
+        }
+      }
     },
     "en": {
-      "short_description": "Fetch your Sosh data in your Cozy",
-      "long_description": "Orange is a French telecom company.\n\n**Connect your Orange account to your Cozy for getting**\n\n- your bills\n\n**Access directly to your documents in your personal Drive**\n\nBy connecting your Orange account, your Cozy automatically creates a folder in **Drive > Administrative\nOrange**.\n\n**Follow the amount of your bills with Banks**\n\nThe recovered certificates are automatically linked to the Orange banking transactions associated with your account if you use the Banks application.\n\n**Save your credentials with Pass**\nWith Pass, you will never forget a password again as your credentials are automatically saved in by activating the password manager.\n\n**Configuration**\nTo connect your account, you just have to fill in the fields :\n- your login (email)\n- your password\n\nOnce logged in, your Cozy will automatically connect to your Orange account to retrieve new items and\nstore them in a Orange folder in Drive.\n\nIf you disconnect your Orange account, the information already saved in your Cozy remains available. You can delete them manually elsewhere."
+      "short_description": "Fetch a list of Sosh invoices",
+      "long_description": "Fetch a list of Sosh invoices on the respective websites. Once you've been authenticated, the konnector will detects the redirection and save your available bills based on presented website.",
+      "permissions": {
+        "bank operations": {
+          "description": "Required to link bank operations to bills"
+        },
+        "bills": {
+          "description": "Required to save the bills data"
+        },
+        "files": {
+          "description": "Required to save the bills"
+        }
+      }
     }
   },
-  "banksTransactionRegExp": "\\bsosh|orange\\b",
-  "manifest_version": "2"
+  "qualification_labels": [
+    "isp_invoice"
+  ],
+  "features": [
+    "METADATA_DEDUP",
+    "CARBON_COPY",
+    "DOC_QUALIFICATION_V2"
+  ]
 }

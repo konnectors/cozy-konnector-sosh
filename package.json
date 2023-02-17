@@ -1,14 +1,16 @@
 {
-  "name": "cozy-konnector-sosh",
-  "version": "1.12.0",
-  "description": "",
+  "name": "sosh",
+  "version": "2.0.0",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git@github.com:konnectors/cozy-konnector-sosh.git"
   },
-  "keywords": [],
-  "author": "Cozy Cloud",
-  "license": "AGPL-3.0",
+  "dependencies": {
+    "@cozy/minilog": "^1.0.0",
+    "cozy-clisk": "^0.5.0",
+    "date-fns": "^2.29.3"
+  },
   "eslintConfig": {
     "extends": [
       "cozy-app"
@@ -17,30 +19,15 @@
   "eslintIgnore": [
     "build"
   ],
-  "husky": {
-    "hooks": {
-      "pre-commit": "yarn lint"
-    }
-  },
   "scripts": {
-    "start": "node ./src/index.js",
-    "dev": "cozy-konnector-dev",
-    "standalone": "cozy-konnector-standalone",
-    "pretest": "npm run clean",
-    "clean": "rm -rf ./data",
-    "build": "webpack",
     "lint": "eslint --fix .",
+    "build": "webpack",
+    "watch": "webpack --watch",
     "deploy": "git-directory-deploy --directory build/ --branch ${DEPLOY_BRANCH:-build} --repo=${DEPLOY_REPOSITORY:-$npm_package_repository_url}",
     "cozyPublish": "cozy-app-publish --token $REGISTRY_TOKEN --build-commit $(git rev-parse ${DEPLOY_BRANCH:-build})",
     "travisDeployKey": "./bin/generate_travis_deploy_key"
   },
-  "dependencies": {
-    "cozy-konnector-libs": "4.56.4",
-    "lodash": "4.17.21",
-    "moment": "2.29.4"
-  },
   "devDependencies": {
-    "cozy-jobs-cli": "1.20.2",
-    "cozy-konnector-build": "1.4.5"
+    "cozy-konnector-build": "^1.4.5"
   }
 }
