@@ -1,5 +1,5 @@
-import { ContentScript } from 'cozy-clisk/contentscript'
-import { blobToBase64 } from 'cozy-clisk/contentscript/utils'
+import { ContentScript } from 'cozy-clisk/dist/contentscript'
+import { blobToBase64 } from 'cozy-clisk/dist/contentscript/utils'
 import Minilog from '@cozy/minilog'
 
 const log = Minilog('ContentScript')
@@ -111,7 +111,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async autoLogin(credentials, type) {
-    this.log('debug', 'Autologin start')
+    this.log('info', 'Autologin start')
     const emailSelector = '#login'
     const passwordInputSelector = '#password'
     const loginButton = '#btnSubmit'
@@ -134,13 +134,14 @@ class SoshContentScript extends ContentScript {
   }
 
   async waitForUserAuthentication() {
-    this.log('debug', 'waitForUserAuthentication start')
+    this.log('info', 'waitForUserAuthentication start')
     await this.setWorkerState({ visible: true, url: DEFAULT_PAGE_URL })
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
     await this.setWorkerState({ visible: false, url: DEFAULT_PAGE_URL })
   }
 
   async waitForUserAction(url) {
+    this.log('info', 'waitForUserAction start')
     await this.setWorkerState({ visible: true, url })
     await this.runInWorkerUntilTrue({ method: 'waitForCaptchaResolution' })
     await this.setWorkerState({ visible: false, url })
@@ -158,7 +159,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async fetch(context) {
-    this.log('debug', 'fetch start')
+    this.log('info', 'fetch start')
     const credentials = await this.getCredentials()
     if (!credentials) {
       await this.saveCredentials(this.store.userCredentials)
@@ -384,7 +385,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async checkAuthWithCredentials(credentials) {
-    this.log('debug', 'authWithCredentials starts')
+    this.log('info', 'authWithCredentials starts')
     await this.goto(DEFAULT_PAGE_URL)
     await this.waitForElementInWorker('#oecs__ribbon')
     await Promise.race([
@@ -442,6 +443,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async checkAuthWithoutCredentials() {
+    this.log('info', 'checkAuthWithoutCredentials start')
     await this.goto(BASE_URL)
     await this.waitForElementInWorker('#oecs__ribbon')
     await this.waitForElementInWorker('#oecs__aide-contact')
@@ -561,7 +563,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async findAndSendCredentials(loginField) {
-    this.log('debug', 'getting in findAndSendCredentials')
+    this.log('info', 'getting in findAndSendCredentials')
     let userLogin = loginField.innerHTML
       .replace('<strong>', '')
       .replace('</strong>', '')
@@ -754,6 +756,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async getIdentity() {
+    this.log('info', 'Starting getIdentity')
     const checkIdObject = userInfos.length > 0
     let infosIdentity
     if (checkIdObject) {

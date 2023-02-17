@@ -7,9 +7,9 @@
     "url": "git@github.com:konnectors/cozy-konnector-sosh.git"
   },
   "dependencies": {
-    "@cozy/minilog": "1.0.0",
-    "cozy-clisk": "^0.5.0",
-    "date-fns": "2.29.3"
+    "@cozy/minilog": "^1.0.0",
+    "cozy-clisk": "^0.7.0",
+    "date-fns": "^2.29.3"
   },
   "eslintConfig": {
     "extends": [
