@@ -56,24 +56,17 @@ var _classCallCheck2 = _interopRequireDefault(__webpack_require__(14));
 
 var _createClass2 = _interopRequireDefault(__webpack_require__(15));
 
-var _get = _interopRequireDefault(__webpack_require__(18));
+var _pWaitFor = _interopRequireDefault(__webpack_require__(18));
 
-var _pWaitFor = _interopRequireDefault(__webpack_require__(70));
+var _minilog = _interopRequireDefault(__webpack_require__(21));
 
-var _minilog = _interopRequireDefault(__webpack_require__(73));
+var _LauncherBridge = _interopRequireDefault(__webpack_require__(33));
 
-var _LauncherBridge = _interopRequireDefault(__webpack_require__(85));
+var _utils = __webpack_require__(42);
 
-var _utils = __webpack_require__(94);
+var _umd = _interopRequireDefault(__webpack_require__(43));
 
-var _umd = _interopRequireDefault(__webpack_require__(95));
-
-function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it.return != null) it.return(); } finally { if (didErr) throw err; } } }; }
-
-function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
-
-function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
-
+// @ts-check
 var _log = (0, _minilog.default)('ContentScript class');
 
 var s = 1000;
@@ -100,7 +93,7 @@ var ContentScript = /*#__PURE__*/function () {
      *
      * @param {object} options : options object
      * @param {Array<string>} [options.additionalExposedMethodsNames] : list of additional method of the
-     * content script to expose expose. To make it callable via the worker
+     * content script to expose. To make it callable via the worker.
      */
     function () {
       var _init = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee() {
@@ -122,7 +115,7 @@ var ContentScript = /*#__PURE__*/function () {
                 this.bridge = new _LauncherBridge.default({
                   localWindow: window
                 });
-                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName'];
+                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName', 'downloadFileInWorker'];
 
                 if (options.additionalExposedMethodsNames) {
                   exposedMethodsNames.push.apply(exposedMethodsNames, options.additionalExposedMethodsNames);
@@ -322,7 +315,7 @@ var ContentScript = /*#__PURE__*/function () {
      * @param {object} options        - options object
      * @param {string} options.method - name of the method to run
      * @param {number} [options.timeout] - number of miliseconds before the function sends a timeout error. Default Infinity
-     * @param {Array} options.args - array of args to pass to the method
+     * @param {Array} [options.args] - array of args to pass to the method
      * @returns {Promise<boolean>} - true
      * @throws {Error} - if timeout expired
      */
@@ -590,6 +583,56 @@ var ContentScript = /*#__PURE__*/function () {
       return fillText;
     }()
     /**
+     * Download the file send by the launcher in the worker context
+     *
+     * @param {object} entry The entry to download with fileurl attribute
+     */
+
+  }, {
+    key: "downloadFileInWorker",
+    value: function () {
+      var _downloadFileInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee12(entry) {
+        return _regenerator.default.wrap(function _callee12$(_context12) {
+          while (1) {
+            switch (_context12.prev = _context12.next) {
+              case 0:
+                this.onlyIn(WORKER_TYPE, 'downloadFileInWorker');
+                this.log('info', 'downloading file in worker');
+
+                if (!entry.fileurl) {
+                  _context12.next = 9;
+                  break;
+                }
+
+                _context12.next = 5;
+                return _umd.default.get(entry.fileurl, entry.requestOptions).blob();
+
+              case 5:
+                entry.blob = _context12.sent;
+                _context12.next = 8;
+                return (0, _utils.blobToBase64)(entry.blob);
+
+              case 8:
+                entry.dataUri = _context12.sent;
+
+              case 9:
+                return _context12.abrupt("return", entry.dataUri);
+
+              case 10:
+              case "end":
+                return _context12.stop();
+            }
+          }
+        }, _callee12, this);
+      }));
+
+      function downloadFileInWorker(_x11) {
+        return _downloadFileInWorker.apply(this, arguments);
+      }
+
+      return downloadFileInWorker;
+    }()
+    /**
      * Bridge to the saveFiles method from the launcher.
      * - it prefilters files according to the context comming from the launcher
      * - download files when not filtered out
@@ -602,12 +645,11 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveFiles",
     value: function () {
-      var _saveFiles = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee12(entries, options) {
-        var context, filteredEntries, _iterator, _step, entry;
-
-        return _regenerator.default.wrap(function _callee12$(_context12) {
+      var _saveFiles = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee13(entries, options) {
+        var context;
+        return _regenerator.default.wrap(function _callee13$(_context13) {
           while (1) {
-            switch (_context12.prev = _context12.next) {
+            switch (_context13.prev = _context13.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'saveFiles');
 
@@ -617,90 +659,29 @@ var ContentScript = /*#__PURE__*/function () {
 
                 _log.debug(context, 'saveFiles input context');
 
-                filteredEntries = this.filterOutExistingFiles(entries, options);
-                _iterator = _createForOfIteratorHelper(filteredEntries);
-                _context12.prev = 6;
-
-                _iterator.s();
-
-              case 8:
-                if ((_step = _iterator.n()).done) {
-                  _context12.next = 22;
-                  break;
-                }
-
-                entry = _step.value;
-
-                if (!entry.fileurl) {
-                  _context12.next = 15;
-                  break;
-                }
-
-                _context12.next = 13;
-                return _umd.default.get(entry.fileurl, entry.requestOptions).blob();
-
-              case 13:
-                entry.blob = _context12.sent;
-                delete entry.fileurl;
-
-              case 15:
-                if (!entry.blob) {
-                  _context12.next = 20;
-                  break;
-                }
-
-                _context12.next = 18;
-                return (0, _utils.blobToBase64)(entry.blob);
-
-              case 18:
-                entry.dataUri = _context12.sent;
-                delete entry.blob;
-
-              case 20:
-                _context12.next = 8;
-                break;
-
-              case 22:
-                _context12.next = 27;
-                break;
-
-              case 24:
-                _context12.prev = 24;
-                _context12.t0 = _context12["catch"](6);
-
-                _iterator.e(_context12.t0);
-
-              case 27:
-                _context12.prev = 27;
-
-                _iterator.f();
-
-                return _context12.finish(27);
-
-              case 30:
                 if (this.bridge) {
-                  _context12.next = 32;
+                  _context13.next = 6;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
-              case 32:
-                _context12.next = 34;
+              case 6:
+                _context13.next = 8;
                 return this.bridge.call('saveFiles', entries, options);
 
-              case 34:
-                return _context12.abrupt("return", _context12.sent);
+              case 8:
+                return _context13.abrupt("return", _context13.sent);
 
-              case 35:
+              case 9:
               case "end":
-                return _context12.stop();
+                return _context13.stop();
             }
           }
-        }, _callee12, this, [[6, 24, 27, 30]]);
+        }, _callee13, this);
       }));
 
-      function saveFiles(_x11, _x12) {
+      function saveFiles(_x12, _x13) {
         return _saveFiles.apply(this, arguments);
       }
 
@@ -718,42 +699,42 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveBills",
     value: function () {
-      var _saveBills = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee13(entries, options) {
+      var _saveBills = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee14(entries, options) {
         var files;
-        return _regenerator.default.wrap(function _callee13$(_context13) {
+        return _regenerator.default.wrap(function _callee14$(_context14) {
           while (1) {
-            switch (_context13.prev = _context13.next) {
+            switch (_context14.prev = _context14.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'saveBills');
-                _context13.next = 3;
+                _context14.next = 3;
                 return this.saveFiles(entries, options);
 
               case 3:
-                files = _context13.sent;
+                files = _context14.sent;
 
                 if (this.bridge) {
-                  _context13.next = 6;
+                  _context14.next = 6;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 6:
-                _context13.next = 8;
+                _context14.next = 8;
                 return this.bridge.call('saveBills', files, options);
 
               case 8:
-                return _context13.abrupt("return", _context13.sent);
+                return _context14.abrupt("return", _context14.sent);
 
               case 9:
               case "end":
-                return _context13.stop();
+                return _context14.stop();
             }
           }
-        }, _callee13, this);
+        }, _callee14, this);
       }));
 
-      function saveBills(_x13, _x14) {
+      function saveBills(_x14, _x15) {
         return _saveBills.apply(this, arguments);
       }
 
@@ -766,33 +747,33 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getCredentials",
     value: function () {
-      var _getCredentials = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee14() {
-        return _regenerator.default.wrap(function _callee14$(_context14) {
+      var _getCredentials = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee15() {
+        return _regenerator.default.wrap(function _callee15$(_context15) {
           while (1) {
-            switch (_context14.prev = _context14.next) {
+            switch (_context15.prev = _context15.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'getCredentials');
 
                 if (this.bridge) {
-                  _context14.next = 3;
+                  _context15.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context14.next = 5;
+                _context15.next = 5;
                 return this.bridge.call('getCredentials');
 
               case 5:
-                return _context14.abrupt("return", _context14.sent);
+                return _context15.abrupt("return", _context15.sent);
 
               case 6:
               case "end":
-                return _context14.stop();
+                return _context15.stop();
             }
           }
-        }, _callee14, this);
+        }, _callee15, this);
       }));
 
       function getCredentials() {
@@ -810,36 +791,36 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveCredentials",
     value: function () {
-      var _saveCredentials = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee15(credentials) {
-        return _regenerator.default.wrap(function _callee15$(_context15) {
+      var _saveCredentials = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee16(credentials) {
+        return _regenerator.default.wrap(function _callee16$(_context16) {
           while (1) {
-            switch (_context15.prev = _context15.next) {
+            switch (_context16.prev = _context16.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'saveCredentials');
 
                 if (this.bridge) {
-                  _context15.next = 3;
+                  _context16.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context15.next = 5;
+                _context16.next = 5;
                 return this.bridge.call('saveCredentials', credentials);
 
               case 5:
-                return _context15.abrupt("return", _context15.sent);
+                return _context16.abrupt("return", _context16.sent);
 
               case 6:
               case "end":
-                return _context15.stop();
+                return _context16.stop();
             }
           }
-        }, _callee15, this);
+        }, _callee16, this);
       }));
 
-      function saveCredentials(_x15) {
+      function saveCredentials(_x16) {
         return _saveCredentials.apply(this, arguments);
       }
 
@@ -854,36 +835,36 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveIdentity",
     value: function () {
-      var _saveIdentity = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee16(identity) {
-        return _regenerator.default.wrap(function _callee16$(_context16) {
+      var _saveIdentity = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee17(identity) {
+        return _regenerator.default.wrap(function _callee17$(_context17) {
           while (1) {
-            switch (_context16.prev = _context16.next) {
+            switch (_context17.prev = _context17.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'saveIdentity');
 
                 if (this.bridge) {
-                  _context16.next = 3;
+                  _context17.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context16.next = 5;
+                _context17.next = 5;
                 return this.bridge.call('saveIdentity', identity);
 
               case 5:
-                return _context16.abrupt("return", _context16.sent);
+                return _context17.abrupt("return", _context17.sent);
 
               case 6:
               case "end":
-                return _context16.stop();
+                return _context17.stop();
             }
           }
-        }, _callee16, this);
+        }, _callee17, this);
       }));
 
-      function saveIdentity(_x16) {
+      function saveIdentity(_x17) {
         return _saveIdentity.apply(this, arguments);
       }
 
@@ -898,34 +879,34 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getCookiesByDomain",
     value: function () {
-      var _getCookiesByDomain = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee17(domain) {
-        return _regenerator.default.wrap(function _callee17$(_context17) {
+      var _getCookiesByDomain = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee18(domain) {
+        return _regenerator.default.wrap(function _callee18$(_context18) {
           while (1) {
-            switch (_context17.prev = _context17.next) {
+            switch (_context18.prev = _context18.next) {
               case 0:
                 if (this.bridge) {
-                  _context17.next = 2;
+                  _context18.next = 2;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 2:
-                _context17.next = 4;
+                _context18.next = 4;
                 return this.bridge.call('getCookiesByDomain', domain);
 
               case 4:
-                return _context17.abrupt("return", _context17.sent);
+                return _context18.abrupt("return", _context18.sent);
 
               case 5:
               case "end":
-                return _context17.stop();
+                return _context18.stop();
             }
           }
-        }, _callee17, this);
+        }, _callee18, this);
       }));
 
-      function getCookiesByDomain(_x17) {
+      function getCookiesByDomain(_x18) {
         return _getCookiesByDomain.apply(this, arguments);
       }
 
@@ -940,34 +921,34 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getCookieFromKeychainByName",
     value: function () {
-      var _getCookieFromKeychainByName = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee18(cookieName) {
-        return _regenerator.default.wrap(function _callee18$(_context18) {
+      var _getCookieFromKeychainByName = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee19(cookieName) {
+        return _regenerator.default.wrap(function _callee19$(_context19) {
           while (1) {
-            switch (_context18.prev = _context18.next) {
+            switch (_context19.prev = _context19.next) {
               case 0:
                 if (this.bridge) {
-                  _context18.next = 2;
+                  _context19.next = 2;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 2:
-                _context18.next = 4;
+                _context19.next = 4;
                 return this.bridge.call('getCookieFromKeychainByName', cookieName);
 
               case 4:
-                return _context18.abrupt("return", _context18.sent);
+                return _context19.abrupt("return", _context19.sent);
 
               case 5:
               case "end":
-                return _context18.stop();
+                return _context19.stop();
             }
           }
-        }, _callee18, this);
+        }, _callee19, this);
       }));
 
-      function getCookieFromKeychainByName(_x18) {
+      function getCookieFromKeychainByName(_x19) {
         return _getCookieFromKeychainByName.apply(this, arguments);
       }
 
@@ -982,51 +963,12 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveCookieToKeychain",
     value: function () {
-      var _saveCookieToKeychain = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee19(cookieValue) {
-        return _regenerator.default.wrap(function _callee19$(_context19) {
-          while (1) {
-            switch (_context19.prev = _context19.next) {
-              case 0:
-                this.onlyIn(PILOT_TYPE, 'saveCookieToKeychain');
-
-                if (this.bridge) {
-                  _context19.next = 3;
-                  break;
-                }
-
-                throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
-
-              case 3:
-                _context19.next = 5;
-                return this.bridge.call('saveCookieToKeychain', cookieValue);
-
-              case 5:
-                return _context19.abrupt("return", _context19.sent);
-
-              case 6:
-              case "end":
-                return _context19.stop();
-            }
-          }
-        }, _callee19, this);
-      }));
-
-      function saveCookieToKeychain(_x19) {
-        return _saveCookieToKeychain.apply(this, arguments);
-      }
-
-      return saveCookieToKeychain;
-    }()
-  }, {
-    key: "getCookieByDomainAndName",
-    value: function () {
-      var _getCookieByDomainAndName = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee20(cookieDomain, cookieName) {
-        var expectedCookie;
+      var _saveCookieToKeychain = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee20(cookieValue) {
         return _regenerator.default.wrap(function _callee20$(_context20) {
           while (1) {
             switch (_context20.prev = _context20.next) {
               case 0:
-                this.onlyIn(WORKER_TYPE, 'getCookieByDomainAndName');
+                this.onlyIn(PILOT_TYPE, 'saveCookieToKeychain');
 
                 if (this.bridge) {
                   _context20.next = 3;
@@ -1037,13 +979,12 @@ var ContentScript = /*#__PURE__*/function () {
 
               case 3:
                 _context20.next = 5;
-                return this.bridge.call('getCookieByDomainAndName', cookieDomain, cookieName);
+                return this.bridge.call('saveCookieToKeychain', cookieValue);
 
               case 5:
-                expectedCookie = _context20.sent;
-                return _context20.abrupt("return", expectedCookie);
+                return _context20.abrupt("return", _context20.sent);
 
-              case 7:
+              case 6:
               case "end":
                 return _context20.stop();
             }
@@ -1051,86 +992,56 @@ var ContentScript = /*#__PURE__*/function () {
         }, _callee20, this);
       }));
 
-      function getCookieByDomainAndName(_x20, _x21) {
+      function saveCookieToKeychain(_x20) {
+        return _saveCookieToKeychain.apply(this, arguments);
+      }
+
+      return saveCookieToKeychain;
+    }()
+  }, {
+    key: "getCookieByDomainAndName",
+    value: function () {
+      var _getCookieByDomainAndName = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee21(cookieDomain, cookieName) {
+        var expectedCookie;
+        return _regenerator.default.wrap(function _callee21$(_context21) {
+          while (1) {
+            switch (_context21.prev = _context21.next) {
+              case 0:
+                this.onlyIn(WORKER_TYPE, 'getCookieByDomainAndName');
+
+                if (this.bridge) {
+                  _context21.next = 3;
+                  break;
+                }
+
+                throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
+
+              case 3:
+                _context21.next = 5;
+                return this.bridge.call('getCookieByDomainAndName', cookieDomain, cookieName);
+
+              case 5:
+                expectedCookie = _context21.sent;
+                return _context21.abrupt("return", expectedCookie);
+
+              case 7:
+              case "end":
+                return _context21.stop();
+            }
+          }
+        }, _callee21, this);
+      }));
+
+      function getCookieByDomainAndName(_x21, _x22) {
         return _getCookieByDomainAndName.apply(this, arguments);
       }
 
       return getCookieByDomainAndName;
     }()
     /**
-     * Do not download files which already exist
-     *
-     * @param {Array} files : array of file objects
-     * @param {object} options : options object
-     * @param {Array.<string>} options.fileIdAttributes : list of attributes defining the unicity of the file
-     * @param {object} options.context : current launcher context
-     * @returns {Array} : filtered array of file objects
-     */
-
-  }, {
-    key: "filterOutExistingFiles",
-    value: function filterOutExistingFiles(files, options) {
-      var _this2 = this;
-
-      if (options.fileIdAttributes) {
-        var contextFilesIndex = this.createContextFilesIndex(options.context, options.fileIdAttributes);
-        return files.filter(function (file) {
-          return contextFilesIndex[_this2.calculateFileKey(file, options.fileIdAttributes)] === undefined;
-        });
-      } else {
-        return files;
-      }
-    }
-    /**
-     * Creates an index of files, indexed by uniq id defined by fileIdAttributes
-     *
-     * @param {object} context : current context object
-     * @param {Array.<string>} fileIdAttributes : list of attributes defining the unicity of a file
-     * @returns {object} : context file index
-     */
-
-  }, {
-    key: "createContextFilesIndex",
-    value: function createContextFilesIndex(context, fileIdAttributes) {
-      _log.debug('getContextFilesIndex', context, fileIdAttributes);
-
-      var index = {};
-
-      var _iterator2 = _createForOfIteratorHelper(context),
-          _step2;
-
-      try {
-        for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
-          var entry = _step2.value;
-          index[entry.metadata.fileIdAttributes] = entry;
-        }
-      } catch (err) {
-        _iterator2.e(err);
-      } finally {
-        _iterator2.f();
-      }
-
-      return index;
-    }
-    /**
-     * Calculates the key defining the uniqueness of a given file
-     *
-     * @param {object} file : file object
-     * @param {Array.<string>} fileIdAttributes : list of attributes defining the unicity of a file
-     * @returns {string} : file key
-     */
-
-  }, {
-    key: "calculateFileKey",
-    value: function calculateFileKey(file, fileIdAttributes) {
-      return fileIdAttributes.sort().map(function (key) {
-        return (0, _get.default)(file, key);
-      }).join('####');
-    }
-    /**
      * Send log message to the launcher
      *
-     * @param {"debug"|"info"|"warn"|"error"} level: the log level
+     * @param {"debug"|"info"|"warn"|"error"} level : the log level
      * @param {string} message : the log message
      */
 
@@ -1173,33 +1084,33 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "setWorkerState",
     value: function () {
-      var _setWorkerState = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee21() {
+      var _setWorkerState = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee22() {
         var options,
-            _args21 = arguments;
-        return _regenerator.default.wrap(function _callee21$(_context21) {
+            _args22 = arguments;
+        return _regenerator.default.wrap(function _callee22$(_context22) {
           while (1) {
-            switch (_context21.prev = _context21.next) {
+            switch (_context22.prev = _context22.next) {
               case 0:
-                options = _args21.length > 0 && _args21[0] !== undefined ? _args21[0] : {};
+                options = _args22.length > 0 && _args22[0] !== undefined ? _args22[0] : {};
                 this.onlyIn(PILOT_TYPE, 'setWorkerState');
 
                 if (this.bridge) {
-                  _context21.next = 4;
+                  _context22.next = 4;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 4:
-                _context21.next = 6;
+                _context22.next = 6;
                 return this.bridge.call('setWorkerState', options);
 
               case 6:
               case "end":
-                return _context21.stop();
+                return _context22.stop();
             }
           }
-        }, _callee21, this);
+        }, _callee22, this);
       }));
 
       function setWorkerState() {
@@ -1217,26 +1128,26 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "goto",
     value: function () {
-      var _goto = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee22(url) {
-        return _regenerator.default.wrap(function _callee22$(_context22) {
+      var _goto = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee23(url) {
+        return _regenerator.default.wrap(function _callee23$(_context23) {
           while (1) {
-            switch (_context22.prev = _context22.next) {
+            switch (_context23.prev = _context23.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'goto');
-                _context22.next = 3;
+                _context23.next = 3;
                 return this.setWorkerState({
                   url: url
                 });
 
               case 3:
               case "end":
-                return _context22.stop();
+                return _context23.stop();
             }
           }
-        }, _callee22, this);
+        }, _callee23, this);
       }));
 
-      function goto(_x22) {
+      function goto(_x23) {
         return _goto.apply(this, arguments);
       }
 
@@ -1254,19 +1165,19 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "ensureAuthenticated",
     value: function () {
-      var _ensureAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee23() {
-        return _regenerator.default.wrap(function _callee23$(_context23) {
+      var _ensureAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee24() {
+        return _regenerator.default.wrap(function _callee24$(_context24) {
           while (1) {
-            switch (_context23.prev = _context23.next) {
+            switch (_context24.prev = _context24.next) {
               case 0:
-                return _context23.abrupt("return", true);
+                return _context24.abrupt("return", true);
 
               case 1:
               case "end":
-                return _context23.stop();
+                return _context24.stop();
             }
           }
-        }, _callee23);
+        }, _callee24);
       }));
 
       function ensureAuthenticated() {
@@ -1285,16 +1196,16 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getUserDataFromWebsite",
     value: function () {
-      var _getUserDataFromWebsite = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee24() {
-        return _regenerator.default.wrap(function _callee24$(_context24) {
+      var _getUserDataFromWebsite = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee25() {
+        return _regenerator.default.wrap(function _callee25$(_context25) {
           while (1) {
-            switch (_context24.prev = _context24.next) {
+            switch (_context25.prev = _context25.next) {
               case 0:
               case "end":
-                return _context24.stop();
+                return _context25.stop();
             }
           }
-        }, _callee24);
+        }, _callee25);
       }));
 
       function getUserDataFromWebsite() {
@@ -1312,32 +1223,32 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "sendToPilot",
     value: function () {
-      var _sendToPilot = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee25(obj) {
-        return _regenerator.default.wrap(function _callee25$(_context25) {
+      var _sendToPilot = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee26(obj) {
+        return _regenerator.default.wrap(function _callee26$(_context26) {
           while (1) {
-            switch (_context25.prev = _context25.next) {
+            switch (_context26.prev = _context26.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'sendToPilot');
 
                 if (this.bridge) {
-                  _context25.next = 3;
+                  _context26.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                return _context25.abrupt("return", this.bridge.call('sendToPilot', obj));
+                return _context26.abrupt("return", this.bridge.call('sendToPilot', obj));
 
               case 4:
               case "end":
-                return _context25.stop();
+                return _context26.stop();
             }
           }
-        }, _callee25, this);
+        }, _callee26, this);
       }));
 
-      function sendToPilot(_x23) {
+      function sendToPilot(_x24) {
         return _sendToPilot.apply(this, arguments);
       }
 
@@ -1352,23 +1263,23 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "storeFromWorker",
     value: function () {
-      var _storeFromWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee26(obj) {
-        return _regenerator.default.wrap(function _callee26$(_context26) {
+      var _storeFromWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee27(obj) {
+        return _regenerator.default.wrap(function _callee27$(_context27) {
           while (1) {
-            switch (_context26.prev = _context26.next) {
+            switch (_context27.prev = _context27.next) {
               case 0:
                 // @ts-ignore Aucune surcharge ne correspond à cet appel.
                 Object.assign(this.store, obj);
 
               case 1:
               case "end":
-                return _context26.stop();
+                return _context27.stop();
             }
           }
-        }, _callee26, this);
+        }, _callee27, this);
       }));
 
-      function storeFromWorker(_x24) {
+      function storeFromWorker(_x25) {
         return _storeFromWorker.apply(this, arguments);
       }
 
@@ -1394,19 +1305,19 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "fetch",
     value: function () {
-      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee27(options) {
-        return _regenerator.default.wrap(function _callee27$(_context27) {
+      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee28(options) {
+        return _regenerator.default.wrap(function _callee28$(_context28) {
           while (1) {
-            switch (_context27.prev = _context27.next) {
+            switch (_context28.prev = _context28.next) {
               case 0:
               case "end":
-                return _context27.stop();
+                return _context28.stop();
             }
           }
-        }, _callee27);
+        }, _callee28);
       }));
 
-      function fetch(_x25) {
+      function fetch(_x26) {
         return _fetch.apply(this, arguments);
       }
 
@@ -1950,1567 +1861,9 @@ module.exports = _toPrimitive, module.exports.__esModule = true, module.exports[
 /* 18 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var baseGet = __webpack_require__(19);
-
-/**
- * Gets the value at `path` of `object`. If the resolved value is
- * `undefined`, the `defaultValue` is returned in its place.
- *
- * @static
- * @memberOf _
- * @since 3.7.0
- * @category Object
- * @param {Object} object The object to query.
- * @param {Array|string} path The path of the property to get.
- * @param {*} [defaultValue] The value returned for `undefined` resolved values.
- * @returns {*} Returns the resolved value.
- * @example
- *
- * var object = { 'a': [{ 'b': { 'c': 3 } }] };
- *
- * _.get(object, 'a[0].b.c');
- * // => 3
- *
- * _.get(object, ['a', '0', 'b', 'c']);
- * // => 3
- *
- * _.get(object, 'a.b.c', 'default');
- * // => 'default'
- */
-function get(object, path, defaultValue) {
-  var result = object == null ? undefined : baseGet(object, path);
-  return result === undefined ? defaultValue : result;
-}
-
-module.exports = get;
-
-
-/***/ }),
-/* 19 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var castPath = __webpack_require__(20),
-    toKey = __webpack_require__(69);
-
-/**
- * The base implementation of `_.get` without support for default values.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {Array|string} path The path of the property to get.
- * @returns {*} Returns the resolved value.
- */
-function baseGet(object, path) {
-  path = castPath(path, object);
-
-  var index = 0,
-      length = path.length;
-
-  while (object != null && index < length) {
-    object = object[toKey(path[index++])];
-  }
-  return (index && index == length) ? object : undefined;
-}
-
-module.exports = baseGet;
-
-
-/***/ }),
-/* 20 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var isArray = __webpack_require__(21),
-    isKey = __webpack_require__(22),
-    stringToPath = __webpack_require__(31),
-    toString = __webpack_require__(66);
-
-/**
- * Casts `value` to a path array if it's not one.
- *
- * @private
- * @param {*} value The value to inspect.
- * @param {Object} [object] The object to query keys on.
- * @returns {Array} Returns the cast property path array.
- */
-function castPath(value, object) {
-  if (isArray(value)) {
-    return value;
-  }
-  return isKey(value, object) ? [value] : stringToPath(toString(value));
-}
-
-module.exports = castPath;
-
-
-/***/ }),
-/* 21 */
-/***/ ((module) => {
-
-/**
- * Checks if `value` is classified as an `Array` object.
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an array, else `false`.
- * @example
- *
- * _.isArray([1, 2, 3]);
- * // => true
- *
- * _.isArray(document.body.children);
- * // => false
- *
- * _.isArray('abc');
- * // => false
- *
- * _.isArray(_.noop);
- * // => false
- */
-var isArray = Array.isArray;
-
-module.exports = isArray;
-
-
-/***/ }),
-/* 22 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var isArray = __webpack_require__(21),
-    isSymbol = __webpack_require__(23);
-
-/** Used to match property names within property paths. */
-var reIsDeepProp = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\\]|\\.)*?\1)\]/,
-    reIsPlainProp = /^\w*$/;
-
-/**
- * Checks if `value` is a property name and not a property path.
- *
- * @private
- * @param {*} value The value to check.
- * @param {Object} [object] The object to query keys on.
- * @returns {boolean} Returns `true` if `value` is a property name, else `false`.
- */
-function isKey(value, object) {
-  if (isArray(value)) {
-    return false;
-  }
-  var type = typeof value;
-  if (type == 'number' || type == 'symbol' || type == 'boolean' ||
-      value == null || isSymbol(value)) {
-    return true;
-  }
-  return reIsPlainProp.test(value) || !reIsDeepProp.test(value) ||
-    (object != null && value in Object(object));
-}
-
-module.exports = isKey;
-
-
-/***/ }),
-/* 23 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var baseGetTag = __webpack_require__(24),
-    isObjectLike = __webpack_require__(30);
-
-/** `Object#toString` result references. */
-var symbolTag = '[object Symbol]';
-
-/**
- * Checks if `value` is classified as a `Symbol` primitive or object.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a symbol, else `false`.
- * @example
- *
- * _.isSymbol(Symbol.iterator);
- * // => true
- *
- * _.isSymbol('abc');
- * // => false
- */
-function isSymbol(value) {
-  return typeof value == 'symbol' ||
-    (isObjectLike(value) && baseGetTag(value) == symbolTag);
-}
-
-module.exports = isSymbol;
-
-
-/***/ }),
-/* 24 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Symbol = __webpack_require__(25),
-    getRawTag = __webpack_require__(28),
-    objectToString = __webpack_require__(29);
-
-/** `Object#toString` result references. */
-var nullTag = '[object Null]',
-    undefinedTag = '[object Undefined]';
-
-/** Built-in value references. */
-var symToStringTag = Symbol ? Symbol.toStringTag : undefined;
-
-/**
- * The base implementation of `getTag` without fallbacks for buggy environments.
- *
- * @private
- * @param {*} value The value to query.
- * @returns {string} Returns the `toStringTag`.
- */
-function baseGetTag(value) {
-  if (value == null) {
-    return value === undefined ? undefinedTag : nullTag;
-  }
-  return (symToStringTag && symToStringTag in Object(value))
-    ? getRawTag(value)
-    : objectToString(value);
-}
-
-module.exports = baseGetTag;
-
-
-/***/ }),
-/* 25 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var root = __webpack_require__(26);
-
-/** Built-in value references. */
-var Symbol = root.Symbol;
-
-module.exports = Symbol;
-
-
-/***/ }),
-/* 26 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var freeGlobal = __webpack_require__(27);
-
-/** Detect free variable `self`. */
-var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
-
-/** Used as a reference to the global object. */
-var root = freeGlobal || freeSelf || Function('return this')();
-
-module.exports = root;
-
-
-/***/ }),
-/* 27 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-/** Detect free variable `global` from Node.js. */
-var freeGlobal = typeof __webpack_require__.g == 'object' && __webpack_require__.g && __webpack_require__.g.Object === Object && __webpack_require__.g;
-
-module.exports = freeGlobal;
-
-
-/***/ }),
-/* 28 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Symbol = __webpack_require__(25);
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Used to resolve the
- * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
- * of values.
- */
-var nativeObjectToString = objectProto.toString;
-
-/** Built-in value references. */
-var symToStringTag = Symbol ? Symbol.toStringTag : undefined;
-
-/**
- * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
- *
- * @private
- * @param {*} value The value to query.
- * @returns {string} Returns the raw `toStringTag`.
- */
-function getRawTag(value) {
-  var isOwn = hasOwnProperty.call(value, symToStringTag),
-      tag = value[symToStringTag];
-
-  try {
-    value[symToStringTag] = undefined;
-    var unmasked = true;
-  } catch (e) {}
-
-  var result = nativeObjectToString.call(value);
-  if (unmasked) {
-    if (isOwn) {
-      value[symToStringTag] = tag;
-    } else {
-      delete value[symToStringTag];
-    }
-  }
-  return result;
-}
-
-module.exports = getRawTag;
-
-
-/***/ }),
-/* 29 */
-/***/ ((module) => {
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/**
- * Used to resolve the
- * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
- * of values.
- */
-var nativeObjectToString = objectProto.toString;
-
-/**
- * Converts `value` to a string using `Object.prototype.toString`.
- *
- * @private
- * @param {*} value The value to convert.
- * @returns {string} Returns the converted string.
- */
-function objectToString(value) {
-  return nativeObjectToString.call(value);
-}
-
-module.exports = objectToString;
-
-
-/***/ }),
-/* 30 */
-/***/ ((module) => {
-
-/**
- * Checks if `value` is object-like. A value is object-like if it's not `null`
- * and has a `typeof` result of "object".
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is object-like, else `false`.
- * @example
- *
- * _.isObjectLike({});
- * // => true
- *
- * _.isObjectLike([1, 2, 3]);
- * // => true
- *
- * _.isObjectLike(_.noop);
- * // => false
- *
- * _.isObjectLike(null);
- * // => false
- */
-function isObjectLike(value) {
-  return value != null && typeof value == 'object';
-}
-
-module.exports = isObjectLike;
-
-
-/***/ }),
-/* 31 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var memoizeCapped = __webpack_require__(32);
-
-/** Used to match property names within property paths. */
-var rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|$))/g;
-
-/** Used to match backslashes in property paths. */
-var reEscapeChar = /\\(\\)?/g;
-
-/**
- * Converts `string` to a property path array.
- *
- * @private
- * @param {string} string The string to convert.
- * @returns {Array} Returns the property path array.
- */
-var stringToPath = memoizeCapped(function(string) {
-  var result = [];
-  if (string.charCodeAt(0) === 46 /* . */) {
-    result.push('');
-  }
-  string.replace(rePropName, function(match, number, quote, subString) {
-    result.push(quote ? subString.replace(reEscapeChar, '$1') : (number || match));
-  });
-  return result;
-});
-
-module.exports = stringToPath;
-
-
-/***/ }),
-/* 32 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var memoize = __webpack_require__(33);
-
-/** Used as the maximum memoize cache size. */
-var MAX_MEMOIZE_SIZE = 500;
-
-/**
- * A specialized version of `_.memoize` which clears the memoized function's
- * cache when it exceeds `MAX_MEMOIZE_SIZE`.
- *
- * @private
- * @param {Function} func The function to have its output memoized.
- * @returns {Function} Returns the new memoized function.
- */
-function memoizeCapped(func) {
-  var result = memoize(func, function(key) {
-    if (cache.size === MAX_MEMOIZE_SIZE) {
-      cache.clear();
-    }
-    return key;
-  });
-
-  var cache = result.cache;
-  return result;
-}
-
-module.exports = memoizeCapped;
-
-
-/***/ }),
-/* 33 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var MapCache = __webpack_require__(34);
-
-/** Error message constants. */
-var FUNC_ERROR_TEXT = 'Expected a function';
-
-/**
- * Creates a function that memoizes the result of `func`. If `resolver` is
- * provided, it determines the cache key for storing the result based on the
- * arguments provided to the memoized function. By default, the first argument
- * provided to the memoized function is used as the map cache key. The `func`
- * is invoked with the `this` binding of the memoized function.
- *
- * **Note:** The cache is exposed as the `cache` property on the memoized
- * function. Its creation may be customized by replacing the `_.memoize.Cache`
- * constructor with one whose instances implement the
- * [`Map`](http://ecma-international.org/ecma-262/7.0/#sec-properties-of-the-map-prototype-object)
- * method interface of `clear`, `delete`, `get`, `has`, and `set`.
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Function
- * @param {Function} func The function to have its output memoized.
- * @param {Function} [resolver] The function to resolve the cache key.
- * @returns {Function} Returns the new memoized function.
- * @example
- *
- * var object = { 'a': 1, 'b': 2 };
- * var other = { 'c': 3, 'd': 4 };
- *
- * var values = _.memoize(_.values);
- * values(object);
- * // => [1, 2]
- *
- * values(other);
- * // => [3, 4]
- *
- * object.a = 2;
- * values(object);
- * // => [1, 2]
- *
- * // Modify the result cache.
- * values.cache.set(object, ['a', 'b']);
- * values(object);
- * // => ['a', 'b']
- *
- * // Replace `_.memoize.Cache`.
- * _.memoize.Cache = WeakMap;
- */
-function memoize(func, resolver) {
-  if (typeof func != 'function' || (resolver != null && typeof resolver != 'function')) {
-    throw new TypeError(FUNC_ERROR_TEXT);
-  }
-  var memoized = function() {
-    var args = arguments,
-        key = resolver ? resolver.apply(this, args) : args[0],
-        cache = memoized.cache;
-
-    if (cache.has(key)) {
-      return cache.get(key);
-    }
-    var result = func.apply(this, args);
-    memoized.cache = cache.set(key, result) || cache;
-    return result;
-  };
-  memoized.cache = new (memoize.Cache || MapCache);
-  return memoized;
-}
-
-// Expose `MapCache`.
-memoize.Cache = MapCache;
-
-module.exports = memoize;
-
-
-/***/ }),
-/* 34 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var mapCacheClear = __webpack_require__(35),
-    mapCacheDelete = __webpack_require__(60),
-    mapCacheGet = __webpack_require__(63),
-    mapCacheHas = __webpack_require__(64),
-    mapCacheSet = __webpack_require__(65);
-
-/**
- * Creates a map cache object to store key-value pairs.
- *
- * @private
- * @constructor
- * @param {Array} [entries] The key-value pairs to cache.
- */
-function MapCache(entries) {
-  var index = -1,
-      length = entries == null ? 0 : entries.length;
-
-  this.clear();
-  while (++index < length) {
-    var entry = entries[index];
-    this.set(entry[0], entry[1]);
-  }
-}
-
-// Add methods to `MapCache`.
-MapCache.prototype.clear = mapCacheClear;
-MapCache.prototype['delete'] = mapCacheDelete;
-MapCache.prototype.get = mapCacheGet;
-MapCache.prototype.has = mapCacheHas;
-MapCache.prototype.set = mapCacheSet;
-
-module.exports = MapCache;
-
-
-/***/ }),
-/* 35 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Hash = __webpack_require__(36),
-    ListCache = __webpack_require__(51),
-    Map = __webpack_require__(59);
-
-/**
- * Removes all key-value entries from the map.
- *
- * @private
- * @name clear
- * @memberOf MapCache
- */
-function mapCacheClear() {
-  this.size = 0;
-  this.__data__ = {
-    'hash': new Hash,
-    'map': new (Map || ListCache),
-    'string': new Hash
-  };
-}
-
-module.exports = mapCacheClear;
-
-
-/***/ }),
-/* 36 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var hashClear = __webpack_require__(37),
-    hashDelete = __webpack_require__(47),
-    hashGet = __webpack_require__(48),
-    hashHas = __webpack_require__(49),
-    hashSet = __webpack_require__(50);
-
-/**
- * Creates a hash object.
- *
- * @private
- * @constructor
- * @param {Array} [entries] The key-value pairs to cache.
- */
-function Hash(entries) {
-  var index = -1,
-      length = entries == null ? 0 : entries.length;
-
-  this.clear();
-  while (++index < length) {
-    var entry = entries[index];
-    this.set(entry[0], entry[1]);
-  }
-}
-
-// Add methods to `Hash`.
-Hash.prototype.clear = hashClear;
-Hash.prototype['delete'] = hashDelete;
-Hash.prototype.get = hashGet;
-Hash.prototype.has = hashHas;
-Hash.prototype.set = hashSet;
-
-module.exports = Hash;
-
-
-/***/ }),
-/* 37 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var nativeCreate = __webpack_require__(38);
-
-/**
- * Removes all key-value entries from the hash.
- *
- * @private
- * @name clear
- * @memberOf Hash
- */
-function hashClear() {
-  this.__data__ = nativeCreate ? nativeCreate(null) : {};
-  this.size = 0;
-}
-
-module.exports = hashClear;
-
-
-/***/ }),
-/* 38 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var getNative = __webpack_require__(39);
-
-/* Built-in method references that are verified to be native. */
-var nativeCreate = getNative(Object, 'create');
-
-module.exports = nativeCreate;
-
-
-/***/ }),
-/* 39 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var baseIsNative = __webpack_require__(40),
-    getValue = __webpack_require__(46);
-
-/**
- * Gets the native function at `key` of `object`.
- *
- * @private
- * @param {Object} object The object to query.
- * @param {string} key The key of the method to get.
- * @returns {*} Returns the function if it's native, else `undefined`.
- */
-function getNative(object, key) {
-  var value = getValue(object, key);
-  return baseIsNative(value) ? value : undefined;
-}
-
-module.exports = getNative;
-
-
-/***/ }),
-/* 40 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var isFunction = __webpack_require__(41),
-    isMasked = __webpack_require__(43),
-    isObject = __webpack_require__(42),
-    toSource = __webpack_require__(45);
-
-/**
- * Used to match `RegExp`
- * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
- */
-var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
-
-/** Used to detect host constructors (Safari). */
-var reIsHostCtor = /^\[object .+?Constructor\]$/;
-
-/** Used for built-in method references. */
-var funcProto = Function.prototype,
-    objectProto = Object.prototype;
-
-/** Used to resolve the decompiled source of functions. */
-var funcToString = funcProto.toString;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/** Used to detect if a method is native. */
-var reIsNative = RegExp('^' +
-  funcToString.call(hasOwnProperty).replace(reRegExpChar, '\\$&')
-  .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
-);
-
-/**
- * The base implementation of `_.isNative` without bad shim checks.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a native function,
- *  else `false`.
- */
-function baseIsNative(value) {
-  if (!isObject(value) || isMasked(value)) {
-    return false;
-  }
-  var pattern = isFunction(value) ? reIsNative : reIsHostCtor;
-  return pattern.test(toSource(value));
-}
-
-module.exports = baseIsNative;
-
-
-/***/ }),
-/* 41 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var baseGetTag = __webpack_require__(24),
-    isObject = __webpack_require__(42);
-
-/** `Object#toString` result references. */
-var asyncTag = '[object AsyncFunction]',
-    funcTag = '[object Function]',
-    genTag = '[object GeneratorFunction]',
-    proxyTag = '[object Proxy]';
-
-/**
- * Checks if `value` is classified as a `Function` object.
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is a function, else `false`.
- * @example
- *
- * _.isFunction(_);
- * // => true
- *
- * _.isFunction(/abc/);
- * // => false
- */
-function isFunction(value) {
-  if (!isObject(value)) {
-    return false;
-  }
-  // The use of `Object#toString` avoids issues with the `typeof` operator
-  // in Safari 9 which returns 'object' for typed arrays and other constructors.
-  var tag = baseGetTag(value);
-  return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
-}
-
-module.exports = isFunction;
-
-
-/***/ }),
-/* 42 */
-/***/ ((module) => {
-
-/**
- * Checks if `value` is the
- * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
- * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
- *
- * @static
- * @memberOf _
- * @since 0.1.0
- * @category Lang
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is an object, else `false`.
- * @example
- *
- * _.isObject({});
- * // => true
- *
- * _.isObject([1, 2, 3]);
- * // => true
- *
- * _.isObject(_.noop);
- * // => true
- *
- * _.isObject(null);
- * // => false
- */
-function isObject(value) {
-  var type = typeof value;
-  return value != null && (type == 'object' || type == 'function');
-}
-
-module.exports = isObject;
-
-
-/***/ }),
-/* 43 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var coreJsData = __webpack_require__(44);
-
-/** Used to detect methods masquerading as native. */
-var maskSrcKey = (function() {
-  var uid = /[^.]+$/.exec(coreJsData && coreJsData.keys && coreJsData.keys.IE_PROTO || '');
-  return uid ? ('Symbol(src)_1.' + uid) : '';
-}());
-
-/**
- * Checks if `func` has its source masked.
- *
- * @private
- * @param {Function} func The function to check.
- * @returns {boolean} Returns `true` if `func` is masked, else `false`.
- */
-function isMasked(func) {
-  return !!maskSrcKey && (maskSrcKey in func);
-}
-
-module.exports = isMasked;
-
-
-/***/ }),
-/* 44 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var root = __webpack_require__(26);
-
-/** Used to detect overreaching core-js shims. */
-var coreJsData = root['__core-js_shared__'];
-
-module.exports = coreJsData;
-
-
-/***/ }),
-/* 45 */
-/***/ ((module) => {
-
-/** Used for built-in method references. */
-var funcProto = Function.prototype;
-
-/** Used to resolve the decompiled source of functions. */
-var funcToString = funcProto.toString;
-
-/**
- * Converts `func` to its source code.
- *
- * @private
- * @param {Function} func The function to convert.
- * @returns {string} Returns the source code.
- */
-function toSource(func) {
-  if (func != null) {
-    try {
-      return funcToString.call(func);
-    } catch (e) {}
-    try {
-      return (func + '');
-    } catch (e) {}
-  }
-  return '';
-}
-
-module.exports = toSource;
-
-
-/***/ }),
-/* 46 */
-/***/ ((module) => {
-
-/**
- * Gets the value at `key` of `object`.
- *
- * @private
- * @param {Object} [object] The object to query.
- * @param {string} key The key of the property to get.
- * @returns {*} Returns the property value.
- */
-function getValue(object, key) {
-  return object == null ? undefined : object[key];
-}
-
-module.exports = getValue;
-
-
-/***/ }),
-/* 47 */
-/***/ ((module) => {
-
-/**
- * Removes `key` and its value from the hash.
- *
- * @private
- * @name delete
- * @memberOf Hash
- * @param {Object} hash The hash to modify.
- * @param {string} key The key of the value to remove.
- * @returns {boolean} Returns `true` if the entry was removed, else `false`.
- */
-function hashDelete(key) {
-  var result = this.has(key) && delete this.__data__[key];
-  this.size -= result ? 1 : 0;
-  return result;
-}
-
-module.exports = hashDelete;
-
-
-/***/ }),
-/* 48 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var nativeCreate = __webpack_require__(38);
-
-/** Used to stand-in for `undefined` hash values. */
-var HASH_UNDEFINED = '__lodash_hash_undefined__';
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Gets the hash value for `key`.
- *
- * @private
- * @name get
- * @memberOf Hash
- * @param {string} key The key of the value to get.
- * @returns {*} Returns the entry value.
- */
-function hashGet(key) {
-  var data = this.__data__;
-  if (nativeCreate) {
-    var result = data[key];
-    return result === HASH_UNDEFINED ? undefined : result;
-  }
-  return hasOwnProperty.call(data, key) ? data[key] : undefined;
-}
-
-module.exports = hashGet;
-
-
-/***/ }),
-/* 49 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var nativeCreate = __webpack_require__(38);
-
-/** Used for built-in method references. */
-var objectProto = Object.prototype;
-
-/** Used to check objects for own properties. */
-var hasOwnProperty = objectProto.hasOwnProperty;
-
-/**
- * Checks if a hash value for `key` exists.
- *
- * @private
- * @name has
- * @memberOf Hash
- * @param {string} key The key of the entry to check.
- * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
- */
-function hashHas(key) {
-  var data = this.__data__;
-  return nativeCreate ? (data[key] !== undefined) : hasOwnProperty.call(data, key);
-}
-
-module.exports = hashHas;
-
-
-/***/ }),
-/* 50 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var nativeCreate = __webpack_require__(38);
-
-/** Used to stand-in for `undefined` hash values. */
-var HASH_UNDEFINED = '__lodash_hash_undefined__';
-
-/**
- * Sets the hash `key` to `value`.
- *
- * @private
- * @name set
- * @memberOf Hash
- * @param {string} key The key of the value to set.
- * @param {*} value The value to set.
- * @returns {Object} Returns the hash instance.
- */
-function hashSet(key, value) {
-  var data = this.__data__;
-  this.size += this.has(key) ? 0 : 1;
-  data[key] = (nativeCreate && value === undefined) ? HASH_UNDEFINED : value;
-  return this;
-}
-
-module.exports = hashSet;
-
-
-/***/ }),
-/* 51 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var listCacheClear = __webpack_require__(52),
-    listCacheDelete = __webpack_require__(53),
-    listCacheGet = __webpack_require__(56),
-    listCacheHas = __webpack_require__(57),
-    listCacheSet = __webpack_require__(58);
-
-/**
- * Creates an list cache object.
- *
- * @private
- * @constructor
- * @param {Array} [entries] The key-value pairs to cache.
- */
-function ListCache(entries) {
-  var index = -1,
-      length = entries == null ? 0 : entries.length;
-
-  this.clear();
-  while (++index < length) {
-    var entry = entries[index];
-    this.set(entry[0], entry[1]);
-  }
-}
-
-// Add methods to `ListCache`.
-ListCache.prototype.clear = listCacheClear;
-ListCache.prototype['delete'] = listCacheDelete;
-ListCache.prototype.get = listCacheGet;
-ListCache.prototype.has = listCacheHas;
-ListCache.prototype.set = listCacheSet;
-
-module.exports = ListCache;
-
-
-/***/ }),
-/* 52 */
-/***/ ((module) => {
-
-/**
- * Removes all key-value entries from the list cache.
- *
- * @private
- * @name clear
- * @memberOf ListCache
- */
-function listCacheClear() {
-  this.__data__ = [];
-  this.size = 0;
-}
-
-module.exports = listCacheClear;
-
-
-/***/ }),
-/* 53 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var assocIndexOf = __webpack_require__(54);
-
-/** Used for built-in method references. */
-var arrayProto = Array.prototype;
-
-/** Built-in value references. */
-var splice = arrayProto.splice;
-
-/**
- * Removes `key` and its value from the list cache.
- *
- * @private
- * @name delete
- * @memberOf ListCache
- * @param {string} key The key of the value to remove.
- * @returns {boolean} Returns `true` if the entry was removed, else `false`.
- */
-function listCacheDelete(key) {
-  var data = this.__data__,
-      index = assocIndexOf(data, key);
-
-  if (index < 0) {
-    return false;
-  }
-  var lastIndex = data.length - 1;
-  if (index == lastIndex) {
-    data.pop();
-  } else {
-    splice.call(data, index, 1);
-  }
-  --this.size;
-  return true;
-}
-
-module.exports = listCacheDelete;
-
-
-/***/ }),
-/* 54 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var eq = __webpack_require__(55);
-
-/**
- * Gets the index at which the `key` is found in `array` of key-value pairs.
- *
- * @private
- * @param {Array} array The array to inspect.
- * @param {*} key The key to search for.
- * @returns {number} Returns the index of the matched value, else `-1`.
- */
-function assocIndexOf(array, key) {
-  var length = array.length;
-  while (length--) {
-    if (eq(array[length][0], key)) {
-      return length;
-    }
-  }
-  return -1;
-}
-
-module.exports = assocIndexOf;
-
-
-/***/ }),
-/* 55 */
-/***/ ((module) => {
-
-/**
- * Performs a
- * [`SameValueZero`](http://ecma-international.org/ecma-262/7.0/#sec-samevaluezero)
- * comparison between two values to determine if they are equivalent.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to compare.
- * @param {*} other The other value to compare.
- * @returns {boolean} Returns `true` if the values are equivalent, else `false`.
- * @example
- *
- * var object = { 'a': 1 };
- * var other = { 'a': 1 };
- *
- * _.eq(object, object);
- * // => true
- *
- * _.eq(object, other);
- * // => false
- *
- * _.eq('a', 'a');
- * // => true
- *
- * _.eq('a', Object('a'));
- * // => false
- *
- * _.eq(NaN, NaN);
- * // => true
- */
-function eq(value, other) {
-  return value === other || (value !== value && other !== other);
-}
-
-module.exports = eq;
-
-
-/***/ }),
-/* 56 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var assocIndexOf = __webpack_require__(54);
-
-/**
- * Gets the list cache value for `key`.
- *
- * @private
- * @name get
- * @memberOf ListCache
- * @param {string} key The key of the value to get.
- * @returns {*} Returns the entry value.
- */
-function listCacheGet(key) {
-  var data = this.__data__,
-      index = assocIndexOf(data, key);
-
-  return index < 0 ? undefined : data[index][1];
-}
-
-module.exports = listCacheGet;
-
-
-/***/ }),
-/* 57 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var assocIndexOf = __webpack_require__(54);
-
-/**
- * Checks if a list cache value for `key` exists.
- *
- * @private
- * @name has
- * @memberOf ListCache
- * @param {string} key The key of the entry to check.
- * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
- */
-function listCacheHas(key) {
-  return assocIndexOf(this.__data__, key) > -1;
-}
-
-module.exports = listCacheHas;
-
-
-/***/ }),
-/* 58 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var assocIndexOf = __webpack_require__(54);
-
-/**
- * Sets the list cache `key` to `value`.
- *
- * @private
- * @name set
- * @memberOf ListCache
- * @param {string} key The key of the value to set.
- * @param {*} value The value to set.
- * @returns {Object} Returns the list cache instance.
- */
-function listCacheSet(key, value) {
-  var data = this.__data__,
-      index = assocIndexOf(data, key);
-
-  if (index < 0) {
-    ++this.size;
-    data.push([key, value]);
-  } else {
-    data[index][1] = value;
-  }
-  return this;
-}
-
-module.exports = listCacheSet;
-
-
-/***/ }),
-/* 59 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var getNative = __webpack_require__(39),
-    root = __webpack_require__(26);
-
-/* Built-in method references that are verified to be native. */
-var Map = getNative(root, 'Map');
-
-module.exports = Map;
-
-
-/***/ }),
-/* 60 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var getMapData = __webpack_require__(61);
-
-/**
- * Removes `key` and its value from the map.
- *
- * @private
- * @name delete
- * @memberOf MapCache
- * @param {string} key The key of the value to remove.
- * @returns {boolean} Returns `true` if the entry was removed, else `false`.
- */
-function mapCacheDelete(key) {
-  var result = getMapData(this, key)['delete'](key);
-  this.size -= result ? 1 : 0;
-  return result;
-}
-
-module.exports = mapCacheDelete;
-
-
-/***/ }),
-/* 61 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var isKeyable = __webpack_require__(62);
-
-/**
- * Gets the data for `map`.
- *
- * @private
- * @param {Object} map The map to query.
- * @param {string} key The reference key.
- * @returns {*} Returns the map data.
- */
-function getMapData(map, key) {
-  var data = map.__data__;
-  return isKeyable(key)
-    ? data[typeof key == 'string' ? 'string' : 'hash']
-    : data.map;
-}
-
-module.exports = getMapData;
-
-
-/***/ }),
-/* 62 */
-/***/ ((module) => {
-
-/**
- * Checks if `value` is suitable for use as unique object key.
- *
- * @private
- * @param {*} value The value to check.
- * @returns {boolean} Returns `true` if `value` is suitable, else `false`.
- */
-function isKeyable(value) {
-  var type = typeof value;
-  return (type == 'string' || type == 'number' || type == 'symbol' || type == 'boolean')
-    ? (value !== '__proto__')
-    : (value === null);
-}
-
-module.exports = isKeyable;
-
-
-/***/ }),
-/* 63 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var getMapData = __webpack_require__(61);
-
-/**
- * Gets the map value for `key`.
- *
- * @private
- * @name get
- * @memberOf MapCache
- * @param {string} key The key of the value to get.
- * @returns {*} Returns the entry value.
- */
-function mapCacheGet(key) {
-  return getMapData(this, key).get(key);
-}
-
-module.exports = mapCacheGet;
-
-
-/***/ }),
-/* 64 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var getMapData = __webpack_require__(61);
-
-/**
- * Checks if a map value for `key` exists.
- *
- * @private
- * @name has
- * @memberOf MapCache
- * @param {string} key The key of the entry to check.
- * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
- */
-function mapCacheHas(key) {
-  return getMapData(this, key).has(key);
-}
-
-module.exports = mapCacheHas;
-
-
-/***/ }),
-/* 65 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var getMapData = __webpack_require__(61);
-
-/**
- * Sets the map `key` to `value`.
- *
- * @private
- * @name set
- * @memberOf MapCache
- * @param {string} key The key of the value to set.
- * @param {*} value The value to set.
- * @returns {Object} Returns the map cache instance.
- */
-function mapCacheSet(key, value) {
-  var data = getMapData(this, key),
-      size = data.size;
-
-  data.set(key, value);
-  this.size += data.size == size ? 0 : 1;
-  return this;
-}
-
-module.exports = mapCacheSet;
-
-
-/***/ }),
-/* 66 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var baseToString = __webpack_require__(67);
-
-/**
- * Converts `value` to a string. An empty string is returned for `null`
- * and `undefined` values. The sign of `-0` is preserved.
- *
- * @static
- * @memberOf _
- * @since 4.0.0
- * @category Lang
- * @param {*} value The value to convert.
- * @returns {string} Returns the converted string.
- * @example
- *
- * _.toString(null);
- * // => ''
- *
- * _.toString(-0);
- * // => '-0'
- *
- * _.toString([1, 2, 3]);
- * // => '1,2,3'
- */
-function toString(value) {
-  return value == null ? '' : baseToString(value);
-}
-
-module.exports = toString;
-
-
-/***/ }),
-/* 67 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Symbol = __webpack_require__(25),
-    arrayMap = __webpack_require__(68),
-    isArray = __webpack_require__(21),
-    isSymbol = __webpack_require__(23);
-
-/** Used as references for various `Number` constants. */
-var INFINITY = 1 / 0;
-
-/** Used to convert symbols to primitives and strings. */
-var symbolProto = Symbol ? Symbol.prototype : undefined,
-    symbolToString = symbolProto ? symbolProto.toString : undefined;
-
-/**
- * The base implementation of `_.toString` which doesn't convert nullish
- * values to empty strings.
- *
- * @private
- * @param {*} value The value to process.
- * @returns {string} Returns the string.
- */
-function baseToString(value) {
-  // Exit early for strings to avoid a performance hit in some environments.
-  if (typeof value == 'string') {
-    return value;
-  }
-  if (isArray(value)) {
-    // Recursively convert values (susceptible to call stack limits).
-    return arrayMap(value, baseToString) + '';
-  }
-  if (isSymbol(value)) {
-    return symbolToString ? symbolToString.call(value) : '';
-  }
-  var result = (value + '');
-  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
-}
-
-module.exports = baseToString;
-
-
-/***/ }),
-/* 68 */
-/***/ ((module) => {
-
-/**
- * A specialized version of `_.map` for arrays without support for iteratee
- * shorthands.
- *
- * @private
- * @param {Array} [array] The array to iterate over.
- * @param {Function} iteratee The function invoked per iteration.
- * @returns {Array} Returns the new mapped array.
- */
-function arrayMap(array, iteratee) {
-  var index = -1,
-      length = array == null ? 0 : array.length,
-      result = Array(length);
-
-  while (++index < length) {
-    result[index] = iteratee(array[index], index, array);
-  }
-  return result;
-}
-
-module.exports = arrayMap;
-
-
-/***/ }),
-/* 69 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var isSymbol = __webpack_require__(23);
-
-/** Used as references for various `Number` constants. */
-var INFINITY = 1 / 0;
-
-/**
- * Converts `value` to a string key if it's not a string or symbol.
- *
- * @private
- * @param {*} value The value to inspect.
- * @returns {string|symbol} Returns the key.
- */
-function toKey(value) {
-  if (typeof value == 'string' || isSymbol(value)) {
-    return value;
-  }
-  var result = (value + '');
-  return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
-}
-
-module.exports = toKey;
-
-
-/***/ }),
-/* 70 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
 "use strict";
 
-const pTimeout = __webpack_require__(71);
+const pTimeout = __webpack_require__(19);
 
 const pWaitFor = async (condition, options) => {
 	options = {
@@ -3569,13 +1922,13 @@ module.exports["default"] = pWaitFor;
 
 
 /***/ }),
-/* 71 */
+/* 19 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 "use strict";
 
 
-const pFinally = __webpack_require__(72);
+const pFinally = __webpack_require__(20);
 
 class TimeoutError extends Error {
 	constructor(message) {
@@ -3633,7 +1986,7 @@ module.exports.TimeoutError = TimeoutError;
 
 
 /***/ }),
-/* 72 */
+/* 20 */
 /***/ ((module) => {
 
 "use strict";
@@ -3655,15 +2008,15 @@ module.exports = (promise, onFinally) => {
 
 
 /***/ }),
-/* 73 */
+/* 21 */
 /***/ ((module, exports, __webpack_require__) => {
 
-var Minilog = __webpack_require__(74);
+var Minilog = __webpack_require__(22);
 
 var oldEnable = Minilog.enable,
     oldDisable = Minilog.disable,
     isChrome = (typeof navigator != 'undefined' && /chrome/i.test(navigator.userAgent)),
-    console = __webpack_require__(78);
+    console = __webpack_require__(26);
 
 // Use a more capable logging backend if on Chrome
 Minilog.defaultBackend = (isChrome ? console.minilog : console);
@@ -3695,19 +2048,19 @@ Minilog.disable = function() {
 exports = module.exports = Minilog;
 
 exports.backends = {
-  array: __webpack_require__(82),
+  array: __webpack_require__(30),
   browser: Minilog.defaultBackend,
-  localStorage: __webpack_require__(83),
-  jQuery: __webpack_require__(84)
+  localStorage: __webpack_require__(31),
+  jQuery: __webpack_require__(32)
 };
 
 
 /***/ }),
-/* 74 */
+/* 22 */
 /***/ ((module, exports, __webpack_require__) => {
 
-var Transform = __webpack_require__(75),
-    Filter = __webpack_require__(77);
+var Transform = __webpack_require__(23),
+    Filter = __webpack_require__(25);
 
 var log = new Transform(),
     slice = Array.prototype.slice;
@@ -3756,10 +2109,10 @@ exports.enable = function() {
 
 
 /***/ }),
-/* 75 */
+/* 23 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var microee = __webpack_require__(76);
+var microee = __webpack_require__(24);
 
 // Implements a subset of Node's stream.Transform - in a cross-platform manner.
 function Transform() {}
@@ -3834,7 +2187,7 @@ module.exports = Transform;
 
 
 /***/ }),
-/* 76 */
+/* 24 */
 /***/ ((module) => {
 
 function M() { this._events = {}; }
@@ -3890,11 +2243,11 @@ module.exports = M;
 
 
 /***/ }),
-/* 77 */
+/* 25 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 // default filter
-var Transform = __webpack_require__(75);
+var Transform = __webpack_require__(23);
 
 var levelMap = { debug: 1, info: 2, warn: 3, error: 4 };
 
@@ -3952,10 +2305,10 @@ module.exports = Filter;
 
 
 /***/ }),
-/* 78 */
+/* 26 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var Transform = __webpack_require__(75);
+var Transform = __webpack_require__(23);
 
 var newlines = /\n+$/,
     logger = new Transform();
@@ -3983,18 +2336,18 @@ logger.write = function(name, level, args) {
 };
 
 logger.formatters = ['color', 'minilog'];
-logger.color = __webpack_require__(79);
-logger.minilog = __webpack_require__(81);
+logger.color = __webpack_require__(27);
+logger.minilog = __webpack_require__(29);
 
 module.exports = logger;
 
 
 /***/ }),
-/* 79 */
+/* 27 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var Transform = __webpack_require__(75),
-    color = __webpack_require__(80);
+var Transform = __webpack_require__(23),
+    color = __webpack_require__(28);
 
 var colors = { debug: ['cyan'], info: ['purple' ], warn: [ 'yellow', true ], error: [ 'red', true ] },
     logger = new Transform();
@@ -4014,7 +2367,7 @@ module.exports = logger;
 
 
 /***/ }),
-/* 80 */
+/* 28 */
 /***/ ((module) => {
 
 var hex = {
@@ -4040,11 +2393,11 @@ module.exports = color;
 
 
 /***/ }),
-/* 81 */
+/* 29 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var Transform = __webpack_require__(75),
-    color = __webpack_require__(80),
+var Transform = __webpack_require__(23),
+    color = __webpack_require__(28),
     colors = { debug: ['gray'], info: ['purple' ], warn: [ 'yellow', true ], error: [ 'red', true ] },
     logger = new Transform();
 
@@ -4072,10 +2425,10 @@ module.exports = logger;
 
 
 /***/ }),
-/* 82 */
+/* 30 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var Transform = __webpack_require__(75),
+var Transform = __webpack_require__(23),
     cache = [ ];
 
 var logger = new Transform();
@@ -4092,10 +2445,10 @@ module.exports = logger;
 
 
 /***/ }),
-/* 83 */
+/* 31 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var Transform = __webpack_require__(75),
+var Transform = __webpack_require__(23),
     cache = false;
 
 var logger = new Transform();
@@ -4112,10 +2465,10 @@ logger.write = function(name, level, args) {
 module.exports = logger;
 
 /***/ }),
-/* 84 */
+/* 32 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var Transform = __webpack_require__(75);
+var Transform = __webpack_require__(23);
 
 var cid = new Date().valueOf().toString(36);
 
@@ -4192,7 +2545,7 @@ module.exports = AjaxLogger;
 
 
 /***/ }),
-/* 85 */
+/* 33 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -4213,17 +2566,17 @@ var _classCallCheck2 = _interopRequireDefault(__webpack_require__(14));
 
 var _createClass2 = _interopRequireDefault(__webpack_require__(15));
 
-var _inherits2 = _interopRequireDefault(__webpack_require__(86));
+var _inherits2 = _interopRequireDefault(__webpack_require__(34));
 
-var _possibleConstructorReturn2 = _interopRequireDefault(__webpack_require__(88));
+var _possibleConstructorReturn2 = _interopRequireDefault(__webpack_require__(36));
 
-var _getPrototypeOf2 = _interopRequireDefault(__webpack_require__(90));
+var _getPrototypeOf2 = _interopRequireDefault(__webpack_require__(38));
 
-var _postMe = __webpack_require__(91);
+var _postMe = __webpack_require__(39);
 
-var _ContentScriptMessenger = _interopRequireDefault(__webpack_require__(92));
+var _ContentScriptMessenger = _interopRequireDefault(__webpack_require__(40));
 
-var _bridgeInterfaces = __webpack_require__(93);
+var _bridgeInterfaces = __webpack_require__(41);
 
 function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = (0, _getPrototypeOf2.default)(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = (0, _getPrototypeOf2.default)(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return (0, _possibleConstructorReturn2.default)(this, result); }; }
 
@@ -4300,10 +2653,10 @@ var LauncherBridge = /*#__PURE__*/function (_Bridge) {
 exports["default"] = LauncherBridge;
 
 /***/ }),
-/* 86 */
+/* 34 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var setPrototypeOf = __webpack_require__(87);
+var setPrototypeOf = __webpack_require__(35);
 function _inherits(subClass, superClass) {
   if (typeof superClass !== "function" && superClass !== null) {
     throw new TypeError("Super expression must either be null or a function");
@@ -4323,7 +2676,7 @@ function _inherits(subClass, superClass) {
 module.exports = _inherits, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 87 */
+/* 35 */
 /***/ ((module) => {
 
 function _setPrototypeOf(o, p) {
@@ -4336,11 +2689,11 @@ function _setPrototypeOf(o, p) {
 module.exports = _setPrototypeOf, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 88 */
+/* 36 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 var _typeof = (__webpack_require__(6)["default"]);
-var assertThisInitialized = __webpack_require__(89);
+var assertThisInitialized = __webpack_require__(37);
 function _possibleConstructorReturn(self, call) {
   if (call && (_typeof(call) === "object" || typeof call === "function")) {
     return call;
@@ -4352,7 +2705,7 @@ function _possibleConstructorReturn(self, call) {
 module.exports = _possibleConstructorReturn, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 89 */
+/* 37 */
 /***/ ((module) => {
 
 function _assertThisInitialized(self) {
@@ -4364,7 +2717,7 @@ function _assertThisInitialized(self) {
 module.exports = _assertThisInitialized, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 90 */
+/* 38 */
 /***/ ((module) => {
 
 function _getPrototypeOf(o) {
@@ -4376,7 +2729,7 @@ function _getPrototypeOf(o) {
 module.exports = _getPrototypeOf, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 91 */
+/* 39 */
 /***/ (function(module, exports) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
@@ -5361,7 +3714,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 
 
 /***/ }),
-/* 92 */
+/* 40 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -5378,13 +3731,13 @@ var _classCallCheck2 = _interopRequireDefault(__webpack_require__(14));
 
 var _createClass2 = _interopRequireDefault(__webpack_require__(15));
 
-var _inherits2 = _interopRequireDefault(__webpack_require__(86));
+var _inherits2 = _interopRequireDefault(__webpack_require__(34));
 
-var _possibleConstructorReturn2 = _interopRequireDefault(__webpack_require__(88));
+var _possibleConstructorReturn2 = _interopRequireDefault(__webpack_require__(36));
 
-var _getPrototypeOf2 = _interopRequireDefault(__webpack_require__(90));
+var _getPrototypeOf2 = _interopRequireDefault(__webpack_require__(38));
 
-var _bridgeInterfaces = __webpack_require__(93);
+var _bridgeInterfaces = __webpack_require__(41);
 
 function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = (0, _getPrototypeOf2.default)(Derived), result; if (hasNativeReflectConstruct) { var NewTarget = (0, _getPrototypeOf2.default)(this).constructor; result = Reflect.construct(Super, arguments, NewTarget); } else { result = Super.apply(this, arguments); } return (0, _possibleConstructorReturn2.default)(this, result); }; }
 
@@ -5443,7 +3796,7 @@ var ReactNativeWebviewMessenger = /*#__PURE__*/function (_MessengerInterface) {
 exports["default"] = ReactNativeWebviewMessenger;
 
 /***/ }),
-/* 93 */
+/* 41 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -5647,7 +4000,7 @@ var MessengerInterface = /*#__PURE__*/function () {
 exports.MessengerInterface = MessengerInterface;
 
 /***/ }),
-/* 94 */
+/* 42 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -5703,7 +4056,7 @@ function _blobToBase() {
 }
 
 /***/ }),
-/* 95 */
+/* 43 */
 /***/ (function(module, __unused_webpack_exports, __webpack_require__) {
 
 (function (global, factory) {
@@ -6331,9 +4684,9 @@ var __webpack_exports__ = {};
 (() => {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var cozy_clisk_contentscript__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
-/* harmony import */ var cozy_clisk_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(94);
-/* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(73);
+/* harmony import */ var cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
+/* harmony import */ var cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(42);
+/* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(21);
 /* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_cozy_minilog__WEBPACK_IMPORTED_MODULE_2__);
 
 
@@ -6397,7 +4750,7 @@ window.XMLHttpRequest.prototype.open = function () {
       if (originalResponse.readyState === 4) {
         // Pushing in an array the converted to base64 blob and pushing in another array it's href to match the indexes.
         recentPromisesToConvertBlobToBase64.push(
-          (0,cozy_clisk_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__.blobToBase64)(originalResponse.response)
+          (0,cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__.blobToBase64)(originalResponse.response)
         )
         recentXhrUrls.push(originalResponse.__zone_symbol__xhrURL)
 
@@ -6411,7 +4764,7 @@ window.XMLHttpRequest.prototype.open = function () {
     originalResponse.addEventListener('readystatechange', function () {
       if (originalResponse.readyState === 4) {
         oldPromisesToConvertBlobToBase64.push(
-          (0,cozy_clisk_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__.blobToBase64)(originalResponse.response)
+          (0,cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__.blobToBase64)(originalResponse.response)
         )
         oldXhrUrls.push(originalResponse.__zone_symbol__xhrURL)
 
@@ -6422,7 +4775,7 @@ window.XMLHttpRequest.prototype.open = function () {
   return proxied.apply(this, [].slice.call(arguments))
 }
 
-class SoshContentScript extends cozy_clisk_contentscript__WEBPACK_IMPORTED_MODULE_0__.ContentScript {
+class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_MODULE_0__.ContentScript {
   // ///////
   // PILOT//
   // ///////
@@ -6448,7 +4801,7 @@ class SoshContentScript extends cozy_clisk_contentscript__WEBPACK_IMPORTED_MODUL
   }
 
   async autoLogin(credentials, type) {
-    this.log('debug', 'Autologin start')
+    this.log('info', 'Autologin start')
     const emailSelector = '#login'
     const passwordInputSelector = '#password'
     const loginButton = '#btnSubmit'
@@ -6471,13 +4824,14 @@ class SoshContentScript extends cozy_clisk_contentscript__WEBPACK_IMPORTED_MODUL
   }
 
   async waitForUserAuthentication() {
-    this.log('debug', 'waitForUserAuthentication start')
+    this.log('info', 'waitForUserAuthentication start')
     await this.setWorkerState({ visible: true, url: DEFAULT_PAGE_URL })
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
     await this.setWorkerState({ visible: false, url: DEFAULT_PAGE_URL })
   }
 
   async waitForUserAction(url) {
+    this.log('info', 'waitForUserAction start')
     await this.setWorkerState({ visible: true, url })
     await this.runInWorkerUntilTrue({ method: 'waitForCaptchaResolution' })
     await this.setWorkerState({ visible: false, url })
@@ -6495,7 +4849,7 @@ class SoshContentScript extends cozy_clisk_contentscript__WEBPACK_IMPORTED_MODUL
   }
 
   async fetch(context) {
-    this.log('debug', 'fetch start')
+    this.log('info', 'fetch start')
     const credentials = await this.getCredentials()
     if (!credentials) {
       await this.saveCredentials(this.store.userCredentials)
@@ -6721,7 +5075,7 @@ class SoshContentScript extends cozy_clisk_contentscript__WEBPACK_IMPORTED_MODUL
   }
 
   async checkAuthWithCredentials(credentials) {
-    this.log('debug', 'authWithCredentials starts')
+    this.log('info', 'authWithCredentials starts')
     await this.goto(DEFAULT_PAGE_URL)
     await this.waitForElementInWorker('#oecs__ribbon')
     await Promise.race([
@@ -6779,6 +5133,7 @@ class SoshContentScript extends cozy_clisk_contentscript__WEBPACK_IMPORTED_MODUL
   }
 
   async checkAuthWithoutCredentials() {
+    this.log('info', 'checkAuthWithoutCredentials start')
     await this.goto(BASE_URL)
     await this.waitForElementInWorker('#oecs__ribbon')
     await this.waitForElementInWorker('#oecs__aide-contact')
@@ -6898,7 +5253,7 @@ class SoshContentScript extends cozy_clisk_contentscript__WEBPACK_IMPORTED_MODUL
   }
 
   async findAndSendCredentials(loginField) {
-    this.log('debug', 'getting in findAndSendCredentials')
+    this.log('info', 'getting in findAndSendCredentials')
     let userLogin = loginField.innerHTML
       .replace('<strong>', '')
       .replace('</strong>', '')
@@ -7091,6 +5446,7 @@ class SoshContentScript extends cozy_clisk_contentscript__WEBPACK_IMPORTED_MODUL
   }
 
   async getIdentity() {
+    this.log('info', 'Starting getIdentity')
     const checkIdObject = userInfos.length > 0
     let infosIdentity
     if (checkIdObject) {
