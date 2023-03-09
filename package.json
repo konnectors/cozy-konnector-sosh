@@ -1,7 +1,7 @@
 {
   "name": "sosh",
   "version": "2.1.0",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "repository": {
     "type": "git",
     "url": "git@github.com:konnectors/cozy-konnector-sosh.git"
