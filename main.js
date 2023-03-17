@@ -64,9 +64,12 @@ var _LauncherBridge = _interopRequireDefault(__webpack_require__(33));
 
 var _utils = __webpack_require__(42);
 
-var _umd = _interopRequireDefault(__webpack_require__(43));
+var _wrapTimer = __webpack_require__(43);
 
-// @ts-check
+var _umd = _interopRequireDefault(__webpack_require__(45));
+
+var _window;
+
 var _log = (0, _minilog.default)('ContentScript class');
 
 var s = 1000;
@@ -77,27 +80,118 @@ var PILOT_TYPE = 'pilot';
 exports.PILOT_TYPE = PILOT_TYPE;
 var WORKER_TYPE = 'worker';
 exports.WORKER_TYPE = WORKER_TYPE;
-sendContentScriptReadyEvent();
+sendPageMessage('NEW_WORKER_INITIALIZING');
+
+if ((_window = window) !== null && _window !== void 0 && _window.addEventListener) {
+  // allows cozy-clisk to be embedded in other envs (react-native, jest)
+  window.addEventListener('load', function () {
+    sendPageMessage('load');
+  });
+  window.addEventListener('DOMContentLoaded', function () {
+    sendPageMessage('DOMContentLoaded');
+  });
+}
 
 var ContentScript = /*#__PURE__*/function () {
   function ContentScript() {
+    var _this = this;
+
     (0, _classCallCheck2.default)(this, ContentScript);
+
+    var logDebug = function logDebug(message) {
+      return _this.log('debug', message);
+    };
+
+    var wrapTimerDebug = (0, _wrapTimer.wrapTimerFactory)({
+      logFn: logDebug
+    });
+
+    var logInfo = function logInfo(message) {
+      return _this.log('info', message);
+    };
+
+    var wrapTimerInfo = (0, _wrapTimer.wrapTimerFactory)({
+      logFn: logInfo
+    });
+    this.ensureAuthenticated = wrapTimerInfo(this, 'ensureAuthenticated');
+    this.getUserDataFromWebsite = wrapTimerInfo(this, 'getUserDataFromWebsite');
+    this.fetch = wrapTimerInfo(this, 'fetch');
+    this.waitForAuthenticated = wrapTimerDebug(this, 'waitForAuthenticated');
+    this.runInWorker = wrapTimerDebug(this, 'runInWorker', {
+      suffixFn: function suffixFn(args) {
+        return args === null || args === void 0 ? void 0 : args[0];
+      }
+    });
+    this.runInWorkerUntilTrue = wrapTimerDebug(this, 'runInWorkerUntilTrue', {
+      suffixFn: function suffixFn(args) {
+        var _args$;
+
+        return (_args$ = args[0]) === null || _args$ === void 0 ? void 0 : _args$.method;
+      }
+    });
+    this.waitForElementInWorker = wrapTimerDebug(this, 'waitForElementInWorker', {
+      suffixFn: function suffixFn(args) {
+        return args === null || args === void 0 ? void 0 : args[0];
+      }
+    });
+    this.clickAndWait = wrapTimerDebug(this, 'clickAndWait', {
+      suffixFn: function suffixFn(args) {
+        return "".concat(args === null || args === void 0 ? void 0 : args[0], " ").concat(args === null || args === void 0 ? void 0 : args[1]);
+      }
+    });
+    this.saveFiles = wrapTimerDebug(this, 'saveFiles');
+    this.saveBills = wrapTimerDebug(this, 'saveBills');
+    this.getCredentials = wrapTimerDebug(this, 'getCredentials');
+    this.saveCredentials = wrapTimerDebug(this, 'saveCredentials');
+    this.saveIdentity = wrapTimerDebug(this, 'saveIdentity');
+    this.getCookiesByDomain = wrapTimerDebug(this, 'getCookiesByDomain', {
+      suffixFn: function suffixFn(args) {
+        return args === null || args === void 0 ? void 0 : args[0];
+      }
+    });
+    this.getCookieFromKeychainByName = wrapTimerDebug(this, 'getCookieFromKeychainByName', {
+      suffixFn: function suffixFn(args) {
+        return args === null || args === void 0 ? void 0 : args[0];
+      }
+    });
+    this.saveCookieToKeychain = wrapTimerDebug(this, 'saveCookieToKeychain', {
+      suffixFn: function suffixFn(args) {
+        return args === null || args === void 0 ? void 0 : args[0];
+      }
+    });
+    this.getCookieByDomainAndName = wrapTimerDebug(this, 'getCookieByDomainAndName', {
+      suffixFn: function suffixFn(args) {
+        return "".concat(args === null || args === void 0 ? void 0 : args[0], " ").concat(args === null || args === void 0 ? void 0 : args[1]);
+      }
+    });
+    this.goto = wrapTimerDebug(this, 'goto', {
+      suffixFn: function suffixFn(args) {
+        return args === null || args === void 0 ? void 0 : args[0];
+      }
+    });
+    this.downloadFileInWorker = wrapTimerDebug(this, 'downloadFileInWorker', {
+      suffixFn: function suffixFn(args) {
+        var _args$2;
+
+        return args === null || args === void 0 ? void 0 : (_args$2 = args[0]) === null || _args$2 === void 0 ? void 0 : _args$2.fileurl;
+      }
+    });
   }
+  /**
+   * Init the bridge communication with the launcher.
+   * It also exposes the methods which will be callable by the launcher
+   *
+   * @param {object} options : options object
+   * @param {Array<string>} [options.additionalExposedMethodsNames] : list of additional method of the
+   * content script to expose. To make it callable via the worker.
+   */
+
 
   (0, _createClass2.default)(ContentScript, [{
     key: "init",
-    value:
-    /**
-     * Init the bridge communication with the launcher.
-     * It also exposes the methods which will be callable by the launcher
-     *
-     * @param {object} options : options object
-     * @param {Array<string>} [options.additionalExposedMethodsNames] : list of additional method of the
-     * content script to expose. To make it callable via the worker.
-     */
-    function () {
+    value: function () {
       var _init = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee() {
-        var _this = this;
+        var _this2 = this;
 
         var options,
             exposedMethodsNames,
@@ -137,7 +231,7 @@ var ContentScript = /*#__PURE__*/function () {
 
               case 9:
                 window.onbeforeunload = function () {
-                  return _this.log('debug', "window.beforeunload detected with previous url : ".concat(document.location));
+                  return _this2.log('debug', "window.beforeunload detected with previous url : ".concat(document.location));
                 };
 
                 this.bridge.emit('workerReady');
@@ -597,7 +691,7 @@ var ContentScript = /*#__PURE__*/function () {
             switch (_context12.prev = _context12.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'downloadFileInWorker');
-                this.log('info', 'downloading file in worker');
+                this.log('debug', 'downloading file in worker');
 
                 if (!entry.fileurl) {
                   _context12.next = 9;
@@ -1329,7 +1423,7 @@ var ContentScript = /*#__PURE__*/function () {
 
 exports["default"] = ContentScript;
 
-function sendContentScriptReadyEvent() {
+function sendPageMessage(message) {
   var _window$ReactNativeWe;
 
   // @ts-ignore La propriété 'ReactNativeWebView' n'existe pas sur le type 'Window & typeof globalThis'.
@@ -1338,7 +1432,7 @@ function sendContentScriptReadyEvent() {
 
     // @ts-ignore La propriété 'ReactNativeWebView' n'existe pas sur le type 'Window & typeof globalThis'.
     (_window$ReactNativeWe2 = window.ReactNativeWebView) === null || _window$ReactNativeWe2 === void 0 ? void 0 : _window$ReactNativeWe2.postMessage(JSON.stringify({
-      message: 'NEW_WORKER_INITIALIZING'
+      message: message
     }));
   } else {
     _log.error('No window.ReactNativeWebView.postMessage available');
@@ -4057,6 +4151,128 @@ function _blobToBase() {
 
 /***/ }),
 /* 43 */
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+
+var _interopRequireDefault = __webpack_require__(2);
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports.wrapTimerFactory = exports.wrapTimer = void 0;
+
+var _regenerator = _interopRequireDefault(__webpack_require__(4));
+
+var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(13));
+
+var _defineProperty2 = _interopRequireDefault(__webpack_require__(44));
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); enumerableOnly && (symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; })), keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = null != arguments[i] ? arguments[i] : {}; i % 2 ? ownKeys(Object(source), !0).forEach(function (key) { (0, _defineProperty2.default)(target, key, source[key]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } return target; }
+
+/**
+ * Create a wrapTimer function with given defaults as options
+ *
+ * @param {WrapTimerOptions} defaults
+ * @returns {Function} - wrapTimer function
+ */
+var wrapTimerFactory = function wrapTimerFactory(defaults) {
+  return function (obj, name) {
+    var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+    return wrapTimer(obj, name, _objectSpread(_objectSpread({}, defaults), options));
+  };
+};
+/**
+ * Wrap any async method of an object to display it's time of execution
+ *
+ * @param {object} obj - The object which will be considered as `this`
+ * @param {string} name - The name of the method to wrap
+ * @param {WrapTimerOptions} [options] - Options object
+ * @returns {Function} - Wrapped async function
+ */
+
+
+exports.wrapTimerFactory = wrapTimerFactory;
+
+var wrapTimer = function wrapTimer(obj, name) {
+  var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+  var _options$displayName = options.displayName,
+      displayName = _options$displayName === void 0 ? name : _options$displayName,
+      _options$logFn = options.logFn,
+      logFn = _options$logFn === void 0 ? console.log.bind(console) : _options$logFn,
+      _options$suffixFn = options.suffixFn,
+      suffixFn = _options$suffixFn === void 0 ? null : _options$suffixFn;
+  var fn = obj[name];
+
+  if (!fn) {
+    throw new Error("".concat(name, " cannot be found on ").concat(obj.name || obj.constructor.name));
+  }
+
+  return /*#__PURE__*/(0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee() {
+    var start,
+        res,
+        end,
+        suffix,
+        _args = arguments;
+    return _regenerator.default.wrap(function _callee$(_context) {
+      while (1) {
+        switch (_context.prev = _context.next) {
+          case 0:
+            start = Date.now();
+            _context.next = 3;
+            return fn.apply(this, _args);
+
+          case 3:
+            res = _context.sent;
+            end = Date.now();
+            suffix = suffixFn ? ' ' + suffixFn(_args) : '';
+            logFn("\u231B ".concat(displayName).concat(suffix, " took ").concat(Math.round((end - start) / 10) / 100, "s"));
+            return _context.abrupt("return", res);
+
+          case 8:
+          case "end":
+            return _context.stop();
+        }
+      }
+    }, _callee, this);
+  }));
+};
+/**
+ * @typedef WrapTimerOptions
+ * @property {string} [options.displayName] - Name which will be displayed in the final log
+ * @property {Function} [options.logFn] - logging function. Defaults to console.log
+ * @property {Function} [options.suffixFn] - function which will be called with method arguments which return a suffix to the name of the method
+ */
+
+
+exports.wrapTimer = wrapTimer;
+
+/***/ }),
+/* 44 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var toPropertyKey = __webpack_require__(16);
+function _defineProperty(obj, key, value) {
+  key = toPropertyKey(key);
+  if (key in obj) {
+    Object.defineProperty(obj, key, {
+      value: value,
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+  } else {
+    obj[key] = value;
+  }
+  return obj;
+}
+module.exports = _defineProperty, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+/***/ }),
+/* 45 */
 /***/ (function(module, __unused_webpack_exports, __webpack_require__) {
 
 (function (global, factory) {
