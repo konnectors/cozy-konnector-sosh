@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@cozy/minilog": "^1.0.0",
-    "cozy-clisk": "^0.9.2",
+    "cozy-clisk": "^0.9.4",
     "date-fns": "^2.29.3"
   },
   "eslintConfig": {
