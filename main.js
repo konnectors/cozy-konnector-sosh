@@ -387,9 +387,13 @@ var ContentScript = /*#__PURE__*/function () {
                   args[_key - 1] = _args5[_key];
                 }
 
-                return _context5.abrupt("return", (_this$bridge = this.bridge).call.apply(_this$bridge, ['runInWorker', method].concat(args)));
+                _context5.next = 6;
+                return (_this$bridge = this.bridge).call.apply(_this$bridge, ['runInWorker', method].concat(args));
 
-              case 5:
+              case 6:
+                return _context5.abrupt("return", _context5.sent);
+
+              case 7:
               case "end":
                 return _context5.stop();
             }
