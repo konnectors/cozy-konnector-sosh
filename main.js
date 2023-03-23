@@ -114,6 +114,7 @@ var ContentScript = /*#__PURE__*/function () {
       logFn: logInfo
     });
     this.ensureAuthenticated = wrapTimerInfo(this, 'ensureAuthenticated');
+    this.ensureNotAuthenticated = wrapTimerInfo(this, 'ensureNotAuthenticated');
     this.getUserDataFromWebsite = wrapTimerInfo(this, 'getUserDataFromWebsite');
     this.fetch = wrapTimerInfo(this, 'fetch');
     this.waitForAuthenticated = wrapTimerDebug(this, 'waitForAuthenticated');
@@ -209,7 +210,7 @@ var ContentScript = /*#__PURE__*/function () {
                 this.bridge = new _LauncherBridge.default({
                   localWindow: window
                 });
-                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName', 'downloadFileInWorker'];
+                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'ensureNotAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName', 'downloadFileInWorker'];
 
                 if (options.additionalExposedMethodsNames) {
                   exposedMethodsNames.push.apply(exposedMethodsNames, options.additionalExposedMethodsNames);
@@ -1148,6 +1149,7 @@ var ContentScript = /*#__PURE__*/function () {
     value: function log(level, message) {
       var _this$bridge2;
 
+      var newLevel = level;
       var allowedLevels = ['debug', 'info', 'warn', 'error'];
 
       if (!message) {
@@ -1157,13 +1159,13 @@ var ContentScript = /*#__PURE__*/function () {
       }
 
       if (!allowedLevels.includes(level)) {
-        level = 'debug';
+        newLevel = 'debug';
       }
 
       var now = new Date();
       (_this$bridge2 = this.bridge) === null || _this$bridge2 === void 0 ? void 0 : _this$bridge2.emit('log', {
         timestamp: now,
-        level: level,
+        level: newLevel,
         msg: message
       });
     }
@@ -1252,7 +1254,7 @@ var ContentScript = /*#__PURE__*/function () {
       return goto;
     }()
     /**
-     * Make sur that the connector is authenticated to the website.
+     * Make sure that the connector is authenticated to the website.
      * If not, show the login webview to the user to let her/him authenticated.
      * Resolve the promise when authenticated
      *
@@ -1285,6 +1287,36 @@ var ContentScript = /*#__PURE__*/function () {
       return ensureAuthenticated;
     }()
     /**
+     * Make sure that the connector is not authenticated anymore to the website.
+     *
+     * @returns {Promise.<boolean>} : true if the user is not authenticated
+     */
+
+  }, {
+    key: "ensureNotAuthenticated",
+    value: function () {
+      var _ensureNotAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee25() {
+        return _regenerator.default.wrap(function _callee25$(_context25) {
+          while (1) {
+            switch (_context25.prev = _context25.next) {
+              case 0:
+                return _context25.abrupt("return", true);
+
+              case 1:
+              case "end":
+                return _context25.stop();
+            }
+          }
+        }, _callee25);
+      }));
+
+      function ensureNotAuthenticated() {
+        return _ensureNotAuthenticated.apply(this, arguments);
+      }
+
+      return ensureNotAuthenticated;
+    }()
+    /**
      * Returns whatever unique information on the authenticated user which will be usefull
      * to identify fetched data : destination folder name, fetched data metadata
      *
@@ -1294,16 +1326,16 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getUserDataFromWebsite",
     value: function () {
-      var _getUserDataFromWebsite = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee25() {
-        return _regenerator.default.wrap(function _callee25$(_context25) {
+      var _getUserDataFromWebsite = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee26() {
+        return _regenerator.default.wrap(function _callee26$(_context26) {
           while (1) {
-            switch (_context25.prev = _context25.next) {
+            switch (_context26.prev = _context26.next) {
               case 0:
               case "end":
-                return _context25.stop();
+                return _context26.stop();
             }
           }
-        }, _callee25);
+        }, _callee26);
       }));
 
       function getUserDataFromWebsite() {
@@ -1321,29 +1353,29 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "sendToPilot",
     value: function () {
-      var _sendToPilot = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee26(obj) {
-        return _regenerator.default.wrap(function _callee26$(_context26) {
+      var _sendToPilot = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee27(obj) {
+        return _regenerator.default.wrap(function _callee27$(_context27) {
           while (1) {
-            switch (_context26.prev = _context26.next) {
+            switch (_context27.prev = _context27.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'sendToPilot');
 
                 if (this.bridge) {
-                  _context26.next = 3;
+                  _context27.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                return _context26.abrupt("return", this.bridge.call('sendToPilot', obj));
+                return _context27.abrupt("return", this.bridge.call('sendToPilot', obj));
 
               case 4:
               case "end":
-                return _context26.stop();
+                return _context27.stop();
             }
           }
-        }, _callee26, this);
+        }, _callee27, this);
       }));
 
       function sendToPilot(_x24) {
@@ -1361,20 +1393,20 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "storeFromWorker",
     value: function () {
-      var _storeFromWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee27(obj) {
-        return _regenerator.default.wrap(function _callee27$(_context27) {
+      var _storeFromWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee28(obj) {
+        return _regenerator.default.wrap(function _callee28$(_context28) {
           while (1) {
-            switch (_context27.prev = _context27.next) {
+            switch (_context28.prev = _context28.next) {
               case 0:
                 // @ts-ignore Aucune surcharge ne correspond à cet appel.
                 Object.assign(this.store, obj);
 
               case 1:
               case "end":
-                return _context27.stop();
+                return _context28.stop();
             }
           }
-        }, _callee27, this);
+        }, _callee28, this);
       }));
 
       function storeFromWorker(_x25) {
@@ -1403,16 +1435,16 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "fetch",
     value: function () {
-      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee28(options) {
-        return _regenerator.default.wrap(function _callee28$(_context28) {
+      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee29(options) {
+        return _regenerator.default.wrap(function _callee29$(_context29) {
           while (1) {
-            switch (_context28.prev = _context28.next) {
+            switch (_context29.prev = _context29.next) {
               case 0:
               case "end":
-                return _context28.stop();
+                return _context29.stop();
             }
           }
-        }, _callee28);
+        }, _callee29);
       }));
 
       function fetch(_x26) {
