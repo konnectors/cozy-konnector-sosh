@@ -68,6 +68,8 @@ var _wrapTimer = __webpack_require__(43);
 
 var _umd = _interopRequireDefault(__webpack_require__(45));
 
+var _package = _interopRequireDefault(__webpack_require__(46));
+
 var _window;
 
 var _log = (0, _minilog.default)('ContentScript class');
@@ -210,7 +212,7 @@ var ContentScript = /*#__PURE__*/function () {
                 this.bridge = new _LauncherBridge.default({
                   localWindow: window
                 });
-                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'ensureNotAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName', 'downloadFileInWorker'];
+                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'ensureNotAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName', 'downloadFileInWorker', 'getCliskVersion'];
 
                 if (options.additionalExposedMethodsNames) {
                   exposedMethodsNames.push.apply(exposedMethodsNames, options.additionalExposedMethodsNames);
@@ -1452,6 +1454,34 @@ var ContentScript = /*#__PURE__*/function () {
       }
 
       return fetch;
+    }()
+    /**
+     * Returns the current clisk version number in package.json file
+     */
+
+  }, {
+    key: "getCliskVersion",
+    value: function () {
+      var _getCliskVersion = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee30() {
+        return _regenerator.default.wrap(function _callee30$(_context30) {
+          while (1) {
+            switch (_context30.prev = _context30.next) {
+              case 0:
+                return _context30.abrupt("return", _package.default.version);
+
+              case 1:
+              case "end":
+                return _context30.stop();
+            }
+          }
+        }, _callee30);
+      }));
+
+      function getCliskVersion() {
+        return _getCliskVersion.apply(this, arguments);
+      }
+
+      return getCliskVersion;
     }()
   }]);
   return ContentScript;
@@ -4849,6 +4879,13 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 
 })));
 
+
+/***/ }),
+/* 46 */
+/***/ ((module) => {
+
+"use strict";
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.11.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"^7.20.12","babel-jest":"^29.3.1","babel-preset-cozy-app":"^2.0.4","jest":"^29.3.1","jest-environment-jsdom":"^29.3.1","typescript":"^4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^3.0.0","post-me":"^0.4.5"},"gitHead":"fd9ef8de0a2183f22d5fc1cd87b121af5f7ed899"}');
 
 /***/ })
 /******/ 	]);
