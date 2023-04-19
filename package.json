@@ -28,6 +28,6 @@
     "travisDeployKey": "./bin/generate_travis_deploy_key"
   },
   "devDependencies": {
-    "cozy-konnector-build": "^1.4.5"
+    "cozy-konnector-build": "^1.5.0"
   }
 }
