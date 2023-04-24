@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@cozy/minilog": "^1.0.0",
-    "cozy-clisk": "^0.11.0",
+    "cozy-clisk": "^0.12.1",
     "date-fns": "^2.29.3"
   },
   "eslintConfig": {
@@ -28,6 +28,6 @@
     "travisDeployKey": "./bin/generate_travis_deploy_key"
   },
   "devDependencies": {
-    "cozy-konnector-build": "^1.5.0"
+    "cozy-konnector-build": "^1.5.1"
   }
 }
