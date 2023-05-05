@@ -89,7 +89,33 @@ class SoshContentScript extends ContentScript {
   // ///////
   // PILOT//
   // ///////
+  async navigateToLoginForm() {
+    this.log('info', 'navigateToLoginForm starts')
+    await this.goto(
+      'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
+    )
+    await Promise.race([
+      this.waitForElementInWorker('#login-label'),
+      this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
+    ])
+  }
+
+  async ensureNotAuthenticated() {
+    this.log('info', 'ensureNotAuthenticated starts')
+    await this.navigateToLoginForm()
+    const authenticated = await this.runInWorker('checkAuthenticated')
+    if (!authenticated) {
+      this.log('info', 'not auth, returning true')
+      return true
+    }
+    this.log('info', 'Auth detected, logging out')
+    await this.runInWorker('click', '#oecs__connecte-se-deconnecter')
+    await this.waitForElementInWorker('#oecs__connexion')
+    return true
+  }
+
   async ensureAuthenticated() {
+    await this.navigateToLoginForm()
     const credentials = await this.getCredentials()
     if (credentials) {
       await this.checkAuthWithCredentials(credentials)
@@ -624,6 +650,15 @@ class SoshContentScript extends ContentScript {
       this.log('debug', 'Check Authenticated succeeded')
       return true
     }
+    if (
+      document.location.href.includes(DEFAULT_PAGE_URL) &&
+      document.querySelector('#oecs__connecte-se-deconnecter')
+    ) {
+      this.log('debug', 'Active session found, returning true')
+      return true
+    }
+
+    //
     return false
   }
 
