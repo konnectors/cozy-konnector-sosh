@@ -98,8 +98,14 @@ class SoshContentScript extends ContentScript {
       this.waitForElementInWorker('#login-label'),
       this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
     ])
+    const { askForCaptcha, captchaUrl } = await this.runInWorker(
+      'checkForCaptcha'
+    )
+    if (askForCaptcha) {
+      this.log('debug', 'captcha found, waiting for resolution')
+      await this.waitForUserAction(captchaUrl)
   }
-
+  }
   async ensureNotAuthenticated() {
     this.log('info', 'ensureNotAuthenticated starts')
     await this.navigateToLoginForm()
@@ -850,18 +856,11 @@ class SoshContentScript extends ContentScript {
   }
 
   checkForCaptcha() {
-    // There is no exploitable selector, all of them are instant generated
-    // so to find out if we get the captcha page, we must check the textContent of the title
-    const captchaTitleElement = document.querySelector(
-      'h1[data-testid="pageTitle"]'
+    const captchaContainer = document.querySelector(
+      'div[class*="captcha_responseContainer"]'
     )
-    let captchaTitle
-    let captchaHref
-    if (captchaTitleElement) {
-      captchaTitle = captchaTitleElement.textContent
-      captchaHref = document.location.href
-    }
-    if (captchaTitle === 'Avant de vous identifier…') {
+    let captchaHref = document.location.href
+    if (captchaContainer) {
       return { askForCaptcha: true, captchaHref }
     }
     return false
