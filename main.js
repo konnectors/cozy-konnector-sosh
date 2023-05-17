@@ -5120,7 +5120,43 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   // ///////
   // PILOT//
   // ///////
+  async navigateToLoginForm() {
+    this.log('info', 'navigateToLoginForm starts')
+    await this.goto(
+      'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
+    )
+    await Promise.race([
+      this.waitForElementInWorker('#login-label'),
+      this.waitForElementInWorker('#password-label'),
+      this.waitForElementInWorker('#oecs__connecte-se-deconnecter'),
+      this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
+      this.waitForElementInWorker('#undefined-label')
+    ])
+    const { askForCaptcha, captchaUrl } = await this.runInWorker(
+      'checkForCaptcha'
+    )
+    if (askForCaptcha) {
+      this.log('debug', 'captcha found, waiting for resolution')
+      await this.waitForUserAction(captchaUrl)
+    }
+  }
+  async ensureNotAuthenticated() {
+    this.log('info', 'ensureNotAuthenticated starts')
+    await this.navigateToLoginForm()
+    const authenticated = await this.runInWorker('checkAuthenticated')
+    if (!authenticated) {
+      this.log('info', 'not auth, returning true')
+      return true
+    }
+    this.log('info', 'Auth detected, logging out')
+    await this.runInWorker('click', '#oecs__connecte-se-deconnecter')
+    await this.waitForElementInWorker('#oecs__connexion')
+    return true
+  }
+
   async ensureAuthenticated() {
+    this.log('info', 'ensureAuthenticated starts')
+    await this.navigateToLoginForm()
     const credentials = await this.getCredentials()
     if (credentials) {
       await this.checkAuthWithCredentials(credentials)
@@ -5137,7 +5173,6 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async tryAutoLogin(credentials, type) {
     this.log('debug', 'Trying autologin')
-    await this.goto(DEFAULT_PAGE_URL)
     await this.autoLogin(credentials, type)
   }
 
@@ -5147,18 +5182,17 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     const passwordInputSelector = '#password'
     const loginButton = '#btnSubmit'
     if (type === 'half') {
-      this.log('debug', 'wait for password field')
+      this.log('debug', 'wait for password field - half')
       await this.waitForElementInWorker(passwordInputSelector)
       await this.runInWorker('fillingForm', credentials)
-
       await this.runInWorker('click', loginButton)
-      await this.waitForElementInWorker('#oecs__connecte')
+      await this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
       return true
     }
     await this.waitForElementInWorker(emailSelector)
     await this.runInWorker('fillingForm', credentials)
     await this.runInWorker('click', loginButton)
-    this.log('debug', 'wait for password field')
+    this.log('debug', 'wait for password field - full')
     await this.waitForElementInWorker(passwordInputSelector)
     await this.runInWorker('fillingForm', credentials)
     await this.runInWorker('click', loginButton)
@@ -5166,9 +5200,9 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async waitForUserAuthentication() {
     this.log('info', 'waitForUserAuthentication start')
-    await this.setWorkerState({ visible: true, url: DEFAULT_PAGE_URL })
+    await this.setWorkerState({ visible: true })
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
-    await this.setWorkerState({ visible: false, url: DEFAULT_PAGE_URL })
+    await this.setWorkerState({ visible: false })
   }
 
   async waitForUserAction(url) {
@@ -5179,6 +5213,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async getUserDataFromWebsite() {
+    this.log('info', 'getUserDataFromWebsite starts')
     const sourceAccountId = await this.runInWorker('getUserMail')
     if (sourceAccountId === 'UNKNOWN_ERROR') {
       this.log('debug', "Couldn't get a sourceAccountIdentifier, using default")
@@ -5333,7 +5368,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.runInWorker('getIdentity')
     await this.saveIdentity(this.store.infosIdentity)
     await this.clickAndWait(
-      '#oecs__popin-ident-button',
+      '#oecs__popin-icon-Identification',
       '#oecs__connecte-se-deconnecter'
     )
     await this.clickAndWait(
@@ -5417,21 +5452,6 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async checkAuthWithCredentials(credentials) {
     this.log('info', 'authWithCredentials starts')
-    await this.goto(DEFAULT_PAGE_URL)
-    await this.waitForElementInWorker('#oecs__ribbon')
-    await Promise.race([
-      this.waitForElementInWorker('h1[data-testid="pageTitle"]'),
-      this.waitForElementInWorker('#login-label'),
-      this.waitForElementInWorker('#password')
-    ])
-    this.log('debug', 'Checking for captcha')
-    const { askForCaptcha, captchaUrl } = await this.runInWorker(
-      'checkForCaptcha'
-    )
-    if (askForCaptcha) {
-      this.log('debug', 'captcha found, waiting for resolution')
-      await this.waitForUserAction(captchaUrl)
-    }
     await this.waitForElementInWorker('#oecs__aide-contact')
     const helloMessage = await this.runInWorker('getHelloMessage')
     if (helloMessage) {
@@ -5461,65 +5481,35 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     this.log('debug', 'found credentials, processing')
     const askFullLogin = await this.runInWorker('checkAskFullLogin')
     if (askFullLogin) {
+      this.log('debug', 'askFullLogin condition')
       await this.tryAutoLogin(credentials, 'full')
       return true
     }
     const testEmail = await this.runInWorker('getTestEmail')
     if (credentials.email === testEmail) {
+      this.log('debug', 'sameMailLogin condition')
       await this.sameMailLogin(credentials)
     }
     if (credentials.email != testEmail) {
+      this.log('debug', 'differentMailLogin condition')
       await this.differentMailLogin(credentials)
     }
   }
 
   async checkAuthWithoutCredentials() {
-    this.log('info', 'checkAuthWithoutCredentials start')
-    await this.goto(BASE_URL)
-    await this.waitForElementInWorker('#oecs__ribbon')
-    await this.waitForElementInWorker('#oecs__aide-contact')
+    this.log('info', 'checkAuthWithoutCredentials starts')
     const helloMessage = await this.runInWorker('getHelloMessage')
     if (helloMessage) {
       this.log('debug', 'no credentials found but user is still logged in')
       return true
     }
-    const loginPage = await this.runInWorker('getLoginPage')
-    if (loginPage) {
-      await this.runInWorker('clickLoginPage')
-      const accountPage = await this.runInWorker('getAccountPage')
-      if (accountPage) {
-        this.log('debug', 'accountPage condition')
-        await this.runInWorker('click', '#oecs__connexion')
-        await Promise.race([
-          this.waitForElementInWorker('h1[data-testid="pageTitle"]'),
-          this.waitForElementInWorker('#login-label'),
-          this.waitForElementInWorker('#password')
-        ])
-        await this.waitForUserAuthentication()
-        return true
-      }
-      if (!accountPage) {
-        await this.clickAndWait(
-          '#oecs__connexion',
-          'p[data-testid="selected-account-login"]'
-        )
-      }
-    }
-    const alreadyConnected = await this.runInWorker('getLogoutButton')
-    if (alreadyConnected) {
-      await this.clickAndWait(
-        'span[class="oecs__popin-button-icon"]',
-        '#oecs__connecte-se-deconnecter'
-      )
-      await this.clickAndWait(
-        '#oecs__connecte-se-deconnecter',
-        '#oecs__connexion'
-      )
+    const isAccountListPage = await this.runInWorker('checkAccountListPage')
+    if (isAccountListPage) {
+      this.log('debug', 'Webview on accountsList page, go to first login step')
+      await this.runInWorker('click', '#undefined-label')
+      await this.waitForElementInWorker('#login-label')
     }
     this.log('debug', 'no credentials found, use normal user login')
-    await this.clickAndWait('#oecs__connexion', '#changeAccountLink')
-    await this.clickAndWait('#changeAccountLink', '#undefined-label')
-    await this.clickAndWait('#undefined-label', '#login')
     await this.waitForUserAuthentication()
     return true
   }
@@ -5603,7 +5593,6 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       email: userLogin,
       password: divPassword
     }
-
     return userCredentials
   }
 
@@ -5635,6 +5624,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async checkAuthenticated() {
+    this.log('info', 'checkAuthenticated starts')
     const loginField = document.querySelector(
       'p[data-testid="selected-account-login"]'
     )
@@ -5655,6 +5645,15 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       this.log('debug', 'Check Authenticated succeeded')
       return true
     }
+    if (
+      document.location.href.includes(DEFAULT_PAGE_URL) &&
+      document.querySelector('#oecs__connecte-se-deconnecter')
+    ) {
+      this.log('debug', 'Active session found, returning true')
+      return true
+    }
+
+    //
     return false
   }
 
@@ -5846,28 +5845,31 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   checkForCaptcha() {
-    // There is no exploitable selector, all of them are instant generated
-    // so to find out if we get the captcha page, we must check the textContent of the title
-    const captchaTitleElement = document.querySelector(
-      'h1[data-testid="pageTitle"]'
+    const captchaContainer = document.querySelector(
+      'div[class*="captcha_responseContainer"]'
     )
-    let captchaTitle
-    let captchaHref
-    if (captchaTitleElement) {
-      captchaTitle = captchaTitleElement.textContent
-      captchaHref = document.location.href
-    }
-    if (captchaTitle === 'Avant de vous identifier…') {
+    let captchaHref = document.location.href
+    if (captchaContainer) {
       return { askForCaptcha: true, captchaHref }
     }
     return false
   }
 
   async waitForCaptchaResolution() {
-    const captchaOk = document.querySelector('#password')
-    if (captchaOk) {
+    const passwordInput = document.querySelector('#password')
+    const loginInput = document.querySelector('#login')
+    const otherAccountButton = document.querySelector('#undefined-label')
+    if (passwordInput || loginInput || otherAccountButton) {
       return true
     }
+    return false
+  }
+
+  async checkAccountListPage() {
+    const isAccountListPage = Boolean(
+      document.querySelector('#undefined-label')
+    )
+    if (isAccountListPage) return true
     return false
   }
 }
@@ -5899,7 +5901,8 @@ connector
       'getIdentity',
       'checkAskFullLogin',
       'checkForCaptcha',
-      'waitForCaptchaResolution'
+      'waitForCaptchaResolution',
+      'checkAccountListPage'
     ]
   })
   .catch(err => {
