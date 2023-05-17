@@ -96,7 +96,9 @@ class SoshContentScript extends ContentScript {
     )
     await Promise.race([
       this.waitForElementInWorker('#login-label'),
-      this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
+      this.waitForElementInWorker('#password-label'),
+      this.waitForElementInWorker('#oecs__connecte-se-deconnecter'),
+      this.waitForElementInWorker('div[class*="captcha_responseContainer"]')
     ])
     const { askForCaptcha, captchaUrl } = await this.runInWorker(
       'checkForCaptcha'
@@ -104,7 +106,7 @@ class SoshContentScript extends ContentScript {
     if (askForCaptcha) {
       this.log('debug', 'captcha found, waiting for resolution')
       await this.waitForUserAction(captchaUrl)
-  }
+    }
   }
   async ensureNotAuthenticated() {
     this.log('info', 'ensureNotAuthenticated starts')
@@ -121,6 +123,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async ensureAuthenticated() {
+    this.log('info', 'ensureAuthenticated starts')
     await this.navigateToLoginForm()
     const credentials = await this.getCredentials()
     if (credentials) {
@@ -180,6 +183,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async getUserDataFromWebsite() {
+    this.log('info', 'getUserDataFromWebsite starts')
     const sourceAccountId = await this.runInWorker('getUserMail')
     if (sourceAccountId === 'UNKNOWN_ERROR') {
       this.log('debug', "Couldn't get a sourceAccountIdentifier, using default")
@@ -334,7 +338,7 @@ class SoshContentScript extends ContentScript {
     await this.runInWorker('getIdentity')
     await this.saveIdentity(this.store.infosIdentity)
     await this.clickAndWait(
-      '#oecs__popin-ident-button',
+      '#oecs__popin-icon-Identification',
       '#oecs__connecte-se-deconnecter'
     )
     await this.clickAndWait(
@@ -421,7 +425,7 @@ class SoshContentScript extends ContentScript {
     await this.goto(DEFAULT_PAGE_URL)
     await this.waitForElementInWorker('#oecs__ribbon')
     await Promise.race([
-      this.waitForElementInWorker('h1[data-testid="pageTitle"]'),
+      this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
       this.waitForElementInWorker('#login-label'),
       this.waitForElementInWorker('#password')
     ])
@@ -475,10 +479,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async checkAuthWithoutCredentials() {
-    this.log('info', 'checkAuthWithoutCredentials start')
-    await this.goto(BASE_URL)
-    await this.waitForElementInWorker('#oecs__ribbon')
-    await this.waitForElementInWorker('#oecs__aide-contact')
+    this.log('info', 'checkAuthWithoutCredentials starts')
     const helloMessage = await this.runInWorker('getHelloMessage')
     if (helloMessage) {
       this.log('debug', 'no credentials found but user is still logged in')
@@ -518,9 +519,6 @@ class SoshContentScript extends ContentScript {
       )
     }
     this.log('debug', 'no credentials found, use normal user login')
-    await this.clickAndWait('#oecs__connexion', '#changeAccountLink')
-    await this.clickAndWait('#changeAccountLink', '#undefined-label')
-    await this.clickAndWait('#undefined-label', '#login')
     await this.waitForUserAuthentication()
     return true
   }
@@ -604,7 +602,6 @@ class SoshContentScript extends ContentScript {
       email: userLogin,
       password: divPassword
     }
-
     return userCredentials
   }
 
@@ -636,6 +633,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async checkAuthenticated() {
+    this.log('info', 'checkAuthenticated starts')
     const loginField = document.querySelector(
       'p[data-testid="selected-account-login"]'
     )
