@@ -98,7 +98,8 @@ class SoshContentScript extends ContentScript {
       this.waitForElementInWorker('#login-label'),
       this.waitForElementInWorker('#password-label'),
       this.waitForElementInWorker('#oecs__connecte-se-deconnecter'),
-      this.waitForElementInWorker('div[class*="captcha_responseContainer"]')
+      this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
+      this.waitForElementInWorker('#undefined-label')
     ])
     const { askForCaptcha, captchaUrl } = await this.runInWorker(
       'checkForCaptcha'
@@ -141,7 +142,6 @@ class SoshContentScript extends ContentScript {
 
   async tryAutoLogin(credentials, type) {
     this.log('debug', 'Trying autologin')
-    await this.goto(DEFAULT_PAGE_URL)
     await this.autoLogin(credentials, type)
   }
 
@@ -151,18 +151,17 @@ class SoshContentScript extends ContentScript {
     const passwordInputSelector = '#password'
     const loginButton = '#btnSubmit'
     if (type === 'half') {
-      this.log('debug', 'wait for password field')
+      this.log('debug', 'wait for password field - half')
       await this.waitForElementInWorker(passwordInputSelector)
       await this.runInWorker('fillingForm', credentials)
-
       await this.runInWorker('click', loginButton)
-      await this.waitForElementInWorker('#oecs__connecte')
+      await this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
       return true
     }
     await this.waitForElementInWorker(emailSelector)
     await this.runInWorker('fillingForm', credentials)
     await this.runInWorker('click', loginButton)
-    this.log('debug', 'wait for password field')
+    this.log('debug', 'wait for password field - full')
     await this.waitForElementInWorker(passwordInputSelector)
     await this.runInWorker('fillingForm', credentials)
     await this.runInWorker('click', loginButton)
@@ -170,9 +169,9 @@ class SoshContentScript extends ContentScript {
 
   async waitForUserAuthentication() {
     this.log('info', 'waitForUserAuthentication start')
-    await this.setWorkerState({ visible: true, url: DEFAULT_PAGE_URL })
+    await this.setWorkerState({ visible: true })
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
-    await this.setWorkerState({ visible: false, url: DEFAULT_PAGE_URL })
+    await this.setWorkerState({ visible: false })
   }
 
   async waitForUserAction(url) {
@@ -422,21 +421,6 @@ class SoshContentScript extends ContentScript {
 
   async checkAuthWithCredentials(credentials) {
     this.log('info', 'authWithCredentials starts')
-    await this.goto(DEFAULT_PAGE_URL)
-    await this.waitForElementInWorker('#oecs__ribbon')
-    await Promise.race([
-      this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
-      this.waitForElementInWorker('#login-label'),
-      this.waitForElementInWorker('#password')
-    ])
-    this.log('debug', 'Checking for captcha')
-    const { askForCaptcha, captchaUrl } = await this.runInWorker(
-      'checkForCaptcha'
-    )
-    if (askForCaptcha) {
-      this.log('debug', 'captcha found, waiting for resolution')
-      await this.waitForUserAction(captchaUrl)
-    }
     await this.waitForElementInWorker('#oecs__aide-contact')
     const helloMessage = await this.runInWorker('getHelloMessage')
     if (helloMessage) {
@@ -466,14 +450,17 @@ class SoshContentScript extends ContentScript {
     this.log('debug', 'found credentials, processing')
     const askFullLogin = await this.runInWorker('checkAskFullLogin')
     if (askFullLogin) {
+      this.log('debug', 'askFullLogin condition')
       await this.tryAutoLogin(credentials, 'full')
       return true
     }
     const testEmail = await this.runInWorker('getTestEmail')
     if (credentials.email === testEmail) {
+      this.log('debug', 'sameMailLogin condition')
       await this.sameMailLogin(credentials)
     }
     if (credentials.email != testEmail) {
+      this.log('debug', 'differentMailLogin condition')
       await this.differentMailLogin(credentials)
     }
   }
@@ -485,38 +472,11 @@ class SoshContentScript extends ContentScript {
       this.log('debug', 'no credentials found but user is still logged in')
       return true
     }
-    const loginPage = await this.runInWorker('getLoginPage')
-    if (loginPage) {
-      await this.runInWorker('clickLoginPage')
-      const accountPage = await this.runInWorker('getAccountPage')
-      if (accountPage) {
-        this.log('debug', 'accountPage condition')
-        await this.runInWorker('click', '#oecs__connexion')
-        await Promise.race([
-          this.waitForElementInWorker('h1[data-testid="pageTitle"]'),
-          this.waitForElementInWorker('#login-label'),
-          this.waitForElementInWorker('#password')
-        ])
-        await this.waitForUserAuthentication()
-        return true
-      }
-      if (!accountPage) {
-        await this.clickAndWait(
-          '#oecs__connexion',
-          'p[data-testid="selected-account-login"]'
-        )
-      }
-    }
-    const alreadyConnected = await this.runInWorker('getLogoutButton')
-    if (alreadyConnected) {
-      await this.clickAndWait(
-        'span[class="oecs__popin-button-icon"]',
-        '#oecs__connecte-se-deconnecter'
-      )
-      await this.clickAndWait(
-        '#oecs__connecte-se-deconnecter',
-        '#oecs__connexion'
-      )
+    const isAccountListPage = await this.runInWorker('checkAccountListPage')
+    if (isAccountListPage) {
+      this.log('debug', 'Webview on accountsList page, go to first login step')
+      await this.runInWorker('click', '#undefined-label')
+      await this.waitForElementInWorker('#login-label')
     }
     this.log('debug', 'no credentials found, use normal user login')
     await this.waitForUserAuthentication()
@@ -865,10 +825,20 @@ class SoshContentScript extends ContentScript {
   }
 
   async waitForCaptchaResolution() {
-    const captchaOk = document.querySelector('#password')
-    if (captchaOk) {
+    const passwordInput = document.querySelector('#password')
+    const loginInput = document.querySelector('#login')
+    const otherAccountButton = document.querySelector('#undefined-label')
+    if (passwordInput || loginInput || otherAccountButton) {
       return true
     }
+    return false
+  }
+
+  async checkAccountListPage() {
+    const isAccountListPage = Boolean(
+      document.querySelector('#undefined-label')
+    )
+    if (isAccountListPage) return true
     return false
   }
 }
@@ -900,7 +870,8 @@ connector
       'getIdentity',
       'checkAskFullLogin',
       'checkForCaptcha',
-      'waitForCaptchaResolution'
+      'waitForCaptchaResolution',
+      'checkAccountListPage'
     ]
   })
   .catch(err => {
