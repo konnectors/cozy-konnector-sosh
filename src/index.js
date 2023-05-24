@@ -226,6 +226,7 @@ class SoshContentScript extends ContentScript {
       let allPdfNumber = await this.runInWorker('getPdfNumber')
       let oldPdfNumber = allPdfNumber - recentPdfNumber
       for (let i = 0; i < recentPdfNumber; i++) {
+        this.log('debug', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
         // If something went wrong during the loading of the pdf board, a red frame with an error message appears
         // So we need to check every lap to see if we got one
         const redFrame = await this.runInWorker('checkRedFrame')
@@ -249,6 +250,7 @@ class SoshContentScript extends ContentScript {
       }
       this.log('debug', 'recentPdf loop ended')
       for (let i = 0; i < oldPdfNumber; i++) {
+        this.log('debug', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
         // Same as above with the red frame, but for old bills board
         const redFrame = await this.runInWorker('checkOldBillsRedFrame')
         if (redFrame !== null) {
@@ -454,6 +456,7 @@ class SoshContentScript extends ContentScript {
       await this.tryAutoLogin(credentials, 'full')
       return true
     }
+    await this.waitForElementInWorker('p[data-testid="selected-account-login"]')
     const testEmail = await this.runInWorker('getTestEmail')
     if (credentials.email === testEmail) {
       this.log('debug', 'sameMailLogin condition')
