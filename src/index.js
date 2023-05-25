@@ -219,10 +219,13 @@ class SoshContentScript extends ContentScript {
         throw new Error('VENDOR_DOWN')
       }
       let recentPdfNumber = await this.runInWorker('getPdfNumber')
-      await this.clickAndWait(
-        '[data-e2e="bh-more-bills"]',
-        '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-      )
+      const hasMoreBills = await this.runInWorker('getMoreBillsButton')
+      if (hasMoreBills) {
+        await this.clickAndWait(
+          '[data-e2e="bh-more-bills"]',
+          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
+        )
+      }
       let allPdfNumber = await this.runInWorker('getPdfNumber')
       let oldPdfNumber = allPdfNumber - recentPdfNumber
       for (let i = 0; i < recentPdfNumber; i++) {
@@ -249,29 +252,31 @@ class SoshContentScript extends ContentScript {
         )
       }
       this.log('debug', 'recentPdf loop ended')
-      for (let i = 0; i < oldPdfNumber; i++) {
-        this.log('debug', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
-        // Same as above with the red frame, but for old bills board
-        const redFrame = await this.runInWorker('checkOldBillsRedFrame')
-        if (redFrame !== null) {
-          this.log('debug', 'Something went wrong during old pdfs loading')
-          throw new Error('VENDOR_DOWN')
+      if (oldPdfNumber != 0) {
+        for (let i = 0; i < oldPdfNumber; i++) {
+          this.log('debug', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
+          // Same as above with the red frame, but for old bills board
+          const redFrame = await this.runInWorker('checkOldBillsRedFrame')
+          if (redFrame !== null) {
+            this.log('debug', 'Something went wrong during old pdfs loading')
+            throw new Error('VENDOR_DOWN')
+          }
+          await this.runInWorker('waitForOldPdfClicked', i)
+          await this.clickAndWait(
+            'a[class="o-link"]',
+            '[data-e2e="bp-tile-historic"]'
+          )
+          await this.clickAndWait(
+            '[data-e2e="bp-tile-historic"]',
+            '[aria-labelledby="bp-billsHistoryTitle"]'
+          )
+          await this.clickAndWait(
+            '[data-e2e="bh-more-bills"]',
+            '[aria-labelledby="bp-historicBillsHistoryTitle"]'
+          )
         }
-        await this.runInWorker('waitForOldPdfClicked', i)
-        await this.clickAndWait(
-          'a[class="o-link"]',
-          '[data-e2e="bp-tile-historic"]'
-        )
-        await this.clickAndWait(
-          '[data-e2e="bp-tile-historic"]',
-          '[aria-labelledby="bp-billsHistoryTitle"]'
-        )
-        await this.clickAndWait(
-          '[data-e2e="bh-more-bills"]',
-          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-        )
+        this.log('debug', 'oldPdf loop ended')
       }
-      this.log('debug', 'oldPdf loop ended')
       this.log('debug', 'pdfButtons all clicked')
       await this.runInWorker('processingBills')
       this.store.dataUri = []
@@ -350,11 +355,9 @@ class SoshContentScript extends ContentScript {
 
   findMoreBillsButton() {
     this.log('debug', 'Starting findMoreBillsButton')
-    const button = Array.from(
-      document.querySelector('[data-e2e="bh-more-bills"]')
-    )
-    this.log('debug', 'Exiting findMoreBillsButton')
-    return button
+    const button = document.querySelector('[data-e2e="bh-more-bills"]')
+    if (button) return true
+    else return false
   }
 
   findPdfButtons() {
