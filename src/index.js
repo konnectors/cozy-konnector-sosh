@@ -97,9 +97,10 @@ class SoshContentScript extends ContentScript {
     await Promise.race([
       this.waitForElementInWorker('#login-label'),
       this.waitForElementInWorker('#password-label'),
-      this.waitForElementInWorker('#oecs__connecte-se-deconnecter'),
+      this.waitForElementInWorker('button[data-testid="button-keepconnected"]'),
       this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
-      this.waitForElementInWorker('#undefined-label')
+      this.waitForElementInWorker('#undefined-label'),
+      this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
     ])
     const { askForCaptcha, captchaUrl } = await this.runInWorker(
       'checkForCaptcha'
@@ -385,13 +386,16 @@ class SoshContentScript extends ContentScript {
   findStayLoggedButton() {
     this.log('debug', 'Starting findStayLoggedButton')
     const button = document.querySelector(
-      '[data-oevent-label="bouton_rester_identifie"]'
+      'button[data-testid="button-keepconnected"]'
     )
-    return button
+    if (button) {
+      return true
+    }
+    return false
   }
 
   findHelloMessage() {
-    this.log('debug', 'Starting findStayLoggedButton')
+    this.log('debug', 'Starting findHelloMessage')
     const messageSpan = document.querySelector(
       'span[class="d-block text-center"]'
     )
@@ -464,6 +468,7 @@ class SoshContentScript extends ContentScript {
     if (credentials.email === testEmail) {
       this.log('debug', 'sameMailLogin condition')
       await this.sameMailLogin(credentials)
+      return true
     }
     if (credentials.email != testEmail) {
       this.log('debug', 'differentMailLogin condition')
@@ -490,9 +495,13 @@ class SoshContentScript extends ContentScript {
   }
 
   async sameMailLogin(credentials) {
+    this.log('info', 'sameMailLogin starts')
     const stayLogButton = await this.runInWorker('getStayLoggedButton')
-    if (stayLogButton != null) {
-      stayLogButton.click()
+    if (stayLogButton) {
+      await this.runInWorker(
+        'click',
+        'button[data-testid="button-keepconnected"]'
+      )
       await this.waitForElementInWorker('#oecs__connecte')
       return true
     }
@@ -834,7 +843,10 @@ class SoshContentScript extends ContentScript {
     const passwordInput = document.querySelector('#password')
     const loginInput = document.querySelector('#login')
     const otherAccountButton = document.querySelector('#undefined-label')
-    if (passwordInput || loginInput || otherAccountButton) {
+    const stayLoggedButton = document.querySelector(
+      'button[data-testid="button-keepconnected"]'
+    )
+    if (passwordInput || loginInput || otherAccountButton || stayLoggedButton) {
       return true
     }
     return false
