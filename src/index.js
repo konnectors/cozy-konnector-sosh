@@ -97,9 +97,10 @@ class SoshContentScript extends ContentScript {
     await Promise.race([
       this.waitForElementInWorker('#login-label'),
       this.waitForElementInWorker('#password-label'),
-      this.waitForElementInWorker('#oecs__connecte-se-deconnecter'),
+      this.waitForElementInWorker('button[data-testid="button-keepconnected"]'),
       this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
-      this.waitForElementInWorker('#undefined-label')
+      this.waitForElementInWorker('#undefined-label'),
+      this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
     ])
     const { askForCaptcha, captchaUrl } = await this.runInWorker(
       'checkForCaptcha'
@@ -109,6 +110,7 @@ class SoshContentScript extends ContentScript {
       await this.waitForUserAction(captchaUrl)
     }
   }
+
   async ensureNotAuthenticated() {
     this.log('info', 'ensureNotAuthenticated starts')
     await this.navigateToLoginForm()
@@ -213,13 +215,17 @@ class SoshContentScript extends ContentScript {
         '[data-e2e="bp-tile-historic"]',
         '[aria-labelledby="bp-billsHistoryTitle"]'
       )
-      const redFrame = await this.runInWorker('checkRedFrame')
-      if (redFrame !== null) {
+      const redFrame = await this.isElementInWorker(
+        '.alert-icon icon-error-severe'
+      )
+      if (redFrame) {
         this.log('debug', 'Website did not load the bills')
         throw new Error('VENDOR_DOWN')
       }
       let recentPdfNumber = await this.runInWorker('getPdfNumber')
-      const hasMoreBills = await this.runInWorker('getMoreBillsButton')
+      const hasMoreBills = await this.isElementInWorker(
+        '[data-e2e="bh-more-bills"]'
+      )
       if (hasMoreBills) {
         await this.clickAndWait(
           '[data-e2e="bh-more-bills"]',
@@ -232,9 +238,11 @@ class SoshContentScript extends ContentScript {
         this.log('debug', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
         // If something went wrong during the loading of the pdf board, a red frame with an error message appears
         // So we need to check every lap to see if we got one
-        const redFrame = await this.runInWorker('checkRedFrame')
-        if (redFrame !== null) {
-          this.log('debug', 'Something went wrong during recent pdfs loading')
+        const redFrame = await this.isElementInWorker(
+          '.alert-icon icon-error-severe'
+        )
+        if (redFrame) {
+          this.log('debug', 'Website did not load the bills')
           throw new Error('VENDOR_DOWN')
         }
         await this.runInWorker('waitForRecentPdfClicked', i)
@@ -256,8 +264,10 @@ class SoshContentScript extends ContentScript {
         for (let i = 0; i < oldPdfNumber; i++) {
           this.log('debug', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
           // Same as above with the red frame, but for old bills board
-          const redFrame = await this.runInWorker('checkOldBillsRedFrame')
-          if (redFrame !== null) {
+          const redFrame = await this.isElementInWorker(
+            'span[class="alert-icon icon-error-severe"]'
+          )
+          if (redFrame) {
             this.log('debug', 'Something went wrong during old pdfs loading')
             throw new Error('VENDOR_DOWN')
           }
@@ -353,13 +363,6 @@ class SoshContentScript extends ContentScript {
     )
   }
 
-  findMoreBillsButton() {
-    this.log('debug', 'Starting findMoreBillsButton')
-    const button = document.querySelector('[data-e2e="bh-more-bills"]')
-    if (button) return true
-    else return false
-  }
-
   findPdfButtons() {
     this.log('debug', 'Starting findPdfButtons')
     const buttons = Array.from(
@@ -385,13 +388,16 @@ class SoshContentScript extends ContentScript {
   findStayLoggedButton() {
     this.log('debug', 'Starting findStayLoggedButton')
     const button = document.querySelector(
-      '[data-oevent-label="bouton_rester_identifie"]'
+      'button[data-testid="button-keepconnected"]'
     )
-    return button
+    if (button) {
+      return true
+    }
+    return false
   }
 
   findHelloMessage() {
-    this.log('debug', 'Starting findStayLoggedButton')
+    this.log('debug', 'Starting findHelloMessage')
     const messageSpan = document.querySelector(
       'span[class="d-block text-center"]'
     )
@@ -405,7 +411,7 @@ class SoshContentScript extends ContentScript {
   }
 
   findAccountPage() {
-    this.log('debug', 'Starting findLoginButton')
+    this.log('debug', 'Starting findAccountPage')
     const loginButton = document.querySelector('#oecs__connexion')
     return loginButton
   }
@@ -453,7 +459,7 @@ class SoshContentScript extends ContentScript {
       }
     }
     this.log('debug', 'found credentials, processing')
-    const askFullLogin = await this.runInWorker('checkAskFullLogin')
+    const askFullLogin = await this.isElementInWorker('#login-label')
     if (askFullLogin) {
       this.log('debug', 'askFullLogin condition')
       await this.tryAutoLogin(credentials, 'full')
@@ -464,6 +470,7 @@ class SoshContentScript extends ContentScript {
     if (credentials.email === testEmail) {
       this.log('debug', 'sameMailLogin condition')
       await this.sameMailLogin(credentials)
+      return true
     }
     if (credentials.email != testEmail) {
       this.log('debug', 'differentMailLogin condition')
@@ -478,7 +485,7 @@ class SoshContentScript extends ContentScript {
       this.log('debug', 'no credentials found but user is still logged in')
       return true
     }
-    const isAccountListPage = await this.runInWorker('checkAccountListPage')
+    const isAccountListPage = await this.isElementInWorker('#undefined-label')
     if (isAccountListPage) {
       this.log('debug', 'Webview on accountsList page, go to first login step')
       await this.runInWorker('click', '#undefined-label')
@@ -490,9 +497,15 @@ class SoshContentScript extends ContentScript {
   }
 
   async sameMailLogin(credentials) {
-    const stayLogButton = await this.runInWorker('getStayLoggedButton')
-    if (stayLogButton != null) {
-      stayLogButton.click()
+    this.log('info', 'sameMailLogin starts')
+    const stayLogButton = await this.isElementInWorker(
+      'button[data-testid="button-keepconnected"]'
+    )
+    if (stayLogButton) {
+      await this.runInWorker(
+        'click',
+        'button[data-testid="button-keepconnected"]'
+      )
       await this.waitForElementInWorker('#oecs__connecte')
       return true
     }
@@ -544,18 +557,9 @@ class SoshContentScript extends ContentScript {
   }
 
   async getLoginPage() {
-    this.log('debug', 'Starting findLoginButton')
+    this.log('debug', 'Starting getLoginPage')
     const loginButton = this.findLoginButton()
     return loginButton
-  }
-
-  async waitForFullLoading() {
-    window.addEventListener('load', () => {
-      this.log('debug', 'Page fully loaded')
-      this.log('debug', document.location.href)
-      return true
-    })
-    return false
   }
 
   async findAndSendCredentials(loginField) {
@@ -692,18 +696,6 @@ class SoshContentScript extends ContentScript {
     }
   }
 
-  async checkRedFrame() {
-    const redFrame = document.querySelector('.alert-icon icon-error-severe')
-    return redFrame
-  }
-
-  async checkOldBillsRedFrame() {
-    const redFrame = document.querySelector(
-      'span[class="alert-icon icon-error-severe"]'
-    )
-    return redFrame
-  }
-
   async getStayLoggedButton() {
     this.log('debug', 'Starting getStayLoggedButton')
     const button = this.findStayLoggedButton()
@@ -720,12 +712,6 @@ class SoshContentScript extends ContentScript {
       return result
     }
     return null
-  }
-
-  async getMoreBillsButton() {
-    this.log('debug', 'Getting in getMoreBillsButton')
-    let moreBillsButton = this.findMoreBillsButton()
-    return moreBillsButton
   }
 
   async getPdfNumber() {
@@ -811,14 +797,6 @@ class SoshContentScript extends ContentScript {
     }
   }
 
-  checkAskFullLogin() {
-    if (document.querySelector('#login-label')) {
-      return true
-    } else {
-      return false
-    }
-  }
-
   checkForCaptcha() {
     const captchaContainer = document.querySelector(
       'div[class*="captcha_responseContainer"]'
@@ -834,17 +812,12 @@ class SoshContentScript extends ContentScript {
     const passwordInput = document.querySelector('#password')
     const loginInput = document.querySelector('#login')
     const otherAccountButton = document.querySelector('#undefined-label')
-    if (passwordInput || loginInput || otherAccountButton) {
+    const stayLoggedButton = document.querySelector(
+      'button[data-testid="button-keepconnected"]'
+    )
+    if (passwordInput || loginInput || otherAccountButton || stayLoggedButton) {
       return true
     }
-    return false
-  }
-
-  async checkAccountListPage() {
-    const isAccountListPage = Boolean(
-      document.querySelector('#undefined-label')
-    )
-    if (isAccountListPage) return true
     return false
   }
 }
@@ -856,9 +829,6 @@ connector
       'getUserMail',
       'findClientRef',
       'processingBills',
-      'getMoreBillsButton',
-      'checkRedFrame',
-      'checkOldBillsRedFrame',
       'getTestEmail',
       'fillingForm',
       'getStayLoggedButton',
@@ -866,7 +836,6 @@ connector
       'getPdfNumber',
       'waitForRecentPdfClicked',
       'waitForOldPdfClicked',
-      'waitForFullLoading',
       'getLoginPage',
       'getAccountPage',
       'clickLoginPage',
@@ -874,10 +843,8 @@ connector
       'accountSelection',
       'getLogoutButton',
       'getIdentity',
-      'checkAskFullLogin',
       'checkForCaptcha',
-      'waitForCaptchaResolution',
-      'checkAccountListPage'
+      'waitForCaptchaResolution'
     ]
   })
   .catch(err => {
