@@ -496,24 +496,30 @@ var ContentScript = /*#__PURE__*/function () {
      * reloads
      *
      * @param {string} selector - css selector we are waiting for
+     * @param {object} options - options object
+     * @param {number} [options.timeout] - timeout in ms. Will default to 30s
      */
 
   }, {
     key: "waitForElementInWorker",
     value: function () {
       var _waitForElementInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee7(selector) {
+        var options,
+            _args7 = arguments;
         return _regenerator.default.wrap(function _callee7$(_context7) {
           while (1) {
             switch (_context7.prev = _context7.next) {
               case 0:
+                options = _args7.length > 1 && _args7[1] !== undefined ? _args7[1] : {};
                 this.onlyIn(PILOT_TYPE, 'waitForElementInWorker');
-                _context7.next = 3;
+                _context7.next = 4;
                 return this.runInWorkerUntilTrue({
                   method: 'waitForElementNoReload',
+                  timeout: options === null || options === void 0 ? void 0 : options.timeout,
                   args: [selector]
                 });
 
-              case 3:
+              case 4:
               case "end":
                 return _context7.stop();
             }
@@ -5008,7 +5014,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.14.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.1","post-me":"^0.4.5"},"gitHead":"bc4e6429a5e1f600a354e18565f981043569ca6f"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.16.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.1","post-me":"^0.4.5"},"gitHead":"57374068c519272f0b9fbdb0d4aad0a85221b989"}');
 
 /***/ })
 /******/ 	]);
