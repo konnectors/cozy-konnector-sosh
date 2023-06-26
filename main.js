@@ -339,7 +339,10 @@ var ContentScript = /*#__PURE__*/function () {
                 _context4.next = 3;
                 return (0, _pWaitFor.default)(this.checkAuthenticated.bind(this), {
                   interval: 1000,
-                  timeout: DEFAULT_LOGIN_TIMEOUT
+                  timeout: {
+                    milliseconds: DEFAULT_LOGIN_TIMEOUT,
+                    message: new _pWaitFor.TimeoutError("waitForAuthenticated timed out after ".concat(DEFAULT_LOGIN_TIMEOUT, "ms"))
+                  }
                 });
 
               case 3:
@@ -5014,7 +5017,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.16.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.1","post-me":"^0.4.5"},"gitHead":"57374068c519272f0b9fbdb0d4aad0a85221b989"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.16.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"d32c4dd81fb17a0f8739e0b6dbcef031c593ca35"}');
 
 /***/ })
 /******/ 	]);
