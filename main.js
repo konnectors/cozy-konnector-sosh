@@ -216,7 +216,7 @@ var ContentScript = /*#__PURE__*/function () {
                 this.bridge = new _LauncherBridge.default({
                   localWindow: window
                 });
-                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'ensureNotAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName', 'downloadFileInWorker', 'getCliskVersion', 'checkForElement'];
+                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'ensureNotAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName', 'downloadFileInWorker', 'getCliskVersion', 'checkForElement', 'evaluate'];
 
                 if (options.additionalExposedMethodsNames) {
                   exposedMethodsNames.push.apply(exposedMethodsNames, options.additionalExposedMethodsNames);
@@ -1343,6 +1343,100 @@ var ContentScript = /*#__PURE__*/function () {
       return goto;
     }()
     /**
+     * Evaluates a given function in worker context
+     *
+     * @param {Function} fn - the function to evaluate
+     *
+     * @returns {Promise<any>} - function evaluation result
+     */
+
+  }, {
+    key: "evaluateInWorker",
+    value: function () {
+      var _evaluateInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee26(fn) {
+        var _len2,
+            args,
+            _key2,
+            _args26 = arguments;
+
+        return _regenerator.default.wrap(function _callee26$(_context26) {
+          while (1) {
+            switch (_context26.prev = _context26.next) {
+              case 0:
+                this.onlyIn(PILOT_TYPE, 'evaluateInWorker');
+
+                for (_len2 = _args26.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
+                  args[_key2 - 1] = _args26[_key2];
+                }
+
+                _context26.next = 4;
+                return this.runInWorker.apply(this, ['evaluate', fn.toString()].concat(args));
+
+              case 4:
+                return _context26.abrupt("return", _context26.sent);
+
+              case 5:
+              case "end":
+                return _context26.stop();
+            }
+          }
+        }, _callee26, this);
+      }));
+
+      function evaluateInWorker(_x26) {
+        return _evaluateInWorker.apply(this, arguments);
+      }
+
+      return evaluateInWorker;
+    }()
+    /**
+     * Evaluates a given function string
+     *
+     * @param {String} fnString - the function string to evaluate
+     *
+     * @returns {Promise<any>} - function evaluation result
+     */
+
+  }, {
+    key: "evaluate",
+    value: function () {
+      var _evaluate = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee27(fnString) {
+        var _len3,
+            args,
+            _key3,
+            _args27 = arguments;
+
+        return _regenerator.default.wrap(function _callee27$(_context27) {
+          while (1) {
+            switch (_context27.prev = _context27.next) {
+              case 0:
+                this.onlyIn(WORKER_TYPE, 'evaluate');
+
+                for (_len3 = _args27.length, args = new Array(_len3 > 1 ? _len3 - 1 : 0), _key3 = 1; _key3 < _len3; _key3++) {
+                  args[_key3 - 1] = _args27[_key3];
+                }
+
+                _context27.next = 4;
+                return _utils.callStringFunction.apply(void 0, [fnString].concat(args));
+
+              case 4:
+                return _context27.abrupt("return", _context27.sent);
+
+              case 5:
+              case "end":
+                return _context27.stop();
+            }
+          }
+        }, _callee27, this);
+      }));
+
+      function evaluate(_x27) {
+        return _evaluate.apply(this, arguments);
+      }
+
+      return evaluate;
+    }()
+    /**
      * Make sure that the connector is authenticated to the website.
      * If not, show the login webview to the user to let her/him authenticated.
      * Resolve the promise when authenticated
@@ -1354,19 +1448,19 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "ensureAuthenticated",
     value: function () {
-      var _ensureAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee26() {
-        return _regenerator.default.wrap(function _callee26$(_context26) {
+      var _ensureAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee28() {
+        return _regenerator.default.wrap(function _callee28$(_context28) {
           while (1) {
-            switch (_context26.prev = _context26.next) {
+            switch (_context28.prev = _context28.next) {
               case 0:
-                return _context26.abrupt("return", true);
+                return _context28.abrupt("return", true);
 
               case 1:
               case "end":
-                return _context26.stop();
+                return _context28.stop();
             }
           }
-        }, _callee26);
+        }, _callee28);
       }));
 
       function ensureAuthenticated() {
@@ -1384,19 +1478,19 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "ensureNotAuthenticated",
     value: function () {
-      var _ensureNotAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee27() {
-        return _regenerator.default.wrap(function _callee27$(_context27) {
+      var _ensureNotAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee29() {
+        return _regenerator.default.wrap(function _callee29$(_context29) {
           while (1) {
-            switch (_context27.prev = _context27.next) {
+            switch (_context29.prev = _context29.next) {
               case 0:
-                return _context27.abrupt("return", true);
+                return _context29.abrupt("return", true);
 
               case 1:
               case "end":
-                return _context27.stop();
+                return _context29.stop();
             }
           }
-        }, _callee27);
+        }, _callee29);
       }));
 
       function ensureNotAuthenticated() {
@@ -1415,16 +1509,16 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getUserDataFromWebsite",
     value: function () {
-      var _getUserDataFromWebsite = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee28() {
-        return _regenerator.default.wrap(function _callee28$(_context28) {
+      var _getUserDataFromWebsite = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee30() {
+        return _regenerator.default.wrap(function _callee30$(_context30) {
           while (1) {
-            switch (_context28.prev = _context28.next) {
+            switch (_context30.prev = _context30.next) {
               case 0:
               case "end":
-                return _context28.stop();
+                return _context30.stop();
             }
           }
-        }, _callee28);
+        }, _callee30);
       }));
 
       function getUserDataFromWebsite() {
@@ -1442,32 +1536,32 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "sendToPilot",
     value: function () {
-      var _sendToPilot = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee29(obj) {
-        return _regenerator.default.wrap(function _callee29$(_context29) {
+      var _sendToPilot = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee31(obj) {
+        return _regenerator.default.wrap(function _callee31$(_context31) {
           while (1) {
-            switch (_context29.prev = _context29.next) {
+            switch (_context31.prev = _context31.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'sendToPilot');
 
                 if (this.bridge) {
-                  _context29.next = 3;
+                  _context31.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                return _context29.abrupt("return", this.bridge.call('sendToPilot', obj));
+                return _context31.abrupt("return", this.bridge.call('sendToPilot', obj));
 
               case 4:
               case "end":
-                return _context29.stop();
+                return _context31.stop();
             }
           }
-        }, _callee29, this);
+        }, _callee31, this);
       }));
 
-      function sendToPilot(_x26) {
+      function sendToPilot(_x28) {
         return _sendToPilot.apply(this, arguments);
       }
 
@@ -1482,23 +1576,23 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "storeFromWorker",
     value: function () {
-      var _storeFromWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee30(obj) {
-        return _regenerator.default.wrap(function _callee30$(_context30) {
+      var _storeFromWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee32(obj) {
+        return _regenerator.default.wrap(function _callee32$(_context32) {
           while (1) {
-            switch (_context30.prev = _context30.next) {
+            switch (_context32.prev = _context32.next) {
               case 0:
                 // @ts-ignore Aucune surcharge ne correspond à cet appel.
                 Object.assign(this.store, obj);
 
               case 1:
               case "end":
-                return _context30.stop();
+                return _context32.stop();
             }
           }
-        }, _callee30, this);
+        }, _callee32, this);
       }));
 
-      function storeFromWorker(_x27) {
+      function storeFromWorker(_x29) {
         return _storeFromWorker.apply(this, arguments);
       }
 
@@ -1524,19 +1618,19 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "fetch",
     value: function () {
-      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee31(options) {
-        return _regenerator.default.wrap(function _callee31$(_context31) {
+      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee33(options) {
+        return _regenerator.default.wrap(function _callee33$(_context33) {
           while (1) {
-            switch (_context31.prev = _context31.next) {
+            switch (_context33.prev = _context33.next) {
               case 0:
               case "end":
-                return _context31.stop();
+                return _context33.stop();
             }
           }
-        }, _callee31);
+        }, _callee33);
       }));
 
-      function fetch(_x28) {
+      function fetch(_x30) {
         return _fetch.apply(this, arguments);
       }
 
@@ -1549,19 +1643,19 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getCliskVersion",
     value: function () {
-      var _getCliskVersion = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee32() {
-        return _regenerator.default.wrap(function _callee32$(_context32) {
+      var _getCliskVersion = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee34() {
+        return _regenerator.default.wrap(function _callee34$(_context34) {
           while (1) {
-            switch (_context32.prev = _context32.next) {
+            switch (_context34.prev = _context34.next) {
               case 0:
-                return _context32.abrupt("return", _package.default.version);
+                return _context34.abrupt("return", _package.default.version);
 
               case 1:
               case "end":
-                return _context32.stop();
+                return _context34.stop();
             }
           }
-        }, _callee32);
+        }, _callee34);
       }));
 
       function getCliskVersion() {
@@ -4304,6 +4398,8 @@ Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
 exports.blobToBase64 = blobToBase64;
+exports.callStringFunction = callStringFunction;
+exports.deserializeStringFunction = deserializeStringFunction;
 
 var _regenerator = _interopRequireDefault(__webpack_require__(4));
 
@@ -4318,6 +4414,14 @@ var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(13));
 function blobToBase64(_x) {
   return _blobToBase.apply(this, arguments);
 }
+/**
+ * Convert a string function to the corresponding function.
+ *
+ * @param {String} fnString - function string to convert
+ *
+ * @returns {Function} - the resulting function
+ */
+
 
 function _blobToBase() {
   _blobToBase = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee(blob) {
@@ -4345,6 +4449,56 @@ function _blobToBase() {
     }, _callee);
   }));
   return _blobToBase.apply(this, arguments);
+}
+
+function deserializeStringFunction(fnString) {
+  return eval('(' + fnString.trim() + ')');
+}
+/**
+ * Calls and awaits the given string function with given arguments
+ *
+ * @param {String} fnString - function string to convert
+ *
+ * @returns {Promise<any>} - the result of the execution of the string function
+ */
+
+
+function callStringFunction(_x2) {
+  return _callStringFunction.apply(this, arguments);
+}
+
+function _callStringFunction() {
+  _callStringFunction = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee2(fnString) {
+    var fn,
+        _len,
+        args,
+        _key,
+        _args2 = arguments;
+
+    return _regenerator.default.wrap(function _callee2$(_context2) {
+      while (1) {
+        switch (_context2.prev = _context2.next) {
+          case 0:
+            fn = deserializeStringFunction(fnString);
+
+            for (_len = _args2.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+              args[_key - 1] = _args2[_key];
+            }
+
+            _context2.next = 4;
+            return fn.apply(void 0, args);
+
+          case 4:
+            return _context2.abrupt("return", _context2.sent);
+
+          case 5:
+          case "end":
+            return _context2.stop();
+        }
+      }
+    }, _callee2);
+  }));
+  return _callStringFunction.apply(this, arguments);
 }
 
 /***/ }),
@@ -5017,7 +5171,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.16.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"d32c4dd81fb17a0f8739e0b6dbcef031c593ca35"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.17.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"69fa4c8995d23af0569ac0d05290c40d6c026ae3"}');
 
 /***/ })
 /******/ 	]);
