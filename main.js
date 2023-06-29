@@ -241,9 +241,7 @@ var ContentScript = /*#__PURE__*/function () {
                   return _this2.log('debug', "window.beforeunload detected with previous url : ".concat(document.location));
                 };
 
-                this.bridge.emit('workerReady');
-
-              case 11:
+              case 10:
               case "end":
                 return _context.stop();
             }
@@ -257,6 +255,15 @@ var ContentScript = /*#__PURE__*/function () {
 
       return init;
     }()
+    /**
+     * This method is called when the worker is ready on the current page. This is a good place to
+     * subscribe to dom events for examples. These subscriptions will be replayed on each worker page
+     * reload
+     */
+
+  }, {
+    key: "onWorkerReady",
+    value: function onWorkerReady() {}
     /**
      * Set the ContentScript type. This is usefull to know which webview is the pilot or the worker
      *
@@ -275,7 +282,11 @@ var ContentScript = /*#__PURE__*/function () {
 
                 _log.info("I am the ".concat(contentScriptType));
 
-              case 2:
+                if (contentScriptType === WORKER_TYPE) {
+                  this.onWorkerReady();
+                }
+
+              case 3:
               case "end":
                 return _context2.stop();
             }
@@ -5171,7 +5182,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.17.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"69fa4c8995d23af0569ac0d05290c40d6c026ae3"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.18.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"64280ae8e4345c5d8135ad46eb7784455c2234ea"}');
 
 /***/ })
 /******/ 	]);
