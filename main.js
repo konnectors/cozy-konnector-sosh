@@ -124,6 +124,7 @@ var ContentScript = /*#__PURE__*/function () {
     this.getUserDataFromWebsite = wrapTimerInfo(this, 'getUserDataFromWebsite');
     this.fetch = wrapTimerInfo(this, 'fetch');
     this.waitForAuthenticated = wrapTimerDebug(this, 'waitForAuthenticated');
+    this.waitForNotAuthenticated = wrapTimerDebug(this, 'waitForNotAuthenticated');
     this.runInWorker = wrapTimerDebug(this, 'runInWorker', {
       suffixFn: function suffixFn(args) {
         return args === null || args === void 0 ? void 0 : args[0];
@@ -216,7 +217,7 @@ var ContentScript = /*#__PURE__*/function () {
                 this.bridge = new _LauncherBridge.default({
                   localWindow: window
                 });
-                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'ensureNotAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName', 'downloadFileInWorker', 'getCliskVersion', 'checkForElement', 'evaluate'];
+                exposedMethodsNames = ['setContentScriptType', 'ensureAuthenticated', 'ensureNotAuthenticated', 'checkAuthenticated', 'waitForAuthenticated', 'waitForNotAuthenticated', 'waitForElementNoReload', 'getUserDataFromWebsite', 'fetch', 'click', 'fillText', 'storeFromWorker', 'clickAndWait', 'getCookiesByDomain', 'getCookieByDomainAndName', 'downloadFileInWorker', 'getCliskVersion', 'checkForElement', 'evaluate'];
 
                 if (options.additionalExposedMethodsNames) {
                   exposedMethodsNames.push.apply(exposedMethodsNames, options.additionalExposedMethodsNames);
@@ -334,6 +335,9 @@ var ContentScript = /*#__PURE__*/function () {
      * This method is made to run in the worker and will resolve as true when
      * the user is authenticated
      *
+     * @param {object} options        - options object
+     * @param {number} [options.timeout] - number of miliseconds before the function sends a timeout error. Default 5m
+     * @param {number} [options.interval] - interval in ms between checkAuthenticated calls. Default 1s
      * @returns {Promise.<true>} : if authenticated
      * @throws {TimeoutError}: TimeoutError from p-wait-for package if timeout expired
      */
@@ -342,24 +346,31 @@ var ContentScript = /*#__PURE__*/function () {
     key: "waitForAuthenticated",
     value: function () {
       var _waitForAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee4() {
+        var options,
+            timeout,
+            interval,
+            _args4 = arguments;
         return _regenerator.default.wrap(function _callee4$(_context4) {
           while (1) {
             switch (_context4.prev = _context4.next) {
               case 0:
+                options = _args4.length > 0 && _args4[0] !== undefined ? _args4[0] : {};
                 this.onlyIn(WORKER_TYPE, 'waitForAuthenticated');
-                _context4.next = 3;
+                timeout = options.timeout || DEFAULT_LOGIN_TIMEOUT;
+                interval = options.interval || 1000;
+                _context4.next = 6;
                 return (0, _pWaitFor.default)(this.checkAuthenticated.bind(this), {
-                  interval: 1000,
+                  interval: interval,
                   timeout: {
-                    milliseconds: DEFAULT_LOGIN_TIMEOUT,
-                    message: new _pWaitFor.TimeoutError("waitForAuthenticated timed out after ".concat(DEFAULT_LOGIN_TIMEOUT, "ms"))
+                    milliseconds: timeout,
+                    message: new _pWaitFor.TimeoutError("waitForAuthenticated timed out after ".concat(timeout, "ms"))
                   }
                 });
 
-              case 3:
+              case 6:
                 return _context4.abrupt("return", true);
 
-              case 4:
+              case 7:
               case "end":
                 return _context4.stop();
             }
@@ -374,6 +385,80 @@ var ContentScript = /*#__PURE__*/function () {
       return waitForAuthenticated;
     }()
     /**
+     * This method is made to run in the worker and will resolve as true when
+     * the user is not authenticated
+     *
+     * @param {object} options        - options object
+     * @param {number} [options.timeout] - number of miliseconds before the function sends a timeout error. Default 30s
+     * @param {number} [options.interval] - interval in ms between checkAuthenticated calls. Default 1s
+     * @returns {Promise.<true>} : if not authenticated
+     * @throws {TimeoutError}: TimeoutError from p-wait-for package if timeout expired
+     */
+
+  }, {
+    key: "waitForNotAuthenticated",
+    value: function () {
+      var _waitForNotAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee6() {
+        var _this3 = this;
+
+        var options,
+            timeout,
+            interval,
+            _args6 = arguments;
+        return _regenerator.default.wrap(function _callee6$(_context6) {
+          while (1) {
+            switch (_context6.prev = _context6.next) {
+              case 0:
+                options = _args6.length > 0 && _args6[0] !== undefined ? _args6[0] : {};
+                this.onlyIn(WORKER_TYPE, 'waitForNotAuthenticated');
+                timeout = options.timeout || DEFAULT_WAIT_FOR_ELEMENT_TIMEOUT;
+                interval = options.interval || 1000;
+                _context6.next = 6;
+                return (0, _pWaitFor.default)( /*#__PURE__*/(0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee5() {
+                  var authenticated;
+                  return _regenerator.default.wrap(function _callee5$(_context5) {
+                    while (1) {
+                      switch (_context5.prev = _context5.next) {
+                        case 0:
+                          _context5.next = 2;
+                          return _this3.checkAuthenticated.bind(_this3)();
+
+                        case 2:
+                          authenticated = _context5.sent;
+                          return _context5.abrupt("return", !authenticated);
+
+                        case 4:
+                        case "end":
+                          return _context5.stop();
+                      }
+                    }
+                  }, _callee5);
+                })), {
+                  interval: interval,
+                  timeout: {
+                    milliseconds: timeout,
+                    message: new _pWaitFor.TimeoutError("waitForNotAuthenticated timed out after ".concat(timeout, "ms"))
+                  }
+                });
+
+              case 6:
+                return _context6.abrupt("return", true);
+
+              case 7:
+              case "end":
+                return _context6.stop();
+            }
+          }
+        }, _callee6, this);
+      }));
+
+      function waitForNotAuthenticated() {
+        return _waitForNotAuthenticated.apply(this, arguments);
+      }
+
+      return waitForNotAuthenticated;
+    }()
+    /**
      * Run a specified method in the worker webview
      *
      * @param {string} method : name of the method to run
@@ -382,44 +467,44 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "runInWorker",
     value: function () {
-      var _runInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee5(method) {
+      var _runInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee7(method) {
         var _this$bridge;
 
         var _len,
             args,
             _key,
-            _args5 = arguments;
+            _args7 = arguments;
 
-        return _regenerator.default.wrap(function _callee5$(_context5) {
+        return _regenerator.default.wrap(function _callee7$(_context7) {
           while (1) {
-            switch (_context5.prev = _context5.next) {
+            switch (_context7.prev = _context7.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'runInWorker');
 
                 if (this.bridge) {
-                  _context5.next = 3;
+                  _context7.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                for (_len = _args5.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-                  args[_key - 1] = _args5[_key];
+                for (_len = _args7.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+                  args[_key - 1] = _args7[_key];
                 }
 
-                _context5.next = 6;
+                _context7.next = 6;
                 return (_this$bridge = this.bridge).call.apply(_this$bridge, ['runInWorker', method].concat(args));
 
               case 6:
-                return _context5.abrupt("return", _context5.sent);
+                return _context7.abrupt("return", _context7.sent);
 
               case 7:
               case "end":
-                return _context5.stop();
+                return _context7.stop();
             }
           }
-        }, _callee5, this);
+        }, _callee7, this);
       }));
 
       function runInWorker(_x2) {
@@ -442,14 +527,14 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "runInWorkerUntilTrue",
     value: function () {
-      var _runInWorkerUntilTrue = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee6(_ref) {
-        var method, _ref$timeout, timeout, _ref$args, args, result, start, isTimeout;
+      var _runInWorkerUntilTrue = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee8(_ref2) {
+        var method, _ref2$timeout, timeout, _ref2$args, args, result, start, isTimeout;
 
-        return _regenerator.default.wrap(function _callee6$(_context6) {
+        return _regenerator.default.wrap(function _callee8$(_context8) {
           while (1) {
-            switch (_context6.prev = _context6.next) {
+            switch (_context8.prev = _context8.next) {
               case 0:
-                method = _ref.method, _ref$timeout = _ref.timeout, timeout = _ref$timeout === void 0 ? Infinity : _ref$timeout, _ref$args = _ref.args, args = _ref$args === void 0 ? [] : _ref$args;
+                method = _ref2.method, _ref2$timeout = _ref2.timeout, timeout = _ref2$timeout === void 0 ? Infinity : _ref2$timeout, _ref2$args = _ref2.args, args = _ref2$args === void 0 ? [] : _ref2$args;
                 this.onlyIn(PILOT_TYPE, 'runInWorkerUntilTrue');
 
                 _log.debug('runInWorkerUntilTrue', method);
@@ -463,12 +548,12 @@ var ContentScript = /*#__PURE__*/function () {
 
               case 6:
                 if (result) {
-                  _context6.next = 16;
+                  _context8.next = 16;
                   break;
                 }
 
                 if (!isTimeout()) {
-                  _context6.next = 9;
+                  _context8.next = 9;
                   break;
                 }
 
@@ -477,26 +562,26 @@ var ContentScript = /*#__PURE__*/function () {
               case 9:
                 _log.debug('runInWorker call', method);
 
-                _context6.next = 12;
+                _context8.next = 12;
                 return this.runInWorker.apply(this, [method].concat((0, _toConsumableArray2.default)(args)));
 
               case 12:
-                result = _context6.sent;
+                result = _context8.sent;
 
                 _log.debug('runInWorker result', result);
 
-                _context6.next = 6;
+                _context8.next = 6;
                 break;
 
               case 16:
-                return _context6.abrupt("return", result);
+                return _context8.abrupt("return", result);
 
               case 17:
               case "end":
-                return _context6.stop();
+                return _context8.stop();
             }
           }
-        }, _callee6, this);
+        }, _callee8, this);
       }));
 
       function runInWorkerUntilTrue(_x3) {
@@ -517,16 +602,16 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "waitForElementInWorker",
     value: function () {
-      var _waitForElementInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee7(selector) {
+      var _waitForElementInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee9(selector) {
         var options,
-            _args7 = arguments;
-        return _regenerator.default.wrap(function _callee7$(_context7) {
+            _args9 = arguments;
+        return _regenerator.default.wrap(function _callee9$(_context9) {
           while (1) {
-            switch (_context7.prev = _context7.next) {
+            switch (_context9.prev = _context9.next) {
               case 0:
-                options = _args7.length > 1 && _args7[1] !== undefined ? _args7[1] : {};
+                options = _args9.length > 1 && _args9[1] !== undefined ? _args9[1] : {};
                 this.onlyIn(PILOT_TYPE, 'waitForElementInWorker');
-                _context7.next = 4;
+                _context9.next = 4;
                 return this.runInWorkerUntilTrue({
                   method: 'waitForElementNoReload',
                   timeout: options === null || options === void 0 ? void 0 : options.timeout,
@@ -535,10 +620,10 @@ var ContentScript = /*#__PURE__*/function () {
 
               case 4:
               case "end":
-                return _context7.stop();
+                return _context9.stop();
             }
           }
-        }, _callee7, this);
+        }, _callee9, this);
       }));
 
       function waitForElementInWorker(_x4) {
@@ -557,24 +642,24 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "isElementInWorker",
     value: function () {
-      var _isElementInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee8(selector) {
-        return _regenerator.default.wrap(function _callee8$(_context8) {
+      var _isElementInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee10(selector) {
+        return _regenerator.default.wrap(function _callee10$(_context10) {
           while (1) {
-            switch (_context8.prev = _context8.next) {
+            switch (_context10.prev = _context10.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'isElementInWorker');
-                _context8.next = 3;
+                _context10.next = 3;
                 return this.runInWorker('checkForElement', selector);
 
               case 3:
-                return _context8.abrupt("return", _context8.sent);
+                return _context10.abrupt("return", _context10.sent);
 
               case 4:
               case "end":
-                return _context8.stop();
+                return _context10.stop();
             }
           }
-        }, _callee8, this);
+        }, _callee10, this);
       }));
 
       function isElementInWorker(_x5) {
@@ -593,16 +678,16 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "waitForElementNoReload",
     value: function () {
-      var _waitForElementNoReload = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee9(selector) {
-        return _regenerator.default.wrap(function _callee9$(_context9) {
+      var _waitForElementNoReload = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee11(selector) {
+        return _regenerator.default.wrap(function _callee11$(_context11) {
           while (1) {
-            switch (_context9.prev = _context9.next) {
+            switch (_context11.prev = _context11.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'waitForElementNoReload');
 
                 _log.debug('waitForElementNoReload', selector);
 
-                _context9.next = 4;
+                _context11.next = 4;
                 return (0, _pWaitFor.default)(function () {
                   return Boolean(document.querySelector(selector));
                 }, {
@@ -613,14 +698,14 @@ var ContentScript = /*#__PURE__*/function () {
                 });
 
               case 4:
-                return _context9.abrupt("return", true);
+                return _context11.abrupt("return", true);
 
               case 5:
               case "end":
-                return _context9.stop();
+                return _context11.stop();
             }
           }
-        }, _callee9, this);
+        }, _callee11, this);
       }));
 
       function waitForElementNoReload(_x6) {
@@ -639,23 +724,23 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "checkForElement",
     value: function () {
-      var _checkForElement = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee10(selector) {
-        return _regenerator.default.wrap(function _callee10$(_context10) {
+      var _checkForElement = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee12(selector) {
+        return _regenerator.default.wrap(function _callee12$(_context12) {
           while (1) {
-            switch (_context10.prev = _context10.next) {
+            switch (_context12.prev = _context12.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'checkForElement');
 
                 _log.debug('checkForElement', selector);
 
-                return _context10.abrupt("return", Boolean(document.querySelector(selector)));
+                return _context12.abrupt("return", Boolean(document.querySelector(selector)));
 
               case 3:
               case "end":
-                return _context10.stop();
+                return _context12.stop();
             }
           }
-        }, _callee10, this);
+        }, _callee12, this);
       }));
 
       function checkForElement(_x7) {
@@ -667,17 +752,17 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "click",
     value: function () {
-      var _click = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee11(selector) {
+      var _click = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee13(selector) {
         var elem;
-        return _regenerator.default.wrap(function _callee11$(_context11) {
+        return _regenerator.default.wrap(function _callee13$(_context13) {
           while (1) {
-            switch (_context11.prev = _context11.next) {
+            switch (_context13.prev = _context13.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'click');
                 elem = document.querySelector(selector);
 
                 if (elem) {
-                  _context11.next = 4;
+                  _context13.next = 4;
                   break;
                 }
 
@@ -688,10 +773,10 @@ var ContentScript = /*#__PURE__*/function () {
 
               case 5:
               case "end":
-                return _context11.stop();
+                return _context13.stop();
             }
           }
-        }, _callee11, this);
+        }, _callee13, this);
       }));
 
       function click(_x8) {
@@ -703,22 +788,22 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "clickAndWait",
     value: function () {
-      var _clickAndWait = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee12(elementToClick, elementToWait) {
-        return _regenerator.default.wrap(function _callee12$(_context12) {
+      var _clickAndWait = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee14(elementToClick, elementToWait) {
+        return _regenerator.default.wrap(function _callee14$(_context14) {
           while (1) {
-            switch (_context12.prev = _context12.next) {
+            switch (_context14.prev = _context14.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'clickAndWait');
 
                 _log.debug('clicking ' + elementToClick);
 
-                _context12.next = 4;
+                _context14.next = 4;
                 return this.runInWorker('click', elementToClick);
 
               case 4:
                 _log.debug('waiting for ' + elementToWait);
 
-                _context12.next = 7;
+                _context14.next = 7;
                 return this.waitForElementInWorker(elementToWait);
 
               case 7:
@@ -726,10 +811,10 @@ var ContentScript = /*#__PURE__*/function () {
 
               case 8:
               case "end":
-                return _context12.stop();
+                return _context14.stop();
             }
           }
-        }, _callee12, this);
+        }, _callee14, this);
       }));
 
       function clickAndWait(_x9, _x10) {
@@ -741,17 +826,17 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "fillText",
     value: function () {
-      var _fillText = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee13(selector, text) {
+      var _fillText = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee15(selector, text) {
         var elem;
-        return _regenerator.default.wrap(function _callee13$(_context13) {
+        return _regenerator.default.wrap(function _callee15$(_context15) {
           while (1) {
-            switch (_context13.prev = _context13.next) {
+            switch (_context15.prev = _context15.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'fillText');
                 elem = document.querySelector(selector);
 
                 if (elem) {
-                  _context13.next = 4;
+                  _context15.next = 4;
                   break;
                 }
 
@@ -769,10 +854,10 @@ var ContentScript = /*#__PURE__*/function () {
 
               case 8:
               case "end":
-                return _context13.stop();
+                return _context15.stop();
             }
           }
-        }, _callee13, this);
+        }, _callee15, this);
       }));
 
       function fillText(_x11, _x12) {
@@ -790,39 +875,39 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "downloadFileInWorker",
     value: function () {
-      var _downloadFileInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee14(entry) {
-        return _regenerator.default.wrap(function _callee14$(_context14) {
+      var _downloadFileInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee16(entry) {
+        return _regenerator.default.wrap(function _callee16$(_context16) {
           while (1) {
-            switch (_context14.prev = _context14.next) {
+            switch (_context16.prev = _context16.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'downloadFileInWorker');
                 this.log('debug', 'downloading file in worker');
 
                 if (!entry.fileurl) {
-                  _context14.next = 9;
+                  _context16.next = 9;
                   break;
                 }
 
-                _context14.next = 5;
+                _context16.next = 5;
                 return _umd.default.get(entry.fileurl, entry.requestOptions).blob();
 
               case 5:
-                entry.blob = _context14.sent;
-                _context14.next = 8;
+                entry.blob = _context16.sent;
+                _context16.next = 8;
                 return (0, _utils.blobToBase64)(entry.blob);
 
               case 8:
-                entry.dataUri = _context14.sent;
+                entry.dataUri = _context16.sent;
 
               case 9:
-                return _context14.abrupt("return", entry.dataUri);
+                return _context16.abrupt("return", entry.dataUri);
 
               case 10:
               case "end":
-                return _context14.stop();
+                return _context16.stop();
             }
           }
-        }, _callee14, this);
+        }, _callee16, this);
       }));
 
       function downloadFileInWorker(_x13) {
@@ -844,11 +929,11 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveFiles",
     value: function () {
-      var _saveFiles = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee15(entries, options) {
+      var _saveFiles = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee17(entries, options) {
         var context;
-        return _regenerator.default.wrap(function _callee15$(_context15) {
+        return _regenerator.default.wrap(function _callee17$(_context17) {
           while (1) {
-            switch (_context15.prev = _context15.next) {
+            switch (_context17.prev = _context17.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'saveFiles');
 
@@ -859,25 +944,25 @@ var ContentScript = /*#__PURE__*/function () {
                 _log.debug(context, 'saveFiles input context');
 
                 if (this.bridge) {
-                  _context15.next = 6;
+                  _context17.next = 6;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 6:
-                _context15.next = 8;
+                _context17.next = 8;
                 return this.bridge.call('saveFiles', entries, options);
 
               case 8:
-                return _context15.abrupt("return", _context15.sent);
+                return _context17.abrupt("return", _context17.sent);
 
               case 9:
               case "end":
-                return _context15.stop();
+                return _context17.stop();
             }
           }
-        }, _callee15, this);
+        }, _callee17, this);
       }));
 
       function saveFiles(_x14, _x15) {
@@ -898,33 +983,33 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "queryAll",
     value: function () {
-      var _queryAll = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee16(queryDefinition, options) {
-        return _regenerator.default.wrap(function _callee16$(_context16) {
+      var _queryAll = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee18(queryDefinition, options) {
+        return _regenerator.default.wrap(function _callee18$(_context18) {
           while (1) {
-            switch (_context16.prev = _context16.next) {
+            switch (_context18.prev = _context18.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'queryAll');
 
                 if (this.bridge) {
-                  _context16.next = 3;
+                  _context18.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context16.next = 5;
+                _context18.next = 5;
                 return this.bridge.call('queryAll', queryDefinition.toDefinition(), options);
 
               case 5:
-                return _context16.abrupt("return", _context16.sent);
+                return _context18.abrupt("return", _context18.sent);
 
               case 6:
               case "end":
-                return _context16.stop();
+                return _context18.stop();
             }
           }
-        }, _callee16, this);
+        }, _callee18, this);
       }));
 
       function queryAll(_x16, _x17) {
@@ -945,39 +1030,39 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveBills",
     value: function () {
-      var _saveBills = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee17(entries, options) {
+      var _saveBills = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee19(entries, options) {
         var files;
-        return _regenerator.default.wrap(function _callee17$(_context17) {
+        return _regenerator.default.wrap(function _callee19$(_context19) {
           while (1) {
-            switch (_context17.prev = _context17.next) {
+            switch (_context19.prev = _context19.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'saveBills');
-                _context17.next = 3;
+                _context19.next = 3;
                 return this.saveFiles(entries, options);
 
               case 3:
-                files = _context17.sent;
+                files = _context19.sent;
 
                 if (this.bridge) {
-                  _context17.next = 6;
+                  _context19.next = 6;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 6:
-                _context17.next = 8;
+                _context19.next = 8;
                 return this.bridge.call('saveBills', files, options);
 
               case 8:
-                return _context17.abrupt("return", _context17.sent);
+                return _context19.abrupt("return", _context19.sent);
 
               case 9:
               case "end":
-                return _context17.stop();
+                return _context19.stop();
             }
           }
-        }, _callee17, this);
+        }, _callee19, this);
       }));
 
       function saveBills(_x18, _x19) {
@@ -993,33 +1078,33 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getCredentials",
     value: function () {
-      var _getCredentials = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee18() {
-        return _regenerator.default.wrap(function _callee18$(_context18) {
+      var _getCredentials = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee20() {
+        return _regenerator.default.wrap(function _callee20$(_context20) {
           while (1) {
-            switch (_context18.prev = _context18.next) {
+            switch (_context20.prev = _context20.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'getCredentials');
 
                 if (this.bridge) {
-                  _context18.next = 3;
+                  _context20.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context18.next = 5;
+                _context20.next = 5;
                 return this.bridge.call('getCredentials');
 
               case 5:
-                return _context18.abrupt("return", _context18.sent);
+                return _context20.abrupt("return", _context20.sent);
 
               case 6:
               case "end":
-                return _context18.stop();
+                return _context20.stop();
             }
           }
-        }, _callee18, this);
+        }, _callee20, this);
       }));
 
       function getCredentials() {
@@ -1037,33 +1122,33 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveCredentials",
     value: function () {
-      var _saveCredentials = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee19(credentials) {
-        return _regenerator.default.wrap(function _callee19$(_context19) {
+      var _saveCredentials = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee21(credentials) {
+        return _regenerator.default.wrap(function _callee21$(_context21) {
           while (1) {
-            switch (_context19.prev = _context19.next) {
+            switch (_context21.prev = _context21.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'saveCredentials');
 
                 if (this.bridge) {
-                  _context19.next = 3;
+                  _context21.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context19.next = 5;
+                _context21.next = 5;
                 return this.bridge.call('saveCredentials', credentials);
 
               case 5:
-                return _context19.abrupt("return", _context19.sent);
+                return _context21.abrupt("return", _context21.sent);
 
               case 6:
               case "end":
-                return _context19.stop();
+                return _context21.stop();
             }
           }
-        }, _callee19, this);
+        }, _callee21, this);
       }));
 
       function saveCredentials(_x20) {
@@ -1081,33 +1166,33 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveIdentity",
     value: function () {
-      var _saveIdentity = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee20(identity) {
-        return _regenerator.default.wrap(function _callee20$(_context20) {
+      var _saveIdentity = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee22(identity) {
+        return _regenerator.default.wrap(function _callee22$(_context22) {
           while (1) {
-            switch (_context20.prev = _context20.next) {
+            switch (_context22.prev = _context22.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'saveIdentity');
 
                 if (this.bridge) {
-                  _context20.next = 3;
+                  _context22.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context20.next = 5;
+                _context22.next = 5;
                 return this.bridge.call('saveIdentity', identity);
 
               case 5:
-                return _context20.abrupt("return", _context20.sent);
+                return _context22.abrupt("return", _context22.sent);
 
               case 6:
               case "end":
-                return _context20.stop();
+                return _context22.stop();
             }
           }
-        }, _callee20, this);
+        }, _callee22, this);
       }));
 
       function saveIdentity(_x21) {
@@ -1125,31 +1210,31 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getCookiesByDomain",
     value: function () {
-      var _getCookiesByDomain = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee21(domain) {
-        return _regenerator.default.wrap(function _callee21$(_context21) {
+      var _getCookiesByDomain = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee23(domain) {
+        return _regenerator.default.wrap(function _callee23$(_context23) {
           while (1) {
-            switch (_context21.prev = _context21.next) {
+            switch (_context23.prev = _context23.next) {
               case 0:
                 if (this.bridge) {
-                  _context21.next = 2;
+                  _context23.next = 2;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 2:
-                _context21.next = 4;
+                _context23.next = 4;
                 return this.bridge.call('getCookiesByDomain', domain);
 
               case 4:
-                return _context21.abrupt("return", _context21.sent);
+                return _context23.abrupt("return", _context23.sent);
 
               case 5:
               case "end":
-                return _context21.stop();
+                return _context23.stop();
             }
           }
-        }, _callee21, this);
+        }, _callee23, this);
       }));
 
       function getCookiesByDomain(_x22) {
@@ -1167,31 +1252,31 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getCookieFromKeychainByName",
     value: function () {
-      var _getCookieFromKeychainByName = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee22(cookieName) {
-        return _regenerator.default.wrap(function _callee22$(_context22) {
+      var _getCookieFromKeychainByName = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee24(cookieName) {
+        return _regenerator.default.wrap(function _callee24$(_context24) {
           while (1) {
-            switch (_context22.prev = _context22.next) {
+            switch (_context24.prev = _context24.next) {
               case 0:
                 if (this.bridge) {
-                  _context22.next = 2;
+                  _context24.next = 2;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 2:
-                _context22.next = 4;
+                _context24.next = 4;
                 return this.bridge.call('getCookieFromKeychainByName', cookieName);
 
               case 4:
-                return _context22.abrupt("return", _context22.sent);
+                return _context24.abrupt("return", _context24.sent);
 
               case 5:
               case "end":
-                return _context22.stop();
+                return _context24.stop();
             }
           }
-        }, _callee22, this);
+        }, _callee24, this);
       }));
 
       function getCookieFromKeychainByName(_x23) {
@@ -1209,33 +1294,33 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "saveCookieToKeychain",
     value: function () {
-      var _saveCookieToKeychain = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee23(cookieValue) {
-        return _regenerator.default.wrap(function _callee23$(_context23) {
+      var _saveCookieToKeychain = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee25(cookieValue) {
+        return _regenerator.default.wrap(function _callee25$(_context25) {
           while (1) {
-            switch (_context23.prev = _context23.next) {
+            switch (_context25.prev = _context25.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'saveCookieToKeychain');
 
                 if (this.bridge) {
-                  _context23.next = 3;
+                  _context25.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context23.next = 5;
+                _context25.next = 5;
                 return this.bridge.call('saveCookieToKeychain', cookieValue);
 
               case 5:
-                return _context23.abrupt("return", _context23.sent);
+                return _context25.abrupt("return", _context25.sent);
 
               case 6:
               case "end":
-                return _context23.stop();
+                return _context25.stop();
             }
           }
-        }, _callee23, this);
+        }, _callee25, this);
       }));
 
       function saveCookieToKeychain(_x24) {
@@ -1247,35 +1332,35 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getCookieByDomainAndName",
     value: function () {
-      var _getCookieByDomainAndName = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee24(cookieDomain, cookieName) {
+      var _getCookieByDomainAndName = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee26(cookieDomain, cookieName) {
         var expectedCookie;
-        return _regenerator.default.wrap(function _callee24$(_context24) {
+        return _regenerator.default.wrap(function _callee26$(_context26) {
           while (1) {
-            switch (_context24.prev = _context24.next) {
+            switch (_context26.prev = _context26.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'getCookieByDomainAndName');
 
                 if (this.bridge) {
-                  _context24.next = 3;
+                  _context26.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context24.next = 5;
+                _context26.next = 5;
                 return this.bridge.call('getCookieByDomainAndName', cookieDomain, cookieName);
 
               case 5:
-                expectedCookie = _context24.sent;
-                return _context24.abrupt("return", expectedCookie);
+                expectedCookie = _context26.sent;
+                return _context26.abrupt("return", expectedCookie);
 
               case 7:
               case "end":
-                return _context24.stop();
+                return _context26.stop();
             }
           }
-        }, _callee24, this);
+        }, _callee26, this);
       }));
 
       function getCookieByDomainAndName(_x25, _x26) {
@@ -1331,33 +1416,33 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "setWorkerState",
     value: function () {
-      var _setWorkerState = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee25() {
+      var _setWorkerState = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee27() {
         var options,
-            _args25 = arguments;
-        return _regenerator.default.wrap(function _callee25$(_context25) {
+            _args27 = arguments;
+        return _regenerator.default.wrap(function _callee27$(_context27) {
           while (1) {
-            switch (_context25.prev = _context25.next) {
+            switch (_context27.prev = _context27.next) {
               case 0:
-                options = _args25.length > 0 && _args25[0] !== undefined ? _args25[0] : {};
+                options = _args27.length > 0 && _args27[0] !== undefined ? _args27[0] : {};
                 this.onlyIn(PILOT_TYPE, 'setWorkerState');
 
                 if (this.bridge) {
-                  _context25.next = 4;
+                  _context27.next = 4;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 4:
-                _context25.next = 6;
+                _context27.next = 6;
                 return this.bridge.call('setWorkerState', options);
 
               case 6:
               case "end":
-                return _context25.stop();
+                return _context27.stop();
             }
           }
-        }, _callee25, this);
+        }, _callee27, this);
       }));
 
       function setWorkerState() {
@@ -1375,23 +1460,23 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "goto",
     value: function () {
-      var _goto = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee26(url) {
-        return _regenerator.default.wrap(function _callee26$(_context26) {
+      var _goto = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee28(url) {
+        return _regenerator.default.wrap(function _callee28$(_context28) {
           while (1) {
-            switch (_context26.prev = _context26.next) {
+            switch (_context28.prev = _context28.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'goto');
-                _context26.next = 3;
+                _context28.next = 3;
                 return this.setWorkerState({
                   url: url
                 });
 
               case 3:
               case "end":
-                return _context26.stop();
+                return _context28.stop();
             }
           }
-        }, _callee26, this);
+        }, _callee28, this);
       }));
 
       function goto(_x27) {
@@ -1403,30 +1488,30 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "blockWorkerInteractions",
     value: function () {
-      var _blockWorkerInteractions = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee27() {
-        return _regenerator.default.wrap(function _callee27$(_context27) {
+      var _blockWorkerInteractions = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee29() {
+        return _regenerator.default.wrap(function _callee29$(_context29) {
           while (1) {
-            switch (_context27.prev = _context27.next) {
+            switch (_context29.prev = _context29.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'blockWorkerInteractions');
 
                 if (this.bridge) {
-                  _context27.next = 3;
+                  _context29.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context27.next = 5;
+                _context29.next = 5;
                 return this.bridge.call('blockWorkerInteractions');
 
               case 5:
               case "end":
-                return _context27.stop();
+                return _context29.stop();
             }
           }
-        }, _callee27, this);
+        }, _callee29, this);
       }));
 
       function blockWorkerInteractions() {
@@ -1438,30 +1523,30 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "unblockWorkerInteractions",
     value: function () {
-      var _unblockWorkerInteractions = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee28() {
-        return _regenerator.default.wrap(function _callee28$(_context28) {
+      var _unblockWorkerInteractions = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee30() {
+        return _regenerator.default.wrap(function _callee30$(_context30) {
           while (1) {
-            switch (_context28.prev = _context28.next) {
+            switch (_context30.prev = _context30.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'unblockWorkerInteractions');
 
                 if (this.bridge) {
-                  _context28.next = 3;
+                  _context30.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                _context28.next = 5;
+                _context30.next = 5;
                 return this.bridge.call('unblockWorkerInteractions');
 
               case 5:
               case "end":
-                return _context28.stop();
+                return _context30.stop();
             }
           }
-        }, _callee28, this);
+        }, _callee30, this);
       }));
 
       function unblockWorkerInteractions() {
@@ -1480,34 +1565,34 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "evaluateInWorker",
     value: function () {
-      var _evaluateInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee29(fn) {
+      var _evaluateInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee31(fn) {
         var _len2,
             args,
             _key2,
-            _args29 = arguments;
+            _args31 = arguments;
 
-        return _regenerator.default.wrap(function _callee29$(_context29) {
+        return _regenerator.default.wrap(function _callee31$(_context31) {
           while (1) {
-            switch (_context29.prev = _context29.next) {
+            switch (_context31.prev = _context31.next) {
               case 0:
                 this.onlyIn(PILOT_TYPE, 'evaluateInWorker');
 
-                for (_len2 = _args29.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
-                  args[_key2 - 1] = _args29[_key2];
+                for (_len2 = _args31.length, args = new Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
+                  args[_key2 - 1] = _args31[_key2];
                 }
 
-                _context29.next = 4;
+                _context31.next = 4;
                 return this.runInWorker.apply(this, ['evaluate', fn.toString()].concat(args));
 
               case 4:
-                return _context29.abrupt("return", _context29.sent);
+                return _context31.abrupt("return", _context31.sent);
 
               case 5:
               case "end":
-                return _context29.stop();
+                return _context31.stop();
             }
           }
-        }, _callee29, this);
+        }, _callee31, this);
       }));
 
       function evaluateInWorker(_x28) {
@@ -1526,34 +1611,34 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "evaluate",
     value: function () {
-      var _evaluate = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee30(fnString) {
+      var _evaluate = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee32(fnString) {
         var _len3,
             args,
             _key3,
-            _args30 = arguments;
+            _args32 = arguments;
 
-        return _regenerator.default.wrap(function _callee30$(_context30) {
+        return _regenerator.default.wrap(function _callee32$(_context32) {
           while (1) {
-            switch (_context30.prev = _context30.next) {
+            switch (_context32.prev = _context32.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'evaluate');
 
-                for (_len3 = _args30.length, args = new Array(_len3 > 1 ? _len3 - 1 : 0), _key3 = 1; _key3 < _len3; _key3++) {
-                  args[_key3 - 1] = _args30[_key3];
+                for (_len3 = _args32.length, args = new Array(_len3 > 1 ? _len3 - 1 : 0), _key3 = 1; _key3 < _len3; _key3++) {
+                  args[_key3 - 1] = _args32[_key3];
                 }
 
-                _context30.next = 4;
+                _context32.next = 4;
                 return _utils.callStringFunction.apply(void 0, [fnString].concat(args));
 
               case 4:
-                return _context30.abrupt("return", _context30.sent);
+                return _context32.abrupt("return", _context32.sent);
 
               case 5:
               case "end":
-                return _context30.stop();
+                return _context32.stop();
             }
           }
-        }, _callee30, this);
+        }, _callee32, this);
       }));
 
       function evaluate(_x29) {
@@ -1574,19 +1659,19 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "ensureAuthenticated",
     value: function () {
-      var _ensureAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee31() {
-        return _regenerator.default.wrap(function _callee31$(_context31) {
+      var _ensureAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee33() {
+        return _regenerator.default.wrap(function _callee33$(_context33) {
           while (1) {
-            switch (_context31.prev = _context31.next) {
+            switch (_context33.prev = _context33.next) {
               case 0:
-                return _context31.abrupt("return", true);
+                return _context33.abrupt("return", true);
 
               case 1:
               case "end":
-                return _context31.stop();
+                return _context33.stop();
             }
           }
-        }, _callee31);
+        }, _callee33);
       }));
 
       function ensureAuthenticated() {
@@ -1604,19 +1689,19 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "ensureNotAuthenticated",
     value: function () {
-      var _ensureNotAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee32() {
-        return _regenerator.default.wrap(function _callee32$(_context32) {
+      var _ensureNotAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee34() {
+        return _regenerator.default.wrap(function _callee34$(_context34) {
           while (1) {
-            switch (_context32.prev = _context32.next) {
+            switch (_context34.prev = _context34.next) {
               case 0:
-                return _context32.abrupt("return", true);
+                return _context34.abrupt("return", true);
 
               case 1:
               case "end":
-                return _context32.stop();
+                return _context34.stop();
             }
           }
-        }, _callee32);
+        }, _callee34);
       }));
 
       function ensureNotAuthenticated() {
@@ -1635,16 +1720,16 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getUserDataFromWebsite",
     value: function () {
-      var _getUserDataFromWebsite = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee33() {
-        return _regenerator.default.wrap(function _callee33$(_context33) {
+      var _getUserDataFromWebsite = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee35() {
+        return _regenerator.default.wrap(function _callee35$(_context35) {
           while (1) {
-            switch (_context33.prev = _context33.next) {
+            switch (_context35.prev = _context35.next) {
               case 0:
               case "end":
-                return _context33.stop();
+                return _context35.stop();
             }
           }
-        }, _callee33);
+        }, _callee35);
       }));
 
       function getUserDataFromWebsite() {
@@ -1662,29 +1747,29 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "sendToPilot",
     value: function () {
-      var _sendToPilot = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee34(obj) {
-        return _regenerator.default.wrap(function _callee34$(_context34) {
+      var _sendToPilot = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee36(obj) {
+        return _regenerator.default.wrap(function _callee36$(_context36) {
           while (1) {
-            switch (_context34.prev = _context34.next) {
+            switch (_context36.prev = _context36.next) {
               case 0:
                 this.onlyIn(WORKER_TYPE, 'sendToPilot');
 
                 if (this.bridge) {
-                  _context34.next = 3;
+                  _context36.next = 3;
                   break;
                 }
 
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 3:
-                return _context34.abrupt("return", this.bridge.call('sendToPilot', obj));
+                return _context36.abrupt("return", this.bridge.call('sendToPilot', obj));
 
               case 4:
               case "end":
-                return _context34.stop();
+                return _context36.stop();
             }
           }
-        }, _callee34, this);
+        }, _callee36, this);
       }));
 
       function sendToPilot(_x30) {
@@ -1702,20 +1787,20 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "storeFromWorker",
     value: function () {
-      var _storeFromWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee35(obj) {
-        return _regenerator.default.wrap(function _callee35$(_context35) {
+      var _storeFromWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee37(obj) {
+        return _regenerator.default.wrap(function _callee37$(_context37) {
           while (1) {
-            switch (_context35.prev = _context35.next) {
+            switch (_context37.prev = _context37.next) {
               case 0:
                 // @ts-ignore Aucune surcharge ne correspond à cet appel.
                 Object.assign(this.store, obj);
 
               case 1:
               case "end":
-                return _context35.stop();
+                return _context37.stop();
             }
           }
-        }, _callee35, this);
+        }, _callee37, this);
       }));
 
       function storeFromWorker(_x31) {
@@ -1744,16 +1829,16 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "fetch",
     value: function () {
-      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee36(options) {
-        return _regenerator.default.wrap(function _callee36$(_context36) {
+      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee38(options) {
+        return _regenerator.default.wrap(function _callee38$(_context38) {
           while (1) {
-            switch (_context36.prev = _context36.next) {
+            switch (_context38.prev = _context38.next) {
               case 0:
               case "end":
-                return _context36.stop();
+                return _context38.stop();
             }
           }
-        }, _callee36);
+        }, _callee38);
       }));
 
       function fetch(_x32) {
@@ -1769,19 +1854,19 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "getCliskVersion",
     value: function () {
-      var _getCliskVersion = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee37() {
-        return _regenerator.default.wrap(function _callee37$(_context37) {
+      var _getCliskVersion = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee39() {
+        return _regenerator.default.wrap(function _callee39$(_context39) {
           while (1) {
-            switch (_context37.prev = _context37.next) {
+            switch (_context39.prev = _context39.next) {
               case 0:
-                return _context37.abrupt("return", _package.default.version);
+                return _context39.abrupt("return", _package.default.version);
 
               case 1:
               case "end":
-                return _context37.stop();
+                return _context39.stop();
             }
           }
-        }, _callee37);
+        }, _callee39);
       }));
 
       function getCliskVersion() {
@@ -5295,7 +5380,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.20.3","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"8b0b43db9c6d040182f80d93429d6035c3821a34"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.21.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"8e24c954151507df8cabef5fdcc468659cbd72cc"}');
 
 /***/ })
 /******/ 	]);
