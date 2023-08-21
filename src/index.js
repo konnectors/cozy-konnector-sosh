@@ -306,7 +306,8 @@ class SoshContentScript extends ContentScript {
           vendorRef: this.store.allBills[index].id
             ? this.store.allBills[index].id
             : this.store.allBills[index].tecId,
-          filename: await getFileName(
+          filename: await this.runInWorker(
+            'getFileName',
             this.store.allBills[index].date,
             this.store.allBills[index].amount / 100,
             this.store.allBills[index].id || this.store.allBills[index].tecId
@@ -820,6 +821,12 @@ class SoshContentScript extends ContentScript {
     }
     return false
   }
+
+  async getFileName(date, amount, vendorRef) {
+    const digestId = await hashVendorRef(vendorRef)
+    const shortenedId = digestId.substr(0, 5)
+    return `${date}_sosh_${amount}€_${shortenedId}.pdf`
+  }
 }
 
 const connector = new SoshContentScript()
@@ -844,25 +851,13 @@ connector
       'getLogoutButton',
       'getIdentity',
       'checkForCaptcha',
-      'waitForCaptchaResolution'
+      'waitForCaptchaResolution',
+      'getFileName'
     ]
   })
   .catch(err => {
     log.warn(err)
   })
-
-// Used for debug purposes only
-// function sleep(delay) {
-//   return new Promise(resolve => {
-//     setTimeout(resolve, delay * 1000)
-//   })
-// }
-
-async function getFileName(date, amount, vendorRef) {
-  const digestId = await hashVendorRef(vendorRef)
-  const shortenedId = digestId.substr(0, 5)
-  return `${date}_sosh_${amount}€_${shortenedId}.pdf`
-}
 
 async function hashVendorRef(vendorRef) {
   const msgUint8 = new window.TextEncoder().encode(vendorRef) // encode as (utf-8) Uint8Array
