@@ -5564,7 +5564,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   // PILOT//
   // ///////
   async navigateToLoginForm() {
-    this.log('info', 'navigateToLoginForm starts')
+    this.log('info', '🤖 navigateToLoginForm starts')
     await this.goto(
       'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
     )
@@ -5586,7 +5586,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async ensureNotAuthenticated() {
-    this.log('info', 'ensureNotAuthenticated starts')
+    this.log('info', '🤖 ensureNotAuthenticated starts')
     await this.navigateToLoginForm()
     const authenticated = await this.runInWorker('checkAuthenticated')
     if (!authenticated) {
@@ -5600,7 +5600,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async ensureAuthenticated() {
-    this.log('info', 'ensureAuthenticated starts')
+    this.log('info', '🤖 ensureAuthenticated starts')
     await this.navigateToLoginForm()
     const credentials = await this.getCredentials()
     if (credentials) {
@@ -5617,7 +5617,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async tryAutoLogin(credentials, type) {
-    this.log('debug', 'Trying autologin')
+    this.log('debug', '🤖 Trying autologin')
     await this.autoLogin(credentials, type)
   }
 
@@ -5644,7 +5644,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async waitForUserAuthentication() {
-    this.log('info', 'waitForUserAuthentication start')
+    this.log('info', '🤖 waitForUserAuthentication start')
     await this.setWorkerState({ visible: true })
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
     await this.setWorkerState({ visible: false })
@@ -5658,7 +5658,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async getUserDataFromWebsite() {
-    this.log('info', 'getUserDataFromWebsite starts')
+    this.log('info', '🤖 getUserDataFromWebsite starts')
     const sourceAccountId = await this.runInWorker('getUserMail')
     if (sourceAccountId === 'UNKNOWN_ERROR') {
       this.log('debug', "Couldn't get a sourceAccountIdentifier, using default")
@@ -5670,7 +5670,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async fetch(context) {
-    this.log('info', 'fetch start')
+    this.log('info', '🤖 fetch start')
     const credentials = await this.getCredentials()
     if (!credentials) {
       await this.saveCredentials(this.store.userCredentials)
@@ -5780,7 +5780,8 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
           vendorRef: this.store.allBills[index].id
             ? this.store.allBills[index].id
             : this.store.allBills[index].tecId,
-          filename: await getFileName(
+          filename: await this.runInWorker(
+            'getFileName',
             this.store.allBills[index].date,
             this.store.allBills[index].amount / 100,
             this.store.allBills[index].id || this.store.allBills[index].tecId
@@ -6294,6 +6295,12 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     }
     return false
   }
+
+  async getFileName(date, amount, vendorRef) {
+    const digestId = await hashVendorRef(vendorRef)
+    const shortenedId = digestId.substr(0, 5)
+    return `${date}_sosh_${amount}€_${shortenedId}.pdf`
+  }
 }
 
 const connector = new SoshContentScript()
@@ -6318,25 +6325,13 @@ connector
       'getLogoutButton',
       'getIdentity',
       'checkForCaptcha',
-      'waitForCaptchaResolution'
+      'waitForCaptchaResolution',
+      'getFileName'
     ]
   })
   .catch(err => {
     log.warn(err)
   })
-
-// Used for debug purposes only
-// function sleep(delay) {
-//   return new Promise(resolve => {
-//     setTimeout(resolve, delay * 1000)
-//   })
-// }
-
-async function getFileName(date, amount, vendorRef) {
-  const digestId = await hashVendorRef(vendorRef)
-  const shortenedId = digestId.substr(0, 5)
-  return `${date}_sosh_${amount}€_${shortenedId}.pdf`
-}
 
 async function hashVendorRef(vendorRef) {
   const msgUint8 = new window.TextEncoder().encode(vendorRef) // encode as (utf-8) Uint8Array
