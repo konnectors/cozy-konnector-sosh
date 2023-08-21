@@ -90,7 +90,7 @@ class SoshContentScript extends ContentScript {
   // PILOT//
   // ///////
   async navigateToLoginForm() {
-    this.log('info', 'navigateToLoginForm starts')
+    this.log('info', '🤖 navigateToLoginForm starts')
     await this.goto(
       'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
     )
@@ -112,7 +112,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async ensureNotAuthenticated() {
-    this.log('info', 'ensureNotAuthenticated starts')
+    this.log('info', '🤖 ensureNotAuthenticated starts')
     await this.navigateToLoginForm()
     const authenticated = await this.runInWorker('checkAuthenticated')
     if (!authenticated) {
@@ -126,7 +126,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async ensureAuthenticated() {
-    this.log('info', 'ensureAuthenticated starts')
+    this.log('info', '🤖 ensureAuthenticated starts')
     await this.navigateToLoginForm()
     const credentials = await this.getCredentials()
     if (credentials) {
@@ -143,7 +143,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async tryAutoLogin(credentials, type) {
-    this.log('debug', 'Trying autologin')
+    this.log('debug', '🤖 Trying autologin')
     await this.autoLogin(credentials, type)
   }
 
@@ -170,7 +170,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async waitForUserAuthentication() {
-    this.log('info', 'waitForUserAuthentication start')
+    this.log('info', '🤖 waitForUserAuthentication start')
     await this.setWorkerState({ visible: true })
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
     await this.setWorkerState({ visible: false })
@@ -184,7 +184,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async getUserDataFromWebsite() {
-    this.log('info', 'getUserDataFromWebsite starts')
+    this.log('info', '🤖 getUserDataFromWebsite starts')
     const sourceAccountId = await this.runInWorker('getUserMail')
     if (sourceAccountId === 'UNKNOWN_ERROR') {
       this.log('debug', "Couldn't get a sourceAccountIdentifier, using default")
@@ -196,7 +196,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async fetch(context) {
-    this.log('info', 'fetch start')
+    this.log('info', '🤖 fetch start')
     const credentials = await this.getCredentials()
     if (!credentials) {
       await this.saveCredentials(this.store.userCredentials)
