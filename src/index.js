@@ -1,6 +1,7 @@
 import { ContentScript } from 'cozy-clisk/dist/contentscript'
 import { blobToBase64 } from 'cozy-clisk/dist/contentscript/utils'
 import Minilog from '@cozy/minilog'
+import waitFor from 'p-wait-for'
 
 const log = Minilog('ContentScript')
 Minilog.enable('soshCCC')
@@ -808,7 +809,7 @@ class SoshContentScript extends ContentScript {
     return false
   }
 
-  async waitForCaptchaResolution() {
+  async checkCaptchaResolution() {
     const passwordInput = document.querySelector('#password')
     const loginInput = document.querySelector('#login')
     const otherAccountButton = document.querySelector('#undefined-label')
@@ -819,6 +820,14 @@ class SoshContentScript extends ContentScript {
       return true
     }
     return false
+  }
+
+  async waitForCaptchaResolution() {
+    await waitFor(this.checkCaptchaResolution, {
+      interval: 1000,
+      timeout: 60 * 1000
+    })
+    return true
   }
 
   async getFileName(date, amount, vendorRef) {
