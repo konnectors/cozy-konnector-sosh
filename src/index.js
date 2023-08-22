@@ -8,6 +8,7 @@ Minilog.enable('soshCCC')
 
 const BASE_URL = 'https://www.sosh.fr'
 const DEFAULT_PAGE_URL = BASE_URL + '/client'
+const LOGIN_FORM_PAGE = 'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
 
 let recentBills = []
 let oldBills = []
@@ -44,7 +45,7 @@ window.XMLHttpRequest.prototype.open = function () {
     })
     return proxied.apply(this, [].slice.call(arguments))
   }
-  // Intercepting user adresse infomations for Identity object
+  // Intercepting user infomations for Identity object
   if (arguments[1].includes('ecd_wp/account/billingAddresses')) {
     originalResponse.addEventListener('readystatechange', function () {
       if (originalResponse.readyState === 4) {
@@ -92,7 +93,7 @@ class SoshContentScript extends ContentScript {
   async navigateToLoginForm() {
     this.log('info', '🤖 navigateToLoginForm starts')
     await this.goto(
-      'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
+      LOGIN_FORM_PAGE
     )
     await Promise.race([
       this.waitForElementInWorker('#login-label'),
