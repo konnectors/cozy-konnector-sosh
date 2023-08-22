@@ -7,7 +7,6 @@ Minilog.enable('soshCCC')
 
 const BASE_URL = 'https://www.sosh.fr'
 const DEFAULT_PAGE_URL = BASE_URL + '/client'
-const DEFAULT_SOURCE_ACCOUNT_IDENTIFIER = 'sosh'
 
 let recentBills = []
 let oldBills = []
@@ -187,9 +186,9 @@ class SoshContentScript extends ContentScript {
     this.log('info', '🤖 getUserDataFromWebsite starts')
     const sourceAccountId = await this.runInWorker('getUserMail')
     if (sourceAccountId === 'UNKNOWN_ERROR') {
-      this.log('debug', "Couldn't get a sourceAccountIdentifier, using default")
-      return { sourceAccountIdentifier: DEFAULT_SOURCE_ACCOUNT_IDENTIFIER }
+      throw new Error('Could not get a sourceAccountIdentifier')
     }
+
     return {
       sourceAccountIdentifier: sourceAccountId
     }
