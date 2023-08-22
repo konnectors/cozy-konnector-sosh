@@ -5472,6 +5472,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(41);
 /* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(20);
 /* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_cozy_minilog__WEBPACK_IMPORTED_MODULE_2__);
+/* harmony import */ var p_wait_for__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(18);
+
 
 
 
@@ -5481,7 +5483,8 @@ _cozy_minilog__WEBPACK_IMPORTED_MODULE_2___default().enable('soshCCC')
 
 const BASE_URL = 'https://www.sosh.fr'
 const DEFAULT_PAGE_URL = BASE_URL + '/client'
-const DEFAULT_SOURCE_ACCOUNT_IDENTIFIER = 'sosh'
+const LOGIN_FORM_PAGE =
+  'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
 
 let recentBills = []
 let oldBills = []
@@ -5518,7 +5521,7 @@ window.XMLHttpRequest.prototype.open = function () {
     })
     return proxied.apply(this, [].slice.call(arguments))
   }
-  // Intercepting user adresse infomations for Identity object
+  // Intercepting user infomations for Identity object
   if (arguments[1].includes('ecd_wp/account/billingAddresses')) {
     originalResponse.addEventListener('readystatechange', function () {
       if (originalResponse.readyState === 4) {
@@ -5565,9 +5568,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   // ///////
   async navigateToLoginForm() {
     this.log('info', '🤖 navigateToLoginForm starts')
-    await this.goto(
-      'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
-    )
+    await this.goto(LOGIN_FORM_PAGE)
     await Promise.race([
       this.waitForElementInWorker('#login-label'),
       this.waitForElementInWorker('#password-label'),
@@ -5661,9 +5662,9 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     this.log('info', '🤖 getUserDataFromWebsite starts')
     const sourceAccountId = await this.runInWorker('getUserMail')
     if (sourceAccountId === 'UNKNOWN_ERROR') {
-      this.log('debug', "Couldn't get a sourceAccountIdentifier, using default")
-      return { sourceAccountIdentifier: DEFAULT_SOURCE_ACCOUNT_IDENTIFIER }
+      throw new Error('Could not get a sourceAccountIdentifier')
     }
+
     return {
       sourceAccountIdentifier: sourceAccountId
     }
@@ -6283,7 +6284,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     return false
   }
 
-  async waitForCaptchaResolution() {
+  async checkCaptchaResolution() {
     const passwordInput = document.querySelector('#password')
     const loginInput = document.querySelector('#login')
     const otherAccountButton = document.querySelector('#undefined-label')
@@ -6294,6 +6295,14 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       return true
     }
     return false
+  }
+
+  async waitForCaptchaResolution() {
+    await (0,p_wait_for__WEBPACK_IMPORTED_MODULE_3__["default"])(this.checkCaptchaResolution, {
+      interval: 1000,
+      timeout: 60 * 1000
+    })
+    return true
   }
 
   async getFileName(date, amount, vendorRef) {
