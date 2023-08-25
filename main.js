@@ -1381,23 +1381,16 @@ var ContentScript = /*#__PURE__*/function () {
     value: function log(level, message) {
       var _this$bridge2;
 
-      var newLevel = level;
-      var allowedLevels = ['debug', 'info', 'warn', 'error'];
-
       if (!message) {
         _log.warn("you are calling log without message, use log(level,message) instead");
 
         return;
       }
 
-      if (!allowedLevels.includes(level)) {
-        newLevel = 'debug';
-      }
-
       var now = new Date().toISOString();
       (_this$bridge2 = this.bridge) === null || _this$bridge2 === void 0 ? void 0 : _this$bridge2.emit('log', {
         timestamp: now,
-        level: newLevel,
+        level: level,
         msg: message
       });
     }
@@ -5380,7 +5373,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.22.2","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"521b2d98533b84738cd56026399ed7ddaf80da96"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.22.3","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^34.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"60197e90d1ad32c88fc745b86f5d2540bb064bec"}');
 
 /***/ })
 /******/ 	]);
