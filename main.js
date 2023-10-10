@@ -5691,96 +5691,71 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async fetch(context) {
-    this.log('info', '🤖 fetch start')
-    const credentials = await this.getCredentials()
-    this.log('info', '🤖 1')
-    if (!credentials) {
-      await this.saveCredentials(this.store.userCredentials)
-    }
-    this.log('info', '🤖 2')
-    await this.waitForElementInWorker(
-      'a[class="o-link-arrow text-primary pt-0"]'
-    )
-    this.log('info', '🤖 3')
-    const clientRef = await this.runInWorker('findClientRef')
-    this.log('info', '🤖 4')
-    if (clientRef) {
-      this.log('debug', 'clientRef found')
-      await this.clickAndWait(
-        `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`,
-        '[data-e2e="bp-tile-historic"]'
-      )
-      this.log('info', '🤖 5')
-      await this.clickAndWait(
-        '[data-e2e="bp-tile-historic"]',
-        '[aria-labelledby="bp-billsHistoryTitle"]'
-      )
-      this.log('info', '🤖 6')
-      const redFrame = await this.isElementInWorker(
-        '.alert-icon icon-error-severe'
-      )
-      this.log('info', '🤖 7')
-      if (redFrame) {
-        this.log('debug', 'Website did not load the bills')
-        throw new Error('VENDOR_DOWN')
+    try {
+      this.log('info', '🤖 fetch start')
+      const credentials = await this.getCredentials()
+      this.log('info', '🤖 1')
+      if (!credentials) {
+        await this.saveCredentials(this.store.userCredentials)
       }
-      this.log('info', '🤖 8')
-      let recentPdfNumber = await this.runInWorker('getPdfNumber')
-      this.log('info', '🤖 9')
-      const hasMoreBills = await this.isElementInWorker(
-        '[data-e2e="bh-more-bills"]'
+      this.log('info', '🤖 2')
+      await this.waitForElementInWorker(
+        'a[class="o-link-arrow text-primary pt-0"]'
       )
-      this.log('info', '🤖 10')
-      if (hasMoreBills) {
-        this.log('info', '🤖 11')
+      this.log('info', '🤖 3')
+      const clientRef = await this.runInWorker('findClientRef')
+      this.log('info', '🤖 4')
+      if (clientRef) {
+        this.log('debug', 'clientRef found')
         await this.clickAndWait(
-          '[data-e2e="bh-more-bills"]',
-          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-        )
-        this.log('info', '🤖 12')
-      }
-      let allPdfNumber = await this.runInWorker('getPdfNumber')
-      this.log('info', '🤖 13')
-      let oldPdfNumber = allPdfNumber - recentPdfNumber
-      this.log('info', '🤖 14')
-      for (let i = 0; i < recentPdfNumber; i++) {
-        this.log('debug', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
-        // If something went wrong during the loading of the pdf board, a red frame with an error message appears
-        // So we need to check every lap to see if we got one
-        const redFrame = await this.isElementInWorker(
-          '.alert-icon icon-error-severe'
-        )
-        if (redFrame) {
-          this.log('debug', 'Website did not load the bills')
-          throw new Error('VENDOR_DOWN')
-        }
-        await this.runInWorker('waitForRecentPdfClicked', i)
-        await this.clickAndWait(
-          'a[class="o-link"]',
+          `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`,
           '[data-e2e="bp-tile-historic"]'
         )
+        this.log('info', '🤖 5')
         await this.clickAndWait(
           '[data-e2e="bp-tile-historic"]',
           '[aria-labelledby="bp-billsHistoryTitle"]'
         )
-        await this.clickAndWait(
-          '[data-e2e="bh-more-bills"]',
-          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
+        this.log('info', '🤖 6')
+        const redFrame = await this.isElementInWorker(
+          '.alert-icon icon-error-severe'
         )
-      }
-      this.log('debug', 'recentPdf loop ended')
-      if (oldPdfNumber != 0) {
-        for (let i = 0; i < oldPdfNumber; i++) {
-          this.log('debug', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
-          // Same as above with the red frame, but for old bills board
+        this.log('info', '🤖 7')
+        if (redFrame) {
+          this.log('debug', 'Website did not load the bills')
+          throw new Error('VENDOR_DOWN')
+        }
+        this.log('info', '🤖 8')
+        let recentPdfNumber = await this.runInWorker('getPdfNumber')
+        this.log('info', '🤖 9')
+        const hasMoreBills = await this.isElementInWorker(
+          '[data-e2e="bh-more-bills"]'
+        )
+        this.log('info', '🤖 10')
+        if (hasMoreBills) {
+          this.log('info', '🤖 11')
+          await this.clickAndWait(
+            '[data-e2e="bh-more-bills"]',
+            '[aria-labelledby="bp-historicBillsHistoryTitle"]'
+          )
+          this.log('info', '🤖 12')
+        }
+        let allPdfNumber = await this.runInWorker('getPdfNumber')
+        this.log('info', '🤖 13')
+        let oldPdfNumber = allPdfNumber - recentPdfNumber
+        this.log('info', '🤖 14')
+        for (let i = 0; i < recentPdfNumber; i++) {
+          this.log('debug', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
+          // If something went wrong during the loading of the pdf board, a red frame with an error message appears
+          // So we need to check every lap to see if we got one
           const redFrame = await this.isElementInWorker(
-            'span[class="alert-icon icon-error-severe"]'
+            '.alert-icon icon-error-severe'
           )
           if (redFrame) {
-            this.log('debug', 'Something went wrong during old pdfs loading')
+            this.log('debug', 'Website did not load the bills')
             throw new Error('VENDOR_DOWN')
           }
-          await this.runInWorker('waitForOldPdfClicked', i)
+          await this.runInWorker('waitForRecentPdfClicked', i)
           await this.clickAndWait(
             'a[class="o-link"]',
             '[data-e2e="bp-tile-historic"]'
@@ -5794,85 +5769,115 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
             '[aria-labelledby="bp-historicBillsHistoryTitle"]'
           )
         }
-        this.log('debug', 'oldPdf loop ended')
-      }
-      this.log('info', '🤖 15')
-      this.log('debug', 'pdfButtons all clicked')
-      await this.runInWorker('processingBills')
-      this.log('info', '🤖 16')
-      this.store.dataUri = []
-      for (let i = 0; i < this.store.resolvedBase64.length; i++) {
-        let dateArray = this.store.resolvedBase64[i].href.match(
-          /([0-9]{4})-([0-9]{2})-([0-9]{2})/g
-        )
-        this.store.resolvedBase64[i].date = dateArray[0]
-        const index = this.store.allBills.findIndex(function (bill) {
-          return bill.date === dateArray[0]
-        })
-        this.store.dataUri.push({
-          vendor: 'sosh.fr',
-          date: this.store.allBills[index].date,
-          amount: this.store.allBills[index].amount / 100,
-          recurrence: 'monthly',
-          vendorRef: this.store.allBills[index].id
-            ? this.store.allBills[index].id
-            : this.store.allBills[index].tecId,
-          filename: await this.runInWorker(
-            'getFileName',
-            this.store.allBills[index].date,
-            this.store.allBills[index].amount / 100,
-            this.store.allBills[index].id || this.store.allBills[index].tecId
-          ),
-          dataUri: this.store.resolvedBase64[i].uri,
-          fileAttributes: {
-            metadata: {
-              invoiceNumber: this.store.allBills[index].id
-                ? this.store.allBills[index].id
-                : this.store.allBills[index].tecId,
-              contentAuthor: 'sosh',
-              datetime: this.store.allBills[index].date,
-              datetimeLabel: 'startDate',
-              isSubscription: true,
-              startDate: this.store.allBills[index].date,
-              carbonCopy: true
+        this.log('debug', 'recentPdf loop ended')
+        if (oldPdfNumber != 0) {
+          for (let i = 0; i < oldPdfNumber; i++) {
+            this.log('debug', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
+            // Same as above with the red frame, but for old bills board
+            const redFrame = await this.isElementInWorker(
+              'span[class="alert-icon icon-error-severe"]'
+            )
+            if (redFrame) {
+              this.log('debug', 'Something went wrong during old pdfs loading')
+              throw new Error('VENDOR_DOWN')
             }
+            await this.runInWorker('waitForOldPdfClicked', i)
+            await this.clickAndWait(
+              'a[class="o-link"]',
+              '[data-e2e="bp-tile-historic"]'
+            )
+            await this.clickAndWait(
+              '[data-e2e="bp-tile-historic"]',
+              '[aria-labelledby="bp-billsHistoryTitle"]'
+            )
+            await this.clickAndWait(
+              '[data-e2e="bh-more-bills"]',
+              '[aria-labelledby="bp-historicBillsHistoryTitle"]'
+            )
           }
+          this.log('debug', 'oldPdf loop ended')
+        }
+        this.log('info', '🤖 15')
+        this.log('debug', 'pdfButtons all clicked')
+        await this.runInWorker('processingBills')
+        this.log('info', '🤖 16')
+        this.store.dataUri = []
+        for (let i = 0; i < this.store.resolvedBase64.length; i++) {
+          let dateArray = this.store.resolvedBase64[i].href.match(
+            /([0-9]{4})-([0-9]{2})-([0-9]{2})/g
+          )
+          this.store.resolvedBase64[i].date = dateArray[0]
+          const index = this.store.allBills.findIndex(function (bill) {
+            return bill.date === dateArray[0]
+          })
+          this.store.dataUri.push({
+            vendor: 'sosh.fr',
+            date: this.store.allBills[index].date,
+            amount: this.store.allBills[index].amount / 100,
+            recurrence: 'monthly',
+            vendorRef: this.store.allBills[index].id
+              ? this.store.allBills[index].id
+              : this.store.allBills[index].tecId,
+            filename: await this.runInWorker(
+              'getFileName',
+              this.store.allBills[index].date,
+              this.store.allBills[index].amount / 100,
+              this.store.allBills[index].id || this.store.allBills[index].tecId
+            ),
+            dataUri: this.store.resolvedBase64[i].uri,
+            fileAttributes: {
+              metadata: {
+                invoiceNumber: this.store.allBills[index].id
+                  ? this.store.allBills[index].id
+                  : this.store.allBills[index].tecId,
+                contentAuthor: 'sosh',
+                datetime: this.store.allBills[index].date,
+                datetimeLabel: 'startDate',
+                isSubscription: true,
+                startDate: this.store.allBills[index].date,
+                carbonCopy: true
+              }
+            }
+          })
+        }
+        await this.saveBills(this.store.dataUri, {
+          context,
+          fileIdAttributes: ['filename'],
+          contentType: 'application/pdf',
+          qualificationLabel: 'isp_invoice'
         })
       }
-      await this.saveBills(this.store.dataUri, {
-        context,
-        fileIdAttributes: ['filename'],
-        contentType: 'application/pdf',
-        qualificationLabel: 'isp_invoice'
-      })
-    }
-    await this.clickAndWait(
-      'a[href="/compte?sosh="]',
-      'a[href="/compte/infos-perso"]'
-    )
-    await this.clickAndWait(
-      'a[href="/compte/infos-perso"]',
-      'div[data-e2e="e2e-personal-info-identity"]'
-    )
-    await Promise.all([
-      await this.waitForElementInWorker(
+      await this.clickAndWait(
+        'a[href="/compte?sosh="]',
+        'a[href="/compte/infos-perso"]'
+      )
+      await this.clickAndWait(
+        'a[href="/compte/infos-perso"]',
         'div[data-e2e="e2e-personal-info-identity"]'
-      ),
-      await this.waitForElementInWorker(
-        'a[href="/compte/modification-moyens-contact"]'
-      ),
-      await this.waitForElementInWorker('a[href="/compte/adresse"]')
-    ])
-    await this.runInWorker('getIdentity')
-    await this.saveIdentity(this.store.infosIdentity)
-    await this.clickAndWait(
-      '#oecs__popin-icon-Identification',
-      '#oecs__connecte-se-deconnecter'
-    )
-    await this.clickAndWait(
-      '#oecs__connecte-se-deconnecter',
-      '#oecs__connexion'
-    )
+      )
+      await Promise.all([
+        await this.waitForElementInWorker(
+          'div[data-e2e="e2e-personal-info-identity"]'
+        ),
+        await this.waitForElementInWorker(
+          'a[href="/compte/modification-moyens-contact"]'
+        ),
+        await this.waitForElementInWorker('a[href="/compte/adresse"]')
+      ])
+      await this.runInWorker('getIdentity')
+      await this.saveIdentity(this.store.infosIdentity)
+      await this.clickAndWait(
+        '#oecs__popin-icon-Identification',
+        '#oecs__connecte-se-deconnecter'
+      )
+      await this.clickAndWait(
+        '#oecs__connecte-se-deconnecter',
+        '#oecs__connexion'
+      )
+    } catch (err) {
+      this.log('error', `❌❌❌ fetch error :${err.message}`)
+      throw err
+    }
   }
 
   findPdfButtons() {
