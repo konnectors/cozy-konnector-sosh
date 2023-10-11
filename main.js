@@ -5746,34 +5746,43 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         let oldPdfNumber = allPdfNumber - recentPdfNumber
         this.log('info', '🤖 14')
         for (let i = 0; i < recentPdfNumber; i++) {
+          this.log('info', '🤖 15 i=' + i)
           this.log('debug', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
           // If something went wrong during the loading of the pdf board, a red frame with an error message appears
           // So we need to check every lap to see if we got one
+          this.log('info', '🤖 16 i=' + i)
           const redFrame = await this.isElementInWorker(
             '.alert-icon icon-error-severe'
           )
+          this.log('info', '🤖 17')
           if (redFrame) {
             this.log('debug', 'Website did not load the bills')
             throw new Error('VENDOR_DOWN')
           }
+          this.log('info', '🤖 18')
           await this.runInWorker('waitForRecentPdfClicked', i)
+          this.log('info', '🤖 19')
           await this.clickAndWait(
             'a[class="o-link"]',
             '[data-e2e="bp-tile-historic"]'
           )
+          this.log('info', '🤖 20')
           await this.clickAndWait(
             '[data-e2e="bp-tile-historic"]',
             '[aria-labelledby="bp-billsHistoryTitle"]'
           )
+          this.log('info', '🤖 21')
           await this.clickAndWait(
             '[data-e2e="bh-more-bills"]',
             '[aria-labelledby="bp-historicBillsHistoryTitle"]'
           )
+          this.log('info', '🤖 22')
         }
+        this.log('info', '🤖 23')
         this.log('debug', 'recentPdf loop ended')
         if (oldPdfNumber != 0) {
           for (let i = 0; i < oldPdfNumber; i++) {
-            this.log('debug', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
+            this.log('info', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
             // Same as above with the red frame, but for old bills board
             const redFrame = await this.isElementInWorker(
               'span[class="alert-icon icon-error-severe"]'
@@ -5798,10 +5807,10 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
           }
           this.log('debug', 'oldPdf loop ended')
         }
-        this.log('info', '🤖 15')
+        this.log('info', '🤖 24')
         this.log('debug', 'pdfButtons all clicked')
         await this.runInWorker('processingBills')
-        this.log('info', '🤖 16')
+        this.log('info', '🤖 25')
         this.store.dataUri = []
         for (let i = 0; i < this.store.resolvedBase64.length; i++) {
           let dateArray = this.store.resolvedBase64[i].href.match(
