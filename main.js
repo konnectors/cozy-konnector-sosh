@@ -5705,12 +5705,13 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       this.log('info', '🤖 3')
       const clientRef = await this.runInWorker('findClientRef')
       this.log('info', '🤖 4')
+      this.log('info', '👅👅👅clientRef ', clientRef)
       if (clientRef) {
         this.log('debug', 'clientRef found')
-        await this.clickAndWait(
-          `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`,
-          '[data-e2e="bp-tile-historic"]'
-        )
+        const href = `https://espace-client.orange.fr/facture-paiement/${clientRef}`
+        this.log('info', '👅👅👅href ', href)
+        await this.goto(href)
+        await this.waitForElementInWorker('[data-e2e="bp-tile-historic"]')
         this.log('info', '🤖 5')
         await this.clickAndWait(
           '[data-e2e="bp-tile-historic"]',
@@ -6189,7 +6190,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     let parsedElem
     let clientRef
     if (document.querySelector('a[class="o-link-arrow text-primary pt-0"]')) {
-      this.log('debug', 'clientRef founded')
+      this.log('debug', 'clientRef found')
       parsedElem = document
         .querySelector('a[class="o-link-arrow text-primary pt-0"]')
         .getAttribute('href')
