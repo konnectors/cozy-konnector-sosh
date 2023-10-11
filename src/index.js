@@ -8,7 +8,8 @@ Minilog.enable('soshCCC')
 
 const BASE_URL = 'https://www.sosh.fr'
 const DEFAULT_PAGE_URL = BASE_URL + '/client'
-const LOGIN_FORM_PAGE = 'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
+const LOGIN_FORM_PAGE =
+  'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
 
 let recentBills = []
 let oldBills = []
@@ -92,9 +93,7 @@ class SoshContentScript extends ContentScript {
   // ///////
   async navigateToLoginForm() {
     this.log('info', '🤖 navigateToLoginForm starts')
-    await this.goto(
-      LOGIN_FORM_PAGE
-    )
+    await this.goto(LOGIN_FORM_PAGE)
     await Promise.race([
       this.waitForElementInWorker('#login-label'),
       this.waitForElementInWorker('#password-label'),
