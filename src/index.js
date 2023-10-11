@@ -207,14 +207,10 @@ class SoshContentScript extends ContentScript {
     const clientRef = await this.runInWorker('findClientRef')
     if (clientRef) {
       this.log('info', 'clientRef found')
-      await this.clickAndWait(
-        `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`,
-        '[data-e2e="bp-tile-historic"]'
-      )
-      await this.clickAndWait(
-        '[data-e2e="bp-tile-historic"]',
-        '[aria-labelledby="bp-billsHistoryTitle"]'
-      )
+      const clientLink = `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`
+      await this.goto(clientLink) // replaced a link click with goto to avoid javascript code
+      // which forced to move to the app on iphone
+      await this.waitForElementInWorker(`[data-e2e="bp-tile-historic"]`)
       const redFrame = await this.isElementInWorker(
         '.alert-icon icon-error-severe'
       )
