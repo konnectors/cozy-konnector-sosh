@@ -5621,20 +5621,25 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async ensureAuthenticated() {
-    this.log('info', '🤖 ensureAuthenticated starts')
-    await this.navigateToLoginForm()
-    const credentials = await this.getCredentials()
-    if (credentials) {
-      await this.checkAuthWithCredentials(credentials)
-      return true
-    }
-    if (!credentials) {
-      await this.checkAuthWithoutCredentials()
-      return true
-    }
+    try {
+      this.log('info', '🤖 ensureAuthenticated starts')
+      await this.navigateToLoginForm()
+      const credentials = await this.getCredentials()
+      if (credentials) {
+        await this.checkAuthWithCredentials(credentials)
+        return true
+      }
+      if (!credentials) {
+        await this.checkAuthWithoutCredentials()
+        return true
+      }
 
-    this.log('info', 'Not authenticated')
-    throw new Error('LOGIN_FAILED')
+      this.log('info', 'Not authenticated')
+      throw new Error('LOGIN_FAILED')
+    } catch (err) {
+      this.log('error', `❌❌❌ ensureAuthenticated error :${err.message}`)
+      throw err
+    }
   }
 
   async tryAutoLogin(credentials, type) {
@@ -5679,14 +5684,19 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async getUserDataFromWebsite() {
-    this.log('info', '🤖 getUserDataFromWebsite starts')
-    const sourceAccountId = await this.runInWorker('getUserMail')
-    if (sourceAccountId === 'UNKNOWN_ERROR') {
-      throw new Error('Could not get a sourceAccountIdentifier')
-    }
+    try {
+      this.log('info', '🤖 getUserDataFromWebsite starts')
+      const sourceAccountId = await this.runInWorker('getUserMail')
+      if (sourceAccountId === 'UNKNOWN_ERROR') {
+        throw new Error('Could not get a sourceAccountIdentifier')
+      }
 
-    return {
-      sourceAccountIdentifier: sourceAccountId
+      return {
+        sourceAccountIdentifier: sourceAccountId
+      }
+    } catch (err) {
+      this.log('error', `❌❌❌ getUserDataFromWebsite error :${err.message}`)
+      throw err
     }
   }
 
