@@ -106,7 +106,7 @@ class SoshContentScript extends ContentScript {
       'checkForCaptcha'
     )
     if (askForCaptcha) {
-      this.log('debug', 'captcha found, waiting for resolution')
+      this.log('info', 'captcha found, waiting for resolution')
       await this.waitForUserAction(captchaUrl)
     }
   }
@@ -143,7 +143,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async tryAutoLogin(credentials, type) {
-    this.log('debug', '🤖 Trying autologin')
+    this.log('info', '🤖 Trying autologin')
     await this.autoLogin(credentials, type)
   }
 
@@ -153,7 +153,7 @@ class SoshContentScript extends ContentScript {
     const passwordInputSelector = '#password'
     const loginButton = '#btnSubmit'
     if (type === 'half') {
-      this.log('debug', 'wait for password field - half')
+      this.log('info', 'wait for password field - half')
       await this.waitForElementInWorker(passwordInputSelector)
       await this.runInWorker('fillingForm', credentials)
       await this.runInWorker('click', loginButton)
@@ -163,7 +163,7 @@ class SoshContentScript extends ContentScript {
     await this.waitForElementInWorker(emailSelector)
     await this.runInWorker('fillingForm', credentials)
     await this.runInWorker('click', loginButton)
-    this.log('debug', 'wait for password field - full')
+    this.log('info', 'wait for password field - full')
     await this.waitForElementInWorker(passwordInputSelector)
     await this.runInWorker('fillingForm', credentials)
     await this.runInWorker('click', loginButton)
@@ -206,7 +206,7 @@ class SoshContentScript extends ContentScript {
     )
     const clientRef = await this.runInWorker('findClientRef')
     if (clientRef) {
-      this.log('debug', 'clientRef found')
+      this.log('info', 'clientRef found')
       await this.clickAndWait(
         `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`,
         '[data-e2e="bp-tile-historic"]'
@@ -219,7 +219,7 @@ class SoshContentScript extends ContentScript {
         '.alert-icon icon-error-severe'
       )
       if (redFrame) {
-        this.log('debug', 'Website did not load the bills')
+        this.log('info', 'Website did not load the bills')
         throw new Error('VENDOR_DOWN')
       }
       let recentPdfNumber = await this.runInWorker('getPdfNumber')
@@ -235,14 +235,14 @@ class SoshContentScript extends ContentScript {
       let allPdfNumber = await this.runInWorker('getPdfNumber')
       let oldPdfNumber = allPdfNumber - recentPdfNumber
       for (let i = 0; i < recentPdfNumber; i++) {
-        this.log('debug', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
+        this.log('info', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
         // If something went wrong during the loading of the pdf board, a red frame with an error message appears
         // So we need to check every lap to see if we got one
         const redFrame = await this.isElementInWorker(
           '.alert-icon icon-error-severe'
         )
         if (redFrame) {
-          this.log('debug', 'Website did not load the bills')
+          this.log('info', 'Website did not load the bills')
           throw new Error('VENDOR_DOWN')
         }
         await this.runInWorker('waitForRecentPdfClicked', i)
@@ -259,16 +259,16 @@ class SoshContentScript extends ContentScript {
           '[aria-labelledby="bp-historicBillsHistoryTitle"]'
         )
       }
-      this.log('debug', 'recentPdf loop ended')
+      this.log('info', 'recentPdf loop ended')
       if (oldPdfNumber != 0) {
         for (let i = 0; i < oldPdfNumber; i++) {
-          this.log('debug', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
+          this.log('info', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
           // Same as above with the red frame, but for old bills board
           const redFrame = await this.isElementInWorker(
             'span[class="alert-icon icon-error-severe"]'
           )
           if (redFrame) {
-            this.log('debug', 'Something went wrong during old pdfs loading')
+            this.log('info', 'Something went wrong during old pdfs loading')
             throw new Error('VENDOR_DOWN')
           }
           await this.runInWorker('waitForOldPdfClicked', i)
@@ -285,9 +285,9 @@ class SoshContentScript extends ContentScript {
             '[aria-labelledby="bp-historicBillsHistoryTitle"]'
           )
         }
-        this.log('debug', 'oldPdf loop ended')
+        this.log('info', 'oldPdf loop ended')
       }
-      this.log('debug', 'pdfButtons all clicked')
+      this.log('info', 'pdfButtons all clicked')
       await this.runInWorker('processingBills')
       this.store.dataUri = []
       for (let i = 0; i < this.store.resolvedBase64.length; i++) {
@@ -365,7 +365,7 @@ class SoshContentScript extends ContentScript {
   }
 
   findPdfButtons() {
-    this.log('debug', 'Starting findPdfButtons')
+    this.log('info', 'Starting findPdfButtons')
     const buttons = Array.from(
       document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
     )
@@ -373,13 +373,13 @@ class SoshContentScript extends ContentScript {
   }
 
   findBillsHistoricButton() {
-    this.log('debug', 'Starting findPdfButtons')
+    this.log('info', 'Starting findPdfButtons')
     const button = document.querySelector('[data-e2e="bp-tile-historic"]')
     return button
   }
 
   findPdfNumber() {
-    this.log('debug', 'Starting findPdfNumber')
+    this.log('info', 'Starting findPdfNumber')
     const buttons = Array.from(
       document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
     )
@@ -387,7 +387,7 @@ class SoshContentScript extends ContentScript {
   }
 
   findStayLoggedButton() {
-    this.log('debug', 'Starting findStayLoggedButton')
+    this.log('info', 'Starting findStayLoggedButton')
     const button = document.querySelector(
       'button[data-testid="button-keepconnected"]'
     )
@@ -398,7 +398,7 @@ class SoshContentScript extends ContentScript {
   }
 
   findHelloMessage() {
-    this.log('debug', 'Starting findHelloMessage')
+    this.log('info', 'Starting findHelloMessage')
     const messageSpan = document.querySelector(
       'span[class="d-block text-center"]'
     )
@@ -406,19 +406,19 @@ class SoshContentScript extends ContentScript {
   }
 
   findLoginButton() {
-    this.log('debug', 'Starting findLoginButton')
+    this.log('info', 'Starting findLoginButton')
     const loginButton = document.querySelector('#oecs__connexion')
     return loginButton
   }
 
   findAccountPage() {
-    this.log('debug', 'Starting findAccountPage')
+    this.log('info', 'Starting findAccountPage')
     const loginButton = document.querySelector('#oecs__connexion')
     return loginButton
   }
 
   findAccountList() {
-    this.log('debug', 'Starting findAccountList')
+    this.log('info', 'Starting findAccountList')
     let accountList = []
     const accountListElement = document.querySelectorAll(
       'a[data-oevent-action="clic_liste"]'
@@ -446,7 +446,7 @@ class SoshContentScript extends ContentScript {
       if (!accountPage) {
         const accountListElement = await this.runInWorker('getAccountList')
         for (let i = 0; i < accountListElement.length; i++) {
-          this.log('debug', 'getting in accountList loop')
+          this.log('info', 'getting in accountList loop')
           const findMail = accountListElement[i]
           if (findMail === credentials.email) {
             this.log(
@@ -459,22 +459,22 @@ class SoshContentScript extends ContentScript {
         }
       }
     }
-    this.log('debug', 'found credentials, processing')
+    this.log('info', 'found credentials, processing')
     const askFullLogin = await this.isElementInWorker('#login-label')
     if (askFullLogin) {
-      this.log('debug', 'askFullLogin condition')
+      this.log('info', 'askFullLogin condition')
       await this.tryAutoLogin(credentials, 'full')
       return true
     }
     await this.waitForElementInWorker('p[data-testid="selected-account-login"]')
     const testEmail = await this.runInWorker('getTestEmail')
     if (credentials.email === testEmail) {
-      this.log('debug', 'sameMailLogin condition')
+      this.log('info', 'sameMailLogin condition')
       await this.sameMailLogin(credentials)
       return true
     }
     if (credentials.email != testEmail) {
-      this.log('debug', 'differentMailLogin condition')
+      this.log('info', 'differentMailLogin condition')
       await this.differentMailLogin(credentials)
     }
   }
@@ -483,16 +483,16 @@ class SoshContentScript extends ContentScript {
     this.log('info', 'checkAuthWithoutCredentials starts')
     const helloMessage = await this.runInWorker('getHelloMessage')
     if (helloMessage) {
-      this.log('debug', 'no credentials found but user is still logged in')
+      this.log('info', 'no credentials found but user is still logged in')
       return true
     }
     const isAccountListPage = await this.isElementInWorker('#undefined-label')
     if (isAccountListPage) {
-      this.log('debug', 'Webview on accountsList page, go to first login step')
+      this.log('info', 'Webview on accountsList page, go to first login step')
       await this.runInWorker('click', '#undefined-label')
       await this.waitForElementInWorker('#login-label')
     }
-    this.log('debug', 'no credentials found, use normal user login')
+    this.log('info', 'no credentials found, use normal user login')
     await this.waitForUserAuthentication()
     return true
   }
@@ -510,13 +510,13 @@ class SoshContentScript extends ContentScript {
       await this.waitForElementInWorker('#oecs__connecte')
       return true
     }
-    this.log('debug', 'found credentials, trying to autoLog')
+    this.log('info', 'found credentials, trying to autoLog')
     await this.tryAutoLogin(credentials, 'half')
     return true
   }
 
   async differentMailLogin(credentials) {
-    this.log('debug', 'getting in different testEmail conditions')
+    this.log('info', 'getting in different testEmail conditions')
     await this.clickAndWait('#changeAccountLink', '#undefined-label')
     await this.clickAndWait('#undefined-label', '#login')
     await this.tryAutoLogin(credentials, 'full')
@@ -528,7 +528,7 @@ class SoshContentScript extends ContentScript {
   // ////////
 
   getLogoutButton() {
-    this.log('debug', 'Starting getLogoutButton')
+    this.log('info', 'Starting getLogoutButton')
     const logoutButton = document.querySelector(
       '#oecs__connecte-se-deconnecter'
     )
@@ -536,29 +536,29 @@ class SoshContentScript extends ContentScript {
   }
 
   async getAccountList() {
-    this.log('debug', 'Starting getAccountList')
+    this.log('info', 'Starting getAccountList')
     const accountList = this.findAccountList()
     return accountList
   }
 
   async clickLoginPage() {
-    this.log('debug', 'Starting clickLoginPage')
+    this.log('info', 'Starting clickLoginPage')
     document.querySelector('#oecs__connexion').click()
   }
 
   async accountSelection(i) {
-    this.log('debug', 'Starting accountSelection')
+    this.log('info', 'Starting accountSelection')
     document.querySelectorAll('a[data-oevent-action="clic_liste"]')[i].click()
   }
 
   async getAccountPage() {
-    this.log('debug', 'Starting getAccountPage')
+    this.log('info', 'Starting getAccountPage')
     const accountButton = this.findAccountPage()
     return accountButton
   }
 
   async getLoginPage() {
-    this.log('debug', 'Starting getLoginPage')
+    this.log('info', 'Starting getLoginPage')
     const loginButton = this.findLoginButton()
     return loginButton
   }
@@ -592,12 +592,12 @@ class SoshContentScript extends ContentScript {
 
   async fillingForm(credentials) {
     if (document.querySelector('#login')) {
-      this.log('debug', 'filling email field')
+      this.log('info', 'filling email field')
       document.querySelector('#login').value = credentials.email
       return
     }
     if (document.querySelector('#password')) {
-      this.log('debug', 'filling password field')
+      this.log('info', 'filling password field')
       document.querySelector('#password').value = credentials.password
       return
     }
@@ -613,7 +613,7 @@ class SoshContentScript extends ContentScript {
       const userCredentials = await this.findAndSendCredentials.bind(this)(
         loginField
       )
-      this.log('debug', 'Sending user credentials to Pilot')
+      this.log('info', 'Sending user credentials to Pilot')
       this.sendToPilot({
         userCredentials
       })
@@ -622,14 +622,14 @@ class SoshContentScript extends ContentScript {
       document.location.href.includes(DEFAULT_PAGE_URL) &&
       document.querySelector('#oecs__connecte')
     ) {
-      this.log('debug', 'Check Authenticated succeeded')
+      this.log('info', 'Check Authenticated succeeded')
       return true
     }
     if (
       document.location.href.includes(DEFAULT_PAGE_URL) &&
       document.querySelector('#oecs__connecte-se-deconnecter')
     ) {
-      this.log('debug', 'Active session found, returning true')
+      this.log('info', 'Active session found, returning true')
       return true
     }
 
@@ -654,9 +654,9 @@ class SoshContentScript extends ContentScript {
           `Error message : ${err.message}, trying to reload page`
         )
         window.location.reload()
-        this.log('debug', 'Profil homePage reloaded')
+        this.log('info', 'Profil homePage reloaded')
       } else {
-        this.log('debug', 'Untreated problem encountered')
+        this.log('info', 'Untreated problem encountered')
         return 'UNKNOWN_ERROR'
       }
     }
@@ -664,7 +664,7 @@ class SoshContentScript extends ContentScript {
   }
 
   async getHelloMessage() {
-    this.log('debug', 'Starting findHelloMessage')
+    this.log('info', 'Starting findHelloMessage')
     const messageSpan = this.findHelloMessage()
     return messageSpan
   }
@@ -673,22 +673,22 @@ class SoshContentScript extends ContentScript {
     let parsedElem
     let clientRef
     if (document.querySelector('a[class="o-link-arrow text-primary pt-0"]')) {
-      this.log('debug', 'clientRef founded')
+      this.log('info', 'clientRef founded')
       parsedElem = document
         .querySelector('a[class="o-link-arrow text-primary pt-0"]')
         .getAttribute('href')
 
       const clientRefArray = parsedElem.match(/([0-9]*)/g)
-      this.log('debug', clientRefArray.length)
+      this.log('info', clientRefArray.length)
 
       for (let i = 0; i < clientRefArray.length; i++) {
-        this.log('debug', 'Get in clientRef loop')
+        this.log('info', 'Get in clientRef loop')
 
         const testedIndex = clientRefArray.pop()
         if (testedIndex.length === 0) {
-          this.log('debug', 'No clientRef founded')
+          this.log('info', 'No clientRef founded')
         } else {
-          this.log('debug', 'clientRef founded')
+          this.log('info', 'clientRef founded')
           clientRef = testedIndex
           break
         }
@@ -698,13 +698,13 @@ class SoshContentScript extends ContentScript {
   }
 
   async getStayLoggedButton() {
-    this.log('debug', 'Starting getStayLoggedButton')
+    this.log('info', 'Starting getStayLoggedButton')
     const button = this.findStayLoggedButton()
     return button
   }
 
   async getTestEmail() {
-    this.log('debug', 'Getting in getTestEmail')
+    this.log('info', 'Getting in getTestEmail')
     const result = document
       .querySelector('p[data-testid="selected-account-login"]')
       .innerHTML.replace('<strong>', '')
@@ -716,19 +716,19 @@ class SoshContentScript extends ContentScript {
   }
 
   async getPdfNumber() {
-    this.log('debug', 'Getting in getPdfNumber')
+    this.log('info', 'Getting in getPdfNumber')
     let pdfNumber = this.findPdfNumber()
     return pdfNumber
   }
 
   async processingBills() {
     let resolvedBase64 = []
-    this.log('debug', 'Awaiting promises')
+    this.log('info', 'Awaiting promises')
     const recentToBase64 = await Promise.all(
       recentPromisesToConvertBlobToBase64
     )
     const oldToBase64 = await Promise.all(oldPromisesToConvertBlobToBase64)
-    this.log('debug', 'Processing promises')
+    this.log('info', 'Processing promises')
     const promisesToBase64 = recentToBase64.concat(oldToBase64)
     const xhrUrls = recentXhrUrls.concat(oldXhrUrls)
     for (let i = 0; i < promisesToBase64.length; i++) {
@@ -740,7 +740,7 @@ class SoshContentScript extends ContentScript {
     const recentBillsToAdd = recentBills[0].billsHistory.billList
     const oldBillsToAdd = oldBills[0].oldBills
     let allBills = recentBillsToAdd.concat(oldBillsToAdd)
-    this.log('debug', 'billsArray ready, Sending to pilot')
+    this.log('info', 'billsArray ready, Sending to pilot')
     await this.sendToPilot({
       resolvedBase64,
       allBills
