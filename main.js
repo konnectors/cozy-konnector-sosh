@@ -6201,7 +6201,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
     this.log('info', 'finding clientref link')
     const link = document.querySelector(
-      `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`
+      `a[href*="https://espace-client.orange.fr/facture-paiement/"]`
     )
     this.log('info', 'link href=' + link.getAttribute('href'))
     this.log(
