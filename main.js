@@ -5601,7 +5601,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       'checkForCaptcha'
     )
     if (askForCaptcha) {
-      this.log('info', 'captcha found, waiting for resolution')
+      this.log('debug', 'captcha found, waiting for resolution')
       await this.waitForUserAction(captchaUrl)
     }
   }
@@ -5621,29 +5621,24 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async ensureAuthenticated() {
-    try {
-      this.log('info', '🤖 ensureAuthenticated starts')
-      await this.navigateToLoginForm()
-      const credentials = await this.getCredentials()
-      if (credentials) {
-        await this.checkAuthWithCredentials(credentials)
-        return true
-      }
-      if (!credentials) {
-        await this.checkAuthWithoutCredentials()
-        return true
-      }
-
-      this.log('info', 'Not authenticated')
-      throw new Error('LOGIN_FAILED')
-    } catch (err) {
-      this.log('error', `❌❌❌ ensureAuthenticated error :${err.message}`)
-      throw err
+    this.log('info', '🤖 ensureAuthenticated starts')
+    await this.navigateToLoginForm()
+    const credentials = await this.getCredentials()
+    if (credentials) {
+      await this.checkAuthWithCredentials(credentials)
+      return true
     }
+    if (!credentials) {
+      await this.checkAuthWithoutCredentials()
+      return true
+    }
+
+    this.log('info', 'Not authenticated')
+    throw new Error('LOGIN_FAILED')
   }
 
   async tryAutoLogin(credentials, type) {
-    this.log('info', '🤖 Trying autologin')
+    this.log('debug', '🤖 Trying autologin')
     await this.autoLogin(credentials, type)
   }
 
@@ -5653,7 +5648,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     const passwordInputSelector = '#password'
     const loginButton = '#btnSubmit'
     if (type === 'half') {
-      this.log('info', 'wait for password field - half')
+      this.log('debug', 'wait for password field - half')
       await this.waitForElementInWorker(passwordInputSelector)
       await this.runInWorker('fillingForm', credentials)
       await this.runInWorker('click', loginButton)
@@ -5663,7 +5658,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.waitForElementInWorker(emailSelector)
     await this.runInWorker('fillingForm', credentials)
     await this.runInWorker('click', loginButton)
-    this.log('info', 'wait for password field - full')
+    this.log('debug', 'wait for password field - full')
     await this.waitForElementInWorker(passwordInputSelector)
     await this.runInWorker('fillingForm', credentials)
     await this.runInWorker('click', loginButton)
@@ -5684,224 +5679,188 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async getUserDataFromWebsite() {
-    try {
-      this.log('info', '🤖 getUserDataFromWebsite starts')
-      const sourceAccountId = await this.runInWorker('getUserMail')
-      if (sourceAccountId === 'UNKNOWN_ERROR') {
-        throw new Error('Could not get a sourceAccountIdentifier')
-      }
+    this.log('info', '🤖 getUserDataFromWebsite starts')
+    const sourceAccountId = await this.runInWorker('getUserMail')
+    if (sourceAccountId === 'UNKNOWN_ERROR') {
+      throw new Error('Could not get a sourceAccountIdentifier')
+    }
 
-      return {
-        sourceAccountIdentifier: sourceAccountId
-      }
-    } catch (err) {
-      this.log('error', `❌❌❌ getUserDataFromWebsite error :${err.message}`)
-      throw err
+    return {
+      sourceAccountIdentifier: sourceAccountId
     }
   }
 
   async fetch(context) {
-    try {
-      this.log('info', '🤖 fetch start')
-      const credentials = await this.getCredentials()
-      this.log('info', '🤖 1')
-      if (!credentials) {
-        await this.saveCredentials(this.store.userCredentials)
-      }
-      this.log('info', '🤖 2')
-      await this.waitForElementInWorker(
-        'a[class="o-link-arrow text-primary pt-0"]'
+    this.log('info', '🤖 fetch start')
+    const credentials = await this.getCredentials()
+    if (!credentials) {
+      await this.saveCredentials(this.store.userCredentials)
+    }
+    await this.waitForElementInWorker(
+      'a[class="o-link-arrow text-primary pt-0"]'
+    )
+    const clientRef = await this.runInWorker('findClientRef')
+    if (clientRef) {
+      this.log('debug', 'clientRef found')
+      await this.clickAndWait(
+        `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`,
+        '[data-e2e="bp-tile-historic"]'
       )
-      this.log('info', '🤖 3')
-      const clientRef = await this.runInWorker('findClientRef')
-      this.log('info', '🤖 4')
-      this.log('info', '👅👅👅clientRef ', clientRef)
-      if (clientRef) {
-        this.log('info', 'clientRef found')
-        const href = `https://espace-client.orange.fr/facture-paiement/${clientRef}`
-        this.log('info', '👅👅👅href ', href)
-
-        await this.goto(href)
-        await this.waitForElementInWorker('[data-e2e="bp-tile-historic"]')
-        this.log('info', '🤖 5')
+      await this.clickAndWait(
+        '[data-e2e="bp-tile-historic"]',
+        '[aria-labelledby="bp-billsHistoryTitle"]'
+      )
+      const redFrame = await this.isElementInWorker(
+        '.alert-icon icon-error-severe'
+      )
+      if (redFrame) {
+        this.log('debug', 'Website did not load the bills')
+        throw new Error('VENDOR_DOWN')
+      }
+      let recentPdfNumber = await this.runInWorker('getPdfNumber')
+      const hasMoreBills = await this.isElementInWorker(
+        '[data-e2e="bh-more-bills"]'
+      )
+      if (hasMoreBills) {
+        await this.clickAndWait(
+          '[data-e2e="bh-more-bills"]',
+          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
+        )
+      }
+      let allPdfNumber = await this.runInWorker('getPdfNumber')
+      let oldPdfNumber = allPdfNumber - recentPdfNumber
+      for (let i = 0; i < recentPdfNumber; i++) {
+        this.log('debug', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
+        // If something went wrong during the loading of the pdf board, a red frame with an error message appears
+        // So we need to check every lap to see if we got one
+        const redFrame = await this.isElementInWorker(
+          '.alert-icon icon-error-severe'
+        )
+        if (redFrame) {
+          this.log('debug', 'Website did not load the bills')
+          throw new Error('VENDOR_DOWN')
+        }
+        await this.runInWorker('waitForRecentPdfClicked', i)
+        await this.clickAndWait(
+          'a[class="o-link"]',
+          '[data-e2e="bp-tile-historic"]'
+        )
         await this.clickAndWait(
           '[data-e2e="bp-tile-historic"]',
           '[aria-labelledby="bp-billsHistoryTitle"]'
         )
-        this.log('info', '🤖 6')
-        const redFrame = await this.isElementInWorker(
-          '.alert-icon icon-error-severe'
+        await this.clickAndWait(
+          '[data-e2e="bh-more-bills"]',
+          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
         )
-        this.log('info', '🤖 7')
-        if (redFrame) {
-          this.log('info', 'Website did not load the bills')
-          throw new Error('VENDOR_DOWN')
-        }
-        this.log('info', '🤖 8')
-        let recentPdfNumber = await this.runInWorker('getPdfNumber')
-        this.log('info', '🤖 9')
-        const hasMoreBills = await this.isElementInWorker(
-          '[data-e2e="bh-more-bills"]'
-        )
-        this.log('info', '🤖 10')
-        if (hasMoreBills) {
-          this.log('info', '🤖 11')
-          await this.clickAndWait(
-            '[data-e2e="bh-more-bills"]',
-            '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-          )
-          this.log('info', '🤖 12')
-        }
-        let allPdfNumber = await this.runInWorker('getPdfNumber')
-        this.log('info', '🤖 13')
-        let oldPdfNumber = allPdfNumber - recentPdfNumber
-        this.log('info', '🤖 14')
-        for (let i = 0; i < recentPdfNumber; i++) {
-          this.log('info', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
-          // If something went wrong during the loading of the pdf board, a red frame with an error message appears
-          // So we need to check every lap to see if we got one
-          this.log('info', '🤖 16 i=' + i)
+      }
+      this.log('debug', 'recentPdf loop ended')
+      if (oldPdfNumber != 0) {
+        for (let i = 0; i < oldPdfNumber; i++) {
+          this.log('debug', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
+          // Same as above with the red frame, but for old bills board
           const redFrame = await this.isElementInWorker(
-            '.alert-icon icon-error-severe'
+            'span[class="alert-icon icon-error-severe"]'
           )
-          this.log('info', '🤖 17')
           if (redFrame) {
-            this.log('info', 'Website did not load the bills')
+            this.log('debug', 'Something went wrong during old pdfs loading')
             throw new Error('VENDOR_DOWN')
           }
-          this.log('info', '🤖 18')
-          await this.runInWorker('waitForRecentPdfClicked', i)
-          this.log('info', '🤖 19')
+          await this.runInWorker('waitForOldPdfClicked', i)
           await this.clickAndWait(
             'a[class="o-link"]',
             '[data-e2e="bp-tile-historic"]'
           )
-          this.log('info', '🤖 20')
           await this.clickAndWait(
             '[data-e2e="bp-tile-historic"]',
             '[aria-labelledby="bp-billsHistoryTitle"]'
           )
-          this.log('info', '🤖 21')
           await this.clickAndWait(
             '[data-e2e="bh-more-bills"]',
             '[aria-labelledby="bp-historicBillsHistoryTitle"]'
           )
-          this.log('info', '🤖 22')
         }
-        this.log('info', '🤖 23')
-        this.log('info', 'recentPdf loop ended')
-        if (oldPdfNumber != 0) {
-          for (let i = 0; i < oldPdfNumber; i++) {
-            this.log('info', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
-            // Same as above with the red frame, but for old bills board
-            const redFrame = await this.isElementInWorker(
-              'span[class="alert-icon icon-error-severe"]'
-            )
-            if (redFrame) {
-              this.log('info', 'Something went wrong during old pdfs loading')
-              throw new Error('VENDOR_DOWN')
+        this.log('debug', 'oldPdf loop ended')
+      }
+      this.log('debug', 'pdfButtons all clicked')
+      await this.runInWorker('processingBills')
+      this.store.dataUri = []
+      for (let i = 0; i < this.store.resolvedBase64.length; i++) {
+        let dateArray = this.store.resolvedBase64[i].href.match(
+          /([0-9]{4})-([0-9]{2})-([0-9]{2})/g
+        )
+        this.store.resolvedBase64[i].date = dateArray[0]
+        const index = this.store.allBills.findIndex(function (bill) {
+          return bill.date === dateArray[0]
+        })
+        this.store.dataUri.push({
+          vendor: 'sosh.fr',
+          date: this.store.allBills[index].date,
+          amount: this.store.allBills[index].amount / 100,
+          recurrence: 'monthly',
+          vendorRef: this.store.allBills[index].id
+            ? this.store.allBills[index].id
+            : this.store.allBills[index].tecId,
+          filename: await this.runInWorker(
+            'getFileName',
+            this.store.allBills[index].date,
+            this.store.allBills[index].amount / 100,
+            this.store.allBills[index].id || this.store.allBills[index].tecId
+          ),
+          dataUri: this.store.resolvedBase64[i].uri,
+          fileAttributes: {
+            metadata: {
+              invoiceNumber: this.store.allBills[index].id
+                ? this.store.allBills[index].id
+                : this.store.allBills[index].tecId,
+              contentAuthor: 'sosh',
+              datetime: this.store.allBills[index].date,
+              datetimeLabel: 'startDate',
+              isSubscription: true,
+              startDate: this.store.allBills[index].date,
+              carbonCopy: true
             }
-            await this.runInWorker('waitForOldPdfClicked', i)
-            await this.clickAndWait(
-              'a[class="o-link"]',
-              '[data-e2e="bp-tile-historic"]'
-            )
-            await this.clickAndWait(
-              '[data-e2e="bp-tile-historic"]',
-              '[aria-labelledby="bp-billsHistoryTitle"]'
-            )
-            await this.clickAndWait(
-              '[data-e2e="bh-more-bills"]',
-              '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-            )
           }
-          this.log('info', 'oldPdf loop ended')
-        }
-        this.log('info', '🤖 24')
-        this.log('info', 'pdfButtons all clicked')
-        await this.runInWorker('processingBills')
-        this.log('info', '🤖 25')
-        this.store.dataUri = []
-        for (let i = 0; i < this.store.resolvedBase64.length; i++) {
-          let dateArray = this.store.resolvedBase64[i].href.match(
-            /([0-9]{4})-([0-9]{2})-([0-9]{2})/g
-          )
-          this.store.resolvedBase64[i].date = dateArray[0]
-          const index = this.store.allBills.findIndex(function (bill) {
-            return bill.date === dateArray[0]
-          })
-          this.store.dataUri.push({
-            vendor: 'sosh.fr',
-            date: this.store.allBills[index].date,
-            amount: this.store.allBills[index].amount / 100,
-            recurrence: 'monthly',
-            vendorRef: this.store.allBills[index].id
-              ? this.store.allBills[index].id
-              : this.store.allBills[index].tecId,
-            filename: await this.runInWorker(
-              'getFileName',
-              this.store.allBills[index].date,
-              this.store.allBills[index].amount / 100,
-              this.store.allBills[index].id || this.store.allBills[index].tecId
-            ),
-            dataUri: this.store.resolvedBase64[i].uri,
-            fileAttributes: {
-              metadata: {
-                invoiceNumber: this.store.allBills[index].id
-                  ? this.store.allBills[index].id
-                  : this.store.allBills[index].tecId,
-                contentAuthor: 'sosh',
-                datetime: this.store.allBills[index].date,
-                datetimeLabel: 'startDate',
-                isSubscription: true,
-                startDate: this.store.allBills[index].date,
-                carbonCopy: true
-              }
-            }
-          })
-        }
-        await this.saveBills(this.store.dataUri, {
-          context,
-          fileIdAttributes: ['filename'],
-          contentType: 'application/pdf',
-          qualificationLabel: 'isp_invoice'
         })
       }
-      await this.clickAndWait(
-        'a[href="/compte?sosh="]',
-        'a[href="/compte/infos-perso"]'
-      )
-      await this.clickAndWait(
-        'a[href="/compte/infos-perso"]',
-        'div[data-e2e="e2e-personal-info-identity"]'
-      )
-      await Promise.all([
-        await this.waitForElementInWorker(
-          'div[data-e2e="e2e-personal-info-identity"]'
-        ),
-        await this.waitForElementInWorker(
-          'a[href="/compte/modification-moyens-contact"]'
-        ),
-        await this.waitForElementInWorker('a[href="/compte/adresse"]')
-      ])
-      await this.runInWorker('getIdentity')
-      await this.saveIdentity(this.store.infosIdentity)
-      await this.clickAndWait(
-        '#oecs__popin-icon-Identification',
-        '#oecs__connecte-se-deconnecter'
-      )
-      await this.clickAndWait(
-        '#oecs__connecte-se-deconnecter',
-        '#oecs__connexion'
-      )
-    } catch (err) {
-      this.log('error', `❌❌❌ fetch error :${err.message}`)
-      throw err
+      await this.saveBills(this.store.dataUri, {
+        context,
+        fileIdAttributes: ['filename'],
+        contentType: 'application/pdf',
+        qualificationLabel: 'isp_invoice'
+      })
     }
+    await this.clickAndWait(
+      'a[href="/compte?sosh="]',
+      'a[href="/compte/infos-perso"]'
+    )
+    await this.clickAndWait(
+      'a[href="/compte/infos-perso"]',
+      'div[data-e2e="e2e-personal-info-identity"]'
+    )
+    await Promise.all([
+      await this.waitForElementInWorker(
+        'div[data-e2e="e2e-personal-info-identity"]'
+      ),
+      await this.waitForElementInWorker(
+        'a[href="/compte/modification-moyens-contact"]'
+      ),
+      await this.waitForElementInWorker('a[href="/compte/adresse"]')
+    ])
+    await this.runInWorker('getIdentity')
+    await this.saveIdentity(this.store.infosIdentity)
+    await this.clickAndWait(
+      '#oecs__popin-icon-Identification',
+      '#oecs__connecte-se-deconnecter'
+    )
+    await this.clickAndWait(
+      '#oecs__connecte-se-deconnecter',
+      '#oecs__connexion'
+    )
   }
 
   findPdfButtons() {
-    this.log('info', 'Starting findPdfButtons')
+    this.log('debug', 'Starting findPdfButtons')
     const buttons = Array.from(
       document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
     )
@@ -5909,13 +5868,13 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   findBillsHistoricButton() {
-    this.log('info', 'Starting findPdfButtons')
+    this.log('debug', 'Starting findPdfButtons')
     const button = document.querySelector('[data-e2e="bp-tile-historic"]')
     return button
   }
 
   findPdfNumber() {
-    this.log('info', 'Starting findPdfNumber')
+    this.log('debug', 'Starting findPdfNumber')
     const buttons = Array.from(
       document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
     )
@@ -5923,7 +5882,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   findStayLoggedButton() {
-    this.log('info', 'Starting findStayLoggedButton')
+    this.log('debug', 'Starting findStayLoggedButton')
     const button = document.querySelector(
       'button[data-testid="button-keepconnected"]'
     )
@@ -5934,7 +5893,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   findHelloMessage() {
-    this.log('info', 'Starting findHelloMessage')
+    this.log('debug', 'Starting findHelloMessage')
     const messageSpan = document.querySelector(
       'span[class="d-block text-center"]'
     )
@@ -5942,19 +5901,19 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   findLoginButton() {
-    this.log('info', 'Starting findLoginButton')
+    this.log('debug', 'Starting findLoginButton')
     const loginButton = document.querySelector('#oecs__connexion')
     return loginButton
   }
 
   findAccountPage() {
-    this.log('info', 'Starting findAccountPage')
+    this.log('debug', 'Starting findAccountPage')
     const loginButton = document.querySelector('#oecs__connexion')
     return loginButton
   }
 
   findAccountList() {
-    this.log('info', 'Starting findAccountList')
+    this.log('debug', 'Starting findAccountList')
     let accountList = []
     const accountListElement = document.querySelectorAll(
       'a[data-oevent-action="clic_liste"]'
@@ -5982,7 +5941,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       if (!accountPage) {
         const accountListElement = await this.runInWorker('getAccountList')
         for (let i = 0; i < accountListElement.length; i++) {
-          this.log('info', 'getting in accountList loop')
+          this.log('debug', 'getting in accountList loop')
           const findMail = accountListElement[i]
           if (findMail === credentials.email) {
             this.log(
@@ -5995,22 +5954,22 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         }
       }
     }
-    this.log('info', 'found credentials, processing')
+    this.log('debug', 'found credentials, processing')
     const askFullLogin = await this.isElementInWorker('#login-label')
     if (askFullLogin) {
-      this.log('info', 'askFullLogin condition')
+      this.log('debug', 'askFullLogin condition')
       await this.tryAutoLogin(credentials, 'full')
       return true
     }
     await this.waitForElementInWorker('p[data-testid="selected-account-login"]')
     const testEmail = await this.runInWorker('getTestEmail')
     if (credentials.email === testEmail) {
-      this.log('info', 'sameMailLogin condition')
+      this.log('debug', 'sameMailLogin condition')
       await this.sameMailLogin(credentials)
       return true
     }
     if (credentials.email != testEmail) {
-      this.log('info', 'differentMailLogin condition')
+      this.log('debug', 'differentMailLogin condition')
       await this.differentMailLogin(credentials)
     }
   }
@@ -6019,16 +5978,16 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     this.log('info', 'checkAuthWithoutCredentials starts')
     const helloMessage = await this.runInWorker('getHelloMessage')
     if (helloMessage) {
-      this.log('info', 'no credentials found but user is still logged in')
+      this.log('debug', 'no credentials found but user is still logged in')
       return true
     }
     const isAccountListPage = await this.isElementInWorker('#undefined-label')
     if (isAccountListPage) {
-      this.log('info', 'Webview on accountsList page, go to first login step')
+      this.log('debug', 'Webview on accountsList page, go to first login step')
       await this.runInWorker('click', '#undefined-label')
       await this.waitForElementInWorker('#login-label')
     }
-    this.log('info', 'no credentials found, use normal user login')
+    this.log('debug', 'no credentials found, use normal user login')
     await this.waitForUserAuthentication()
     return true
   }
@@ -6046,13 +6005,13 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       await this.waitForElementInWorker('#oecs__connecte')
       return true
     }
-    this.log('info', 'found credentials, trying to autoLog')
+    this.log('debug', 'found credentials, trying to autoLog')
     await this.tryAutoLogin(credentials, 'half')
     return true
   }
 
   async differentMailLogin(credentials) {
-    this.log('info', 'getting in different testEmail conditions')
+    this.log('debug', 'getting in different testEmail conditions')
     await this.clickAndWait('#changeAccountLink', '#undefined-label')
     await this.clickAndWait('#undefined-label', '#login')
     await this.tryAutoLogin(credentials, 'full')
@@ -6064,7 +6023,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   // ////////
 
   getLogoutButton() {
-    this.log('info', 'Starting getLogoutButton')
+    this.log('debug', 'Starting getLogoutButton')
     const logoutButton = document.querySelector(
       '#oecs__connecte-se-deconnecter'
     )
@@ -6072,29 +6031,29 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async getAccountList() {
-    this.log('info', 'Starting getAccountList')
+    this.log('debug', 'Starting getAccountList')
     const accountList = this.findAccountList()
     return accountList
   }
 
   async clickLoginPage() {
-    this.log('info', 'Starting clickLoginPage')
+    this.log('debug', 'Starting clickLoginPage')
     document.querySelector('#oecs__connexion').click()
   }
 
   async accountSelection(i) {
-    this.log('info', 'Starting accountSelection')
+    this.log('debug', 'Starting accountSelection')
     document.querySelectorAll('a[data-oevent-action="clic_liste"]')[i].click()
   }
 
   async getAccountPage() {
-    this.log('info', 'Starting getAccountPage')
+    this.log('debug', 'Starting getAccountPage')
     const accountButton = this.findAccountPage()
     return accountButton
   }
 
   async getLoginPage() {
-    this.log('info', 'Starting getLoginPage')
+    this.log('debug', 'Starting getLoginPage')
     const loginButton = this.findLoginButton()
     return loginButton
   }
@@ -6128,12 +6087,12 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async fillingForm(credentials) {
     if (document.querySelector('#login')) {
-      this.log('info', 'filling email field')
+      this.log('debug', 'filling email field')
       document.querySelector('#login').value = credentials.email
       return
     }
     if (document.querySelector('#password')) {
-      this.log('info', 'filling password field')
+      this.log('debug', 'filling password field')
       document.querySelector('#password').value = credentials.password
       return
     }
@@ -6149,7 +6108,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       const userCredentials = await this.findAndSendCredentials.bind(this)(
         loginField
       )
-      this.log('info', 'Sending user credentials to Pilot')
+      this.log('debug', 'Sending user credentials to Pilot')
       this.sendToPilot({
         userCredentials
       })
@@ -6158,14 +6117,14 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       document.location.href.includes(DEFAULT_PAGE_URL) &&
       document.querySelector('#oecs__connecte')
     ) {
-      this.log('info', 'Check Authenticated succeeded')
+      this.log('debug', 'Check Authenticated succeeded')
       return true
     }
     if (
       document.location.href.includes(DEFAULT_PAGE_URL) &&
       document.querySelector('#oecs__connecte-se-deconnecter')
     ) {
-      this.log('info', 'Active session found, returning true')
+      this.log('debug', 'Active session found, returning true')
       return true
     }
 
@@ -6190,9 +6149,9 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
           `Error message : ${err.message}, trying to reload page`
         )
         window.location.reload()
-        this.log('info', 'Profil homePage reloaded')
+        this.log('debug', 'Profil homePage reloaded')
       } else {
-        this.log('info', 'Untreated problem encountered')
+        this.log('debug', 'Untreated problem encountered')
         return 'UNKNOWN_ERROR'
       }
     }
@@ -6200,7 +6159,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async getHelloMessage() {
-    this.log('info', 'Starting findHelloMessage')
+    this.log('debug', 'Starting findHelloMessage')
     const messageSpan = this.findHelloMessage()
     return messageSpan
   }
@@ -6208,33 +6167,23 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   async findClientRef() {
     let parsedElem
     let clientRef
-
-    this.log('info', 'finding clientref link')
-    const link = document.querySelector(
-      `a[href*="https://espace-client.orange.fr/facture-paiement/"]`
-    )
-    this.log('info', 'link href=' + link.getAttribute('href'))
-    this.log(
-      'info',
-      'link data-ga-active=' + link.getAttribute('data-ga-active')
-    )
     if (document.querySelector('a[class="o-link-arrow text-primary pt-0"]')) {
-      this.log('info', 'clientRef found')
+      this.log('debug', 'clientRef founded')
       parsedElem = document
         .querySelector('a[class="o-link-arrow text-primary pt-0"]')
         .getAttribute('href')
 
       const clientRefArray = parsedElem.match(/([0-9]*)/g)
-      this.log('info', clientRefArray.length)
+      this.log('debug', clientRefArray.length)
 
       for (let i = 0; i < clientRefArray.length; i++) {
-        this.log('info', 'Get in clientRef loop')
+        this.log('debug', 'Get in clientRef loop')
 
         const testedIndex = clientRefArray.pop()
         if (testedIndex.length === 0) {
-          this.log('info', 'No clientRef founded')
+          this.log('debug', 'No clientRef founded')
         } else {
-          this.log('info', 'clientRef founded')
+          this.log('debug', 'clientRef founded')
           clientRef = testedIndex
           break
         }
@@ -6244,13 +6193,13 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async getStayLoggedButton() {
-    this.log('info', 'Starting getStayLoggedButton')
+    this.log('debug', 'Starting getStayLoggedButton')
     const button = this.findStayLoggedButton()
     return button
   }
 
   async getTestEmail() {
-    this.log('info', 'Getting in getTestEmail')
+    this.log('debug', 'Getting in getTestEmail')
     const result = document
       .querySelector('p[data-testid="selected-account-login"]')
       .innerHTML.replace('<strong>', '')
@@ -6262,19 +6211,19 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async getPdfNumber() {
-    this.log('info', 'Getting in getPdfNumber')
+    this.log('debug', 'Getting in getPdfNumber')
     let pdfNumber = this.findPdfNumber()
     return pdfNumber
   }
 
   async processingBills() {
     let resolvedBase64 = []
-    this.log('info', 'Awaiting promises')
+    this.log('debug', 'Awaiting promises')
     const recentToBase64 = await Promise.all(
       recentPromisesToConvertBlobToBase64
     )
     const oldToBase64 = await Promise.all(oldPromisesToConvertBlobToBase64)
-    this.log('info', 'Processing promises')
+    this.log('debug', 'Processing promises')
     const promisesToBase64 = recentToBase64.concat(oldToBase64)
     const xhrUrls = recentXhrUrls.concat(oldXhrUrls)
     for (let i = 0; i < promisesToBase64.length; i++) {
@@ -6286,7 +6235,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     const recentBillsToAdd = recentBills[0].billsHistory.billList
     const oldBillsToAdd = oldBills[0].oldBills
     let allBills = recentBillsToAdd.concat(oldBillsToAdd)
-    this.log('info', 'billsArray ready, Sending to pilot')
+    this.log('debug', 'billsArray ready, Sending to pilot')
     await this.sendToPilot({
       resolvedBase64,
       allBills
