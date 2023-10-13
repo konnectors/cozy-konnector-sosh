@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+
 import { ContentScript } from 'cozy-clisk/dist/contentscript'
 import { blobToBase64 } from 'cozy-clisk/dist/contentscript/utils'
 import Minilog from '@cozy/minilog'
@@ -25,6 +27,7 @@ var proxied = window.XMLHttpRequest.prototype.open
 // Overriding the open() method
 window.XMLHttpRequest.prototype.open = function () {
   var originalResponse = this
+  console.log('👅👅👅 url', arguments?.[1])
   // Intercepting response for recent bills information.
   if (arguments[1].includes('/users/current/contracts')) {
     originalResponse.addEventListener('readystatechange', function () {
@@ -207,7 +210,7 @@ class SoshContentScript extends ContentScript {
     const clientRef = await this.runInWorker('findClientRef')
     if (clientRef) {
       this.log('info', 'clientRef found')
-      const clientLink = `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`
+      const clientLink = `https://espace-client.orange.fr/facture-paiement/${clientRef}`
       await this.goto(clientLink) // replaced a link click with goto to avoid javascript code
       // which forced to move to the app on iphone
       await this.waitForElementInWorker(`[data-e2e="bp-tile-historic"]`)
