@@ -5705,7 +5705,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     const clientRef = await this.runInWorker('findClientRef')
     if (clientRef) {
       this.log('info', 'clientRef found')
-      const clientLink = `a[href="https://espace-client.orange.fr/facture-paiement/${clientRef}"]`
+      const clientLink = `https://espace-client.orange.fr/facture-paiement/${clientRef}`
       await this.goto(clientLink) // replaced a link click with goto to avoid javascript code
       // which forced to move to the app on iphone
       await this.waitForElementInWorker(`[data-e2e="bp-tile-historic"]`)
