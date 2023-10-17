@@ -5493,6 +5493,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(20);
 /* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_cozy_minilog__WEBPACK_IMPORTED_MODULE_2__);
 /* harmony import */ var p_wait_for__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(18);
+/* eslint-disable no-console */
+
 
 
 
@@ -5520,6 +5522,7 @@ var proxied = window.XMLHttpRequest.prototype.open
 // Overriding the open() method
 window.XMLHttpRequest.prototype.open = function () {
   var originalResponse = this
+  console.log('👅👅👅 url', arguments?.[1])
   // Intercepting response for recent bills information.
   if (arguments[1].includes('/users/current/contracts')) {
     originalResponse.addEventListener('readystatechange', function () {
