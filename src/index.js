@@ -1,94 +1,34 @@
 /* eslint-disable no-console */
 
 import { ContentScript } from 'cozy-clisk/dist/contentscript'
-import { blobToBase64 } from 'cozy-clisk/dist/contentscript/utils'
 import Minilog from '@cozy/minilog'
 import waitFor from 'p-wait-for'
+import ky from 'ky/umd'
+import XhrInterceptor from './interceptor'
 
 const log = Minilog('ContentScript')
 Minilog.enable('soshCCC')
+
+const ORANGE_SPECIAL_HEADERS = {
+  'X-Orange-Origin-Id': 'ECQ',
+  'X-Orange-Caller-Id': 'ECQ'
+}
+const PDF_HEADERS = {
+  Accept: 'application/pdf',
+  'Content-Type': 'application/pdf'
+}
+
+const JSON_HEADERS = {
+  Accept: 'application/json',
+  'Content-Type': 'application/json'
+}
 
 const BASE_URL = 'https://www.sosh.fr'
 const DEFAULT_PAGE_URL = BASE_URL + '/client'
 const LOGIN_FORM_PAGE =
   'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
-
-let recentBills = []
-let oldBills = []
-let recentPromisesToConvertBlobToBase64 = []
-let oldPromisesToConvertBlobToBase64 = []
-let recentXhrUrls = []
-let oldXhrUrls = []
-let userInfos = []
-
-// The override here is needed to intercept XHR requests made during the navigation
-// The website respond with an XHR containing a blob when asking for a pdf, so we need to get it and encode it into base64 before giving it to the pilot.
-var proxied = window.XMLHttpRequest.prototype.open
-// Overriding the open() method
-window.XMLHttpRequest.prototype.open = function () {
-  var originalResponse = this
-  console.log('👅👅👅 url', arguments?.[1])
-  // Intercepting response for recent bills information.
-  if (arguments[1].includes('/users/current/contracts')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        // The response is a unique string, in order to access information parsing into JSON is needed.
-        const jsonBills = JSON.parse(originalResponse.responseText)
-        recentBills.push(jsonBills)
-      }
-    })
-    return proxied.apply(this, [].slice.call(arguments))
-  }
-  // Intercepting response for old bills information.
-  if (arguments[1].includes('/facture/historicBills?')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        const jsonBills = JSON.parse(originalResponse.responseText)
-        oldBills.push(jsonBills)
-      }
-    })
-    return proxied.apply(this, [].slice.call(arguments))
-  }
-  // Intercepting user infomations for Identity object
-  if (arguments[1].includes('ecd_wp/account/billingAddresses')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        const jsonInfos = JSON.parse(originalResponse.responseText)
-        userInfos.push(jsonInfos[0])
-      }
-    })
-    return proxied.apply(this, [].slice.call(arguments))
-  }
-  // Intercepting response for recent bills blobs.
-  if (arguments[1].includes('facture/v1.0/pdf?billDate')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        // Pushing in an array the converted to base64 blob and pushing in another array it's href to match the indexes.
-        recentPromisesToConvertBlobToBase64.push(
-          blobToBase64(originalResponse.response)
-        )
-        recentXhrUrls.push(originalResponse.__zone_symbol__xhrURL)
-
-        // In every case, always returning the original response untouched
-        return originalResponse
-      }
-    })
-  }
-  // Intercepting response for old bills blobs.
-  if (arguments[1].includes('ecd_wp/facture/historicPDF?')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        oldPromisesToConvertBlobToBase64.push(
-          blobToBase64(originalResponse.response)
-        )
-        oldXhrUrls.push(originalResponse.__zone_symbol__xhrURL)
-
-        return originalResponse
-      }
-    })
-  }
-  return proxied.apply(this, [].slice.call(arguments))
-}
+const interceptor = new XhrInterceptor()
+interceptor.init()
 
 class SoshContentScript extends ContentScript {
   // ///////
@@ -121,6 +61,7 @@ class SoshContentScript extends ContentScript {
       '#undefined-label'
     )
     this.log('info', 'undefinedLabelPresent: ' + undefinedLabelPresent)
+
     const { askForCaptcha, captchaUrl } = await this.runInWorker(
       'checkForCaptcha'
     )
@@ -164,23 +105,7 @@ class SoshContentScript extends ContentScript {
     await this.detectOrangeOnlyAccount()
   }
 
-  async detectOrangeOnlyAccount() {
-    await this.goto(DEFAULT_PAGE_URL)
-    await this.waitForElementInWorker('strong')
-    const isSosh = await this.runInWorker(
-      'checkForElement',
-      `#oecs__logo[href="https://www.sosh.fr/"]`
-    )
-    this.log('info', 'isSosh ' + isSosh)
-    if (!isSosh) {
-      throw new Error(
-        'This should be sosh account. Found only orange contracts'
-      )
-    }
-  }
-
   async checkAuthenticated() {
-    this.log('info', 'checkAuthenticated starts')
     const loginField = document.querySelector(
       'p[data-testid="selected-account-login"]'
     )
@@ -221,9 +146,9 @@ class SoshContentScript extends ContentScript {
     await this.setWorkerState({ visible: false })
   }
 
-  async tryAutoLogin(credentials, type) {
+  async tryAutoLogin(credentials) {
     this.log('info', 'Trying autologin')
-    await this.autoLogin(credentials, type)
+    await this.autoLogin(credentials)
   }
 
   async autoLogin(credentials) {
@@ -262,136 +187,140 @@ class SoshContentScript extends ContentScript {
     if (this.store.userCredentials != undefined) {
       await this.saveCredentials(this.store.userCredentials)
     }
-    await this.waitForElementInWorker(
-      'a[class="o-link-arrow text-primary pt-0"]'
+
+    const { recentBills, oldBillsUrl } = await this.fetchRecentBills()
+    await this.saveBills(recentBills, {
+      context,
+      fileIdAttributes: ['vendorRef'],
+      contentType: 'application/pdf',
+      qualificationLabel: 'isp_invoice'
+    })
+    const oldBills = await this.fetchOldBills({ oldBillsUrl })
+    await this.saveBills(oldBills, {
+      context,
+      fileIdAttributes: ['vendorRef'],
+      contentType: 'application/pdf',
+      qualificationLabel: 'isp_invoice'
+    })
+
+    await this.navigateToPersonalInfos()
+    await this.runInWorker('getIdentity')
+    await this.saveIdentity(this.store.infosIdentity)
+  }
+
+  async fetchOldBills({ oldBillsUrl }) {
+    this.log('info', 'fetching old bills')
+    const { oldBills } = await this.runInWorker(
+      'getOldBillsFromWorker',
+      oldBillsUrl
     )
-    const clientRef = await this.runInWorker('findClientRef')
-    if (clientRef) {
-      this.log('info', 'clientRef found')
-      const clientLink = `https://espace-client.orange.fr/facture-paiement/${clientRef}`
-      await this.goto(clientLink) // replaced a link click with goto to avoid javascript code
-      // which forced to move to the app on iphone
-      await this.waitForElementInWorker(`[data-e2e="bp-tile-historic"]`)
-      const redFrame = await this.isElementInWorker(
-        '.alert-icon icon-error-severe'
-      )
-      if (redFrame) {
-        this.log('info', 'Website did not load the bills')
-        throw new Error('VENDOR_DOWN')
-      }
-      let recentPdfNumber = await this.runInWorker('getPdfNumber')
-      const hasMoreBills = await this.isElementInWorker(
-        '[data-e2e="bh-more-bills"]'
-      )
-      if (hasMoreBills) {
-        await this.clickAndWait(
-          '[data-e2e="bh-more-bills"]',
-          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-        )
-      }
-      let allPdfNumber = await this.runInWorker('getPdfNumber')
-      let oldPdfNumber = allPdfNumber - recentPdfNumber
-      for (let i = 0; i < recentPdfNumber; i++) {
-        this.log('info', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
-        // If something went wrong during the loading of the pdf board, a red frame with an error message appears
-        // So we need to check every lap to see if we got one
-        const redFrame = await this.isElementInWorker(
-          '.alert-icon icon-error-severe'
-        )
-        if (redFrame) {
-          this.log('info', 'Website did not load the bills')
-          throw new Error('VENDOR_DOWN')
-        }
-        await this.runInWorker('waitForRecentPdfClicked', i)
-        await this.clickAndWait(
-          'a[class="o-link"]',
-          '[data-e2e="bp-tile-historic"]'
-        )
-        await this.clickAndWait(
-          '[data-e2e="bp-tile-historic"]',
-          '[aria-labelledby="bp-billsHistoryTitle"]'
-        )
-        await this.clickAndWait(
-          '[data-e2e="bh-more-bills"]',
-          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-        )
-      }
-      this.log('info', 'recentPdf loop ended')
-      if (oldPdfNumber != 0) {
-        for (let i = 0; i < oldPdfNumber; i++) {
-          this.log('info', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
-          // Same as above with the red frame, but for old bills board
-          const redFrame = await this.isElementInWorker(
-            'span[class="alert-icon icon-error-severe"]'
-          )
-          if (redFrame) {
-            this.log('info', 'Something went wrong during old pdfs loading')
-            throw new Error('VENDOR_DOWN')
+    const cid = oldBillsUrl.split('=').pop()
+
+    const saveBillsEntries = []
+    for (const bill of oldBills) {
+      const { entityName, partitionKeyName, partitionKeyValue, tecId } = bill
+      const amount = bill.amount / 100
+      const vendorRef = tecId
+      const fileurl = `https://espace-client.orange.fr/ecd_wp/facture/historicPDF?entityName=${entityName}&partitionKeyName=${partitionKeyName}&partitionKeyValue=${partitionKeyValue}&tecId=${tecId}&cid=${cid}`
+      saveBillsEntries.push({
+        vendor: 'sosh.fr',
+        date: bill.date,
+        amount,
+        recurrence: 'monthly',
+        vendorRef,
+        filename: await this.runInWorker(
+          'getFileName',
+          bill.date,
+          amount,
+          vendorRef
+        ),
+        fileurl,
+        requestOptions: {
+          headers: {
+            ...ORANGE_SPECIAL_HEADERS,
+            ...PDF_HEADERS
           }
-          await this.runInWorker('waitForOldPdfClicked', i)
-          await this.clickAndWait(
-            'a[class="o-link"]',
-            '[data-e2e="bp-tile-historic"]'
-          )
-          await this.clickAndWait(
-            '[data-e2e="bp-tile-historic"]',
-            '[aria-labelledby="bp-billsHistoryTitle"]'
-          )
-          await this.clickAndWait(
-            '[data-e2e="bh-more-bills"]',
-            '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-          )
-        }
-        this.log('info', 'oldPdf loop ended')
-      }
-      this.log('info', 'pdfButtons all clicked')
-      await this.runInWorker('processingBills')
-      this.store.dataUri = []
-      for (let i = 0; i < this.store.resolvedBase64.length; i++) {
-        let dateArray = this.store.resolvedBase64[i].href.match(
-          /([0-9]{4})-([0-9]{2})-([0-9]{2})/g
-        )
-        this.store.resolvedBase64[i].date = dateArray[0]
-        const index = this.store.allBills.findIndex(function (bill) {
-          return bill.date === dateArray[0]
-        })
-        this.store.dataUri.push({
-          vendor: 'sosh.fr',
-          date: this.store.allBills[index].date,
-          amount: this.store.allBills[index].amount / 100,
-          recurrence: 'monthly',
-          vendorRef: this.store.allBills[index].id
-            ? this.store.allBills[index].id
-            : this.store.allBills[index].tecId,
-          filename: await this.runInWorker(
-            'getFileName',
-            this.store.allBills[index].date,
-            this.store.allBills[index].amount / 100,
-            this.store.allBills[index].id || this.store.allBills[index].tecId
-          ),
-          dataUri: this.store.resolvedBase64[i].uri,
-          fileAttributes: {
-            metadata: {
-              invoiceNumber: this.store.allBills[index].id
-                ? this.store.allBills[index].id
-                : this.store.allBills[index].tecId,
-              contentAuthor: 'sosh',
-              datetime: this.store.allBills[index].date,
-              datetimeLabel: 'startDate',
-              isSubscription: true,
-              startDate: this.store.allBills[index].date,
-              carbonCopy: true
-            }
+        },
+        fileAttributes: {
+          metadata: {
+            invoiceNumber: vendorRef,
+            contentAuthor: 'sosh',
+            datetime: bill.date,
+            datetimeLabel: 'startDate',
+            isSubscription: true,
+            startDate: bill.date,
+            carbonCopy: true
           }
-        })
-      }
-      await this.saveBills(this.store.dataUri, {
-        context,
-        fileIdAttributes: ['filename'],
-        contentType: 'application/pdf',
-        qualificationLabel: 'isp_invoice'
+        }
       })
     }
+    return saveBillsEntries
+  }
+
+  async fetchRecentBills() {
+    await this.waitForElementInWorker('a', {
+      includesText: 'Consulter votre facture'
+    })
+    await this.runInWorker('click', 'a', {
+      includesText: 'Consulter votre facture'
+    })
+    await this.waitForElementInWorker('a[href*="/historique-des-factures"]')
+    await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
+    await Promise.race([
+      this.waitForElementInWorker('[data-e2e="bh-more-bills"]'),
+      this.waitForElementInWorker('.alert-icon icon-error-severe'),
+      this.waitForElementInWorker(
+        '.alert-container alert-container-sm alert-danger mb-0'
+      )
+    ])
+
+    const recentBills = await this.runInWorker('getRecentBillsFromInterceptor')
+    const saveBillsEntries = []
+    for (const bill of recentBills.billsHistory.billList) {
+      const amount = bill.amount / 100
+      const vendorRef = bill.id || bill.tecId
+      saveBillsEntries.push({
+        vendor: 'sosh.fr',
+        date: bill.date,
+        amount,
+        recurrence: 'monthly',
+        vendorRef,
+        filename: await this.runInWorker(
+          'getFileName',
+          bill.date,
+          amount,
+          vendorRef
+        ),
+        fileurl:
+          'https://espace-client.orange.fr/ecd_wp/facture/v1.0/pdf' +
+          bill.hrefPdf,
+        requestOptions: {
+          headers: {
+            ...ORANGE_SPECIAL_HEADERS,
+            ...PDF_HEADERS
+          }
+        },
+        fileAttributes: {
+          metadata: {
+            invoiceNumber: vendorRef,
+            contentAuthor: 'sosh',
+            datetime: bill.date,
+            datetimeLabel: 'startDate',
+            isSubscription: true,
+            startDate: bill.date,
+            carbonCopy: true
+          }
+        }
+      })
+    }
+
+    // will be used to fetch old bills if needed
+    const oldBillsUrl = recentBills.billsHistory.oldBillsHref
+    return { recentBills: saveBillsEntries, oldBillsUrl }
+  }
+
+  async navigateToPersonalInfos() {
+    this.log('info', 'navigateToPersonalInfos starts')
     await this.clickAndWait(
       'a[href="/compte?sosh="]',
       'a[href="/compte/infos-perso"]'
@@ -409,16 +338,6 @@ class SoshContentScript extends ContentScript {
       ),
       await this.waitForElementInWorker('a[href="/compte/adresse"]')
     ])
-    await this.runInWorker('getIdentity')
-    await this.saveIdentity(this.store.infosIdentity)
-    await this.clickAndWait(
-      '#oecs__popin-icon-Identification',
-      '#oecs__connecte-se-deconnecter'
-    )
-    await this.clickAndWait(
-      '#oecs__connecte-se-deconnecter',
-      '#oecs__connexion'
-    )
   }
 
   async waitForUserAction(url) {
@@ -441,70 +360,26 @@ class SoshContentScript extends ContentScript {
     }
   }
 
-  findPdfButtons() {
-    this.log('info', 'Starting findPdfButtons')
-    const buttons = Array.from(
-      document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
-    )
-    return buttons
-  }
-
-  findBillsHistoricButton() {
-    this.log('info', 'Starting findPdfButtons')
-    const button = document.querySelector('[data-e2e="bp-tile-historic"]')
-    return button
-  }
-
-  findPdfNumber() {
-    this.log('info', 'Starting findPdfNumber')
-    const buttons = Array.from(
-      document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
-    )
-    return buttons.length
-  }
-
-  findStayLoggedButton() {
-    this.log('info', 'Starting findStayLoggedButton')
-    const button = document.querySelector(
-      'button[data-testid="button-keepconnected"]'
-    )
-    if (button) {
-      return true
-    }
-    return false
-  }
-
-  findHelloMessage() {
-    this.log('info', 'Starting findHelloMessage')
-    const messageSpan = document.querySelector(
-      'span[class="d-block text-center"]'
-    )
-    return messageSpan
-  }
-
-  findAccountPage() {
-    this.log('info', 'Starting findAccountPage')
-    const loginButton = document.querySelector('#oecs__connexion')
-    return loginButton
-  }
-
-  findAccountList() {
-    this.log('info', 'Starting findAccountList')
-    let accountList = []
-    const accountListElement = document.querySelectorAll(
-      'a[data-oevent-action="clic_liste"]'
-    )
-    for (let i = 0; i < accountListElement.length; i++) {
-      let listedEmail =
-        accountListElement[i].childNodes[1].children[0].childNodes[0].innerHTML
-      accountList.push(listedEmail)
-    }
-    return accountList
-  }
-
   // ////////
   // WORKER//
   // ////////
+
+  async getOldBillsFromWorker(oldBillsUrl) {
+    const OLD_BILLS_URL_PREFIX =
+      'https://espace-client.orange.fr/ecd_wp/facture/historicBills'
+    return await ky
+      .get(OLD_BILLS_URL_PREFIX + oldBillsUrl, {
+        headers: {
+          ...ORANGE_SPECIAL_HEADERS,
+          ...JSON_HEADERS
+        }
+      })
+      .json()
+  }
+
+  async getRecentBillsFromInterceptor() {
+    return interceptor.recentBills
+  }
 
   async findAndSendCredentials(loginField) {
     this.log('info', 'getting in findAndSendCredentials')
@@ -517,20 +392,6 @@ class SoshContentScript extends ContentScript {
       password: divPassword
     }
     return userCredentials
-  }
-
-  waitForRecentPdfClicked(i) {
-    let recentPdfs = document.querySelectorAll(
-      '[aria-labelledby="bp-billsHistoryTitle"] a[class="icon-pdf-file bp-downloadIcon"]'
-    )
-    recentPdfs[i].click()
-  }
-
-  waitForOldPdfClicked(i) {
-    let oldPdfs = document.querySelectorAll(
-      '[aria-labelledby="bp-historicBillsHistoryTitle"] a[class="icon-pdf-file bp-downloadIcon"]'
-    )
-    oldPdfs[i].click()
   }
 
   async fillForm(credentials) {
@@ -546,119 +407,72 @@ class SoshContentScript extends ContentScript {
     }
   }
 
+  async detectOrangeOnlyAccount() {
+    await this.goto(DEFAULT_PAGE_URL)
+    await this.waitForElementInWorker('strong')
+    const isSosh = await this.runInWorker(
+      'checkForElement',
+      `#oecs__logo[href="https://www.sosh.fr/"]`
+    )
+    this.log('info', 'isSosh ' + isSosh)
+    if (!isSosh) {
+      throw new Error(
+        'This should be sosh account. Found only orange contracts'
+      )
+    }
+  }
+
   async getUserMail() {
     return window.o_idzone?.USER_MAIL_ADDRESS
   }
 
-  async findClientRef() {
-    let parsedElem
-    let clientRef
-    if (document.querySelector('a[class="o-link-arrow text-primary pt-0"]')) {
-      this.log('info', 'clientRef founded')
-      parsedElem = document
-        .querySelector('a[class="o-link-arrow text-primary pt-0"]')
-        .getAttribute('href')
-
-      const clientRefArray = parsedElem.match(/([0-9]*)/g)
-      this.log('info', clientRefArray.length)
-
-      for (let i = 0; i < clientRefArray.length; i++) {
-        this.log('info', 'Get in clientRef loop')
-
-        const testedIndex = clientRefArray.pop()
-        if (testedIndex.length === 0) {
-          this.log('info', 'No clientRef founded')
-        } else {
-          this.log('info', 'clientRef found')
-          clientRef = testedIndex
-          break
-        }
-      }
-      return clientRef
-    }
-  }
-
-  async getPdfNumber() {
-    this.log('info', 'Getting in getPdfNumber')
-    let pdfNumber = this.findPdfNumber()
-    return pdfNumber
-  }
-
-  async processingBills() {
-    let resolvedBase64 = []
-    this.log('info', 'Awaiting promises')
-    const recentToBase64 = await Promise.all(
-      recentPromisesToConvertBlobToBase64
-    )
-    const oldToBase64 = await Promise.all(oldPromisesToConvertBlobToBase64)
-    this.log('info', 'Processing promises')
-    const promisesToBase64 = recentToBase64.concat(oldToBase64)
-    const xhrUrls = recentXhrUrls.concat(oldXhrUrls)
-    for (let i = 0; i < promisesToBase64.length; i++) {
-      resolvedBase64.push({
-        uri: promisesToBase64[i],
-        href: xhrUrls[i]
-      })
-    }
-    const recentBillsToAdd = recentBills[0].billsHistory.billList
-    const oldBillsToAdd = oldBills[0].oldBills
-    let allBills = recentBillsToAdd.concat(oldBillsToAdd)
-    this.log('info', 'billsArray ready, Sending to pilot')
-    await this.sendToPilot({
-      resolvedBase64,
-      allBills
-    })
-  }
-
   async getIdentity() {
     this.log('info', 'Starting getIdentity')
-    const checkIdObject = userInfos.length > 0
     let infosIdentity
-    if (checkIdObject) {
-      const [, firstName, lastName] = document
-        .querySelector('div[data-e2e="e2e-personal-info-identity"]')
-        .nextSibling.nextSibling.textContent.split(' ')
-      const fullName = `${firstName} ${lastName}`
-      const postCode = userInfos[0].postalAddress.postalCode
-      const city = userInfos[0].postalAddress.cityName
-      const streetNumber = userInfos[0].postalAddress.streetNumber.number
-      const streetName = userInfos[0].postalAddress.street.name
-      const streetType = userInfos[0].postalAddress.street.type
-      const formattedAddress = `${streetNumber} ${streetType} ${streetName} ${postCode} ${city}`
-      const [foundNumber, foundEmail] = document.querySelectorAll('.item-desc')
-      const phoneNumber = foundNumber.textContent.replace(/ /g, '')
-      const email = foundEmail.textContent
-      infosIdentity = {
-        email,
-        name: {
-          firstName,
-          lastName,
-          fullName
-        },
-        address: [
-          {
-            formattedAddress,
-            postCode,
-            city,
-            street: {
-              streetNumber,
-              streetName,
-              streetType
-            }
+    const [, firstName, lastName] = document
+      .querySelector('div[data-e2e="e2e-personal-info-identity"]')
+      .nextSibling.nextSibling.textContent.split(' ')
+    const fullName = `${firstName} ${lastName}`
+    const postCode = interceptor.userInfos?.[0].postalAddress.postalCode
+    const city = interceptor.userInfos?.[0].postalAddress.cityName
+    const streetNumber =
+      interceptor.userInfos?.[0].postalAddress.streetNumber.number
+    const streetName = interceptor.userInfos?.[0].postalAddress.street.name
+    const streetType = interceptor.userInfos?.[0].postalAddress.street.type
+    const formattedAddress = `${streetNumber} ${streetType} ${streetName} ${postCode} ${city}`
+    const [foundNumber, foundEmail] = document.querySelectorAll('.item-desc')
+    const phoneNumber = foundNumber.textContent.replace(/ /g, '')
+    const email = foundEmail.textContent
+    infosIdentity = {
+      email,
+      name: {
+        firstName,
+        lastName,
+        fullName
+      },
+      address: [
+        {
+          formattedAddress,
+          postCode,
+          city,
+          street: {
+            streetNumber,
+            streetName,
+            streetType
           }
-        ],
-        phoneNumber: [
-          {
-            type:
-              phoneNumber.startsWith('06') | phoneNumber.startsWith('07')
-                ? 'mobile'
-                : 'home',
-            number: phoneNumber
-          }
-        ]
-      }
-      await this.sendToPilot({ infosIdentity })
+        }
+      ],
+      phoneNumber: [
+        {
+          type:
+            phoneNumber.startsWith('06') | phoneNumber.startsWith('07')
+              ? 'mobile'
+              : 'home',
+          number: phoneNumber
+        }
+      ]
     }
+    await this.sendToPilot({ infosIdentity })
   }
 
   checkForCaptcha() {
@@ -705,16 +519,13 @@ connector
   .init({
     additionalExposedMethodsNames: [
       'getUserMail',
-      'findClientRef',
-      'processingBills',
       'fillForm',
-      'getPdfNumber',
-      'waitForRecentPdfClicked',
-      'waitForOldPdfClicked',
       'getIdentity',
       'checkForCaptcha',
       'waitForCaptchaResolution',
-      'getFileName'
+      'getFileName',
+      'getRecentBillsFromInterceptor',
+      'getOldBillsFromWorker'
     ]
   })
   .catch(err => {
