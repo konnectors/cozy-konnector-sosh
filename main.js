@@ -5464,6 +5464,77 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 "use strict";
 module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.26.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^41.2.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"59a8bdc13e872f405241566b39d934858e38e80a"}');
 
+/***/ }),
+/* 46 */
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ XhrInterceptor)
+/* harmony export */ });
+class XhrInterceptor {
+  constructor() {
+    this.recentBills = {}
+    this.userInfos = {}
+  }
+
+  init() {
+    const self = this
+    // The override here is needed to intercept XHR requests made during the navigation
+    // The website respond with an XHR containing a blob when asking for a pdf, so we need to get it and encode it into base64 before giving it to the pilot.
+    var proxied = window.XMLHttpRequest.prototype.open
+    // Overriding the open() method
+    window.XMLHttpRequest.prototype.open = function () {
+      var originalResponse = this
+      // Intercepting response for recent bills informations.
+      if (arguments[1]?.includes('/users/current/contracts')) {
+        originalResponse.addEventListener('readystatechange', function () {
+          if (originalResponse.readyState === 4) {
+            const jsonBills = JSON.parse(originalResponse.responseText)
+            self.recentBills = jsonBills
+          }
+        })
+        return proxied.apply(this, [].slice.call(arguments))
+      }
+      // Intercepting user infomations for Identity object
+      if (arguments[1]?.includes('ecd_wp/portfoliomanager/portfolio?')) {
+        originalResponse.addEventListener('readystatechange', function () {
+          if (originalResponse.readyState === 4) {
+            const jsonInfos = JSON.parse(originalResponse.responseText)
+            self.userInfos.portfolio = jsonInfos
+          }
+        })
+        return proxied.apply(this, [].slice.call(arguments))
+      }
+
+      // Intercepting more infos for Identity object
+      if (arguments[1]?.includes('ecd_wp/account/identification')) {
+        originalResponse.addEventListener('readystatechange', function () {
+          if (originalResponse.readyState === 4) {
+            const jsonInfos = JSON.parse(originalResponse.responseText)
+            self.userInfos.identification = jsonInfos
+          }
+        })
+        return proxied.apply(this, [].slice.call(arguments))
+      }
+      // Intercepting billingAddress infos for Identity object
+      if (arguments[1]?.includes('ecd_wp/account/billingAddresses')) {
+        originalResponse.addEventListener('readystatechange', function () {
+          if (originalResponse.readyState === 4) {
+            const jsonInfos = JSON.parse(originalResponse.responseText)
+            self.userInfos.billingAddresses = jsonInfos
+          }
+        })
+        return proxied.apply(this, [].slice.call(arguments))
+      }
+
+      return proxied.apply(this, [].slice.call(arguments))
+    }
+  }
+}
+
+
 /***/ })
 /******/ 	]);
 /************************************************************************/
@@ -5551,10 +5622,12 @@ var __webpack_exports__ = {};
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
-/* harmony import */ var cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(41);
-/* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(20);
-/* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_cozy_minilog__WEBPACK_IMPORTED_MODULE_2__);
-/* harmony import */ var p_wait_for__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(18);
+/* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(20);
+/* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_cozy_minilog__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var p_wait_for__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(18);
+/* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(44);
+/* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(ky_umd__WEBPACK_IMPORTED_MODULE_4__);
+/* harmony import */ var _interceptor__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(46);
 /* eslint-disable no-console */
 
 
@@ -5562,90 +5635,30 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-const log = _cozy_minilog__WEBPACK_IMPORTED_MODULE_2___default()('ContentScript')
-_cozy_minilog__WEBPACK_IMPORTED_MODULE_2___default().enable('soshCCC')
+
+const log = _cozy_minilog__WEBPACK_IMPORTED_MODULE_1___default()('ContentScript')
+_cozy_minilog__WEBPACK_IMPORTED_MODULE_1___default().enable('soshCCC')
+
+const ORANGE_SPECIAL_HEADERS = {
+  'X-Orange-Origin-Id': 'ECQ',
+  'X-Orange-Caller-Id': 'ECQ'
+}
+const PDF_HEADERS = {
+  Accept: 'application/pdf',
+  'Content-Type': 'application/pdf'
+}
+
+const JSON_HEADERS = {
+  Accept: 'application/json',
+  'Content-Type': 'application/json'
+}
 
 const BASE_URL = 'https://www.sosh.fr'
 const DEFAULT_PAGE_URL = BASE_URL + '/client'
 const LOGIN_FORM_PAGE =
   'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
-
-let recentBills = []
-let oldBills = []
-let recentPromisesToConvertBlobToBase64 = []
-let oldPromisesToConvertBlobToBase64 = []
-let recentXhrUrls = []
-let oldXhrUrls = []
-let userInfos = []
-
-// The override here is needed to intercept XHR requests made during the navigation
-// The website respond with an XHR containing a blob when asking for a pdf, so we need to get it and encode it into base64 before giving it to the pilot.
-var proxied = window.XMLHttpRequest.prototype.open
-// Overriding the open() method
-window.XMLHttpRequest.prototype.open = function () {
-  var originalResponse = this
-  console.log('👅👅👅 url', arguments?.[1])
-  // Intercepting response for recent bills information.
-  if (arguments[1].includes('/users/current/contracts')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        // The response is a unique string, in order to access information parsing into JSON is needed.
-        const jsonBills = JSON.parse(originalResponse.responseText)
-        recentBills.push(jsonBills)
-      }
-    })
-    return proxied.apply(this, [].slice.call(arguments))
-  }
-  // Intercepting response for old bills information.
-  if (arguments[1].includes('/facture/historicBills?')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        const jsonBills = JSON.parse(originalResponse.responseText)
-        oldBills.push(jsonBills)
-      }
-    })
-    return proxied.apply(this, [].slice.call(arguments))
-  }
-  // Intercepting user infomations for Identity object
-  if (arguments[1].includes('ecd_wp/account/billingAddresses')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        const jsonInfos = JSON.parse(originalResponse.responseText)
-        userInfos.push(jsonInfos[0])
-      }
-    })
-    return proxied.apply(this, [].slice.call(arguments))
-  }
-  // Intercepting response for recent bills blobs.
-  if (arguments[1].includes('facture/v1.0/pdf?billDate')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        // Pushing in an array the converted to base64 blob and pushing in another array it's href to match the indexes.
-        recentPromisesToConvertBlobToBase64.push(
-          (0,cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__.blobToBase64)(originalResponse.response)
-        )
-        recentXhrUrls.push(originalResponse.__zone_symbol__xhrURL)
-
-        // In every case, always returning the original response untouched
-        return originalResponse
-      }
-    })
-  }
-  // Intercepting response for old bills blobs.
-  if (arguments[1].includes('ecd_wp/facture/historicPDF?')) {
-    originalResponse.addEventListener('readystatechange', function () {
-      if (originalResponse.readyState === 4) {
-        oldPromisesToConvertBlobToBase64.push(
-          (0,cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_1__.blobToBase64)(originalResponse.response)
-        )
-        oldXhrUrls.push(originalResponse.__zone_symbol__xhrURL)
-
-        return originalResponse
-      }
-    })
-  }
-  return proxied.apply(this, [].slice.call(arguments))
-}
+const interceptor = new _interceptor__WEBPACK_IMPORTED_MODULE_3__["default"]()
+interceptor.init()
 
 class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_MODULE_0__.ContentScript {
   // ///////
@@ -5660,8 +5673,25 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       this.waitForElementInWorker('button[data-testid="button-keepconnected"]'),
       this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
       this.waitForElementInWorker('#undefined-label'),
-      this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
+      this.waitForElementInWorker('#oecs__popin-icon-Identification')
     ])
+    const loginLabelPresent = await this.isElementInWorker('#login-label')
+    this.log('info', 'loginLabelPresent: ' + loginLabelPresent)
+    const passwordLabelPresent = await this.isElementInWorker('#password-label')
+    this.log('info', 'passwordLabelPresent: ' + passwordLabelPresent)
+    const keepConnectedPresent = await this.isElementInWorker(
+      'button[data-testid="button-keepconnected"]'
+    )
+    this.log('info', 'keepConnectedPresent: ' + keepConnectedPresent)
+    const captchaPresent = await this.isElementInWorker(
+      'div[class*="captcha_responseContainer"]'
+    )
+    this.log('info', 'captchaPresent: ' + captchaPresent)
+    const undefinedLabelPresent = await this.isElementInWorker(
+      '#undefined-label'
+    )
+    this.log('info', 'undefinedLabelPresent: ' + undefinedLabelPresent)
+
     const { askForCaptcha, captchaUrl } = await this.runInWorker(
       'checkForCaptcha'
     )
@@ -5669,20 +5699,26 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       this.log('info', 'captcha found, waiting for resolution')
       await this.waitForUserAction(captchaUrl)
     }
-  }
 
-  async ensureNotAuthenticated() {
-    this.log('info', '🤖 ensureNotAuthenticated starts')
-    await this.navigateToLoginForm()
-    const authenticated = await this.runInWorker('checkAuthenticated')
-    if (!authenticated) {
-      this.log('info', 'not auth, returning true')
-      return true
+    const isIdentificationPresent = await this.isElementInWorker(
+      '#oecs__popin-icon-Identification'
+    )
+    this.log('info', 'isIdentificationPresent: ' + isIdentificationPresent)
+
+    if (isIdentificationPresent) {
+      await this.clickAndWait(
+        '#oecs__popin-icon-Identification',
+        '#oecs__connecte-changer-utilisateur'
+      )
+      await this.clickAndWait(
+        '#oecs__connecte-changer-utilisateur',
+        '#undefined-label'
+      )
     }
-    this.log('info', 'Auth detected, logging out')
-    await this.runInWorker('click', '#oecs__connecte-se-deconnecter')
-    await this.waitForElementInWorker('#oecs__connexion')
-    return true
+
+    if (await this.isElementInWorker('#undefined-label')) {
+      await this.clickAndWait('#undefined-label', '#login-label')
+    }
   }
 
   async ensureAuthenticated() {
@@ -5690,43 +5726,47 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.navigateToLoginForm()
     const credentials = await this.getCredentials()
     if (credentials) {
-      await this.checkAuthWithCredentials(credentials)
-      return true
+      this.log('info', 'found credentials, processing')
+      await this.tryAutoLogin(credentials)
+    } else {
+      this.log('info', 'no credentials found, use normal user login')
+      await this.waitForUserAuthentication()
     }
-    if (!credentials) {
-      await this.checkAuthWithoutCredentials()
-      return true
-    }
-
-    this.log('info', 'Not authenticated')
-    throw new Error('LOGIN_FAILED')
+    await this.detectOrangeOnlyAccount()
   }
 
-  async tryAutoLogin(credentials, type) {
-    this.log('info', '🤖 Trying autologin')
-    await this.autoLogin(credentials, type)
-  }
-
-  async autoLogin(credentials, type) {
-    this.log('info', 'Autologin start')
-    const emailSelector = '#login'
-    const passwordInputSelector = '#password'
-    const loginButton = '#btnSubmit'
-    if (type === 'half') {
-      this.log('info', 'wait for password field - half')
-      await this.waitForElementInWorker(passwordInputSelector)
-      await this.runInWorker('fillingForm', credentials)
-      await this.runInWorker('click', loginButton)
-      await this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
-      return true
+  async checkAuthenticated() {
+    const loginField = document.querySelector(
+      'p[data-testid="selected-account-login"]'
+    )
+    const passwordField = document.querySelector('#password')
+    if (loginField && passwordField) {
+      const userCredentials = await this.findAndSendCredentials.bind(this)(
+        loginField
+      )
+      this.log('info', 'Sending user credentials to Pilot')
+      this.sendToPilot({
+        userCredentials
+      })
     }
-    await this.waitForElementInWorker(emailSelector)
-    await this.runInWorker('fillingForm', credentials)
-    await this.runInWorker('click', loginButton)
-    this.log('info', 'wait for password field - full')
-    await this.waitForElementInWorker(passwordInputSelector)
-    await this.runInWorker('fillingForm', credentials)
-    await this.runInWorker('click', loginButton)
+    const isGoodUrl = document.location.href.includes(DEFAULT_PAGE_URL)
+    const isConnectedElementPresent = Boolean(
+      document.querySelector('#oecs__connecte')
+    )
+    const isDisconnectElementPresent = Boolean(
+      document.querySelector('#oecs__connecte-se-deconnecter')
+    )
+    if (isGoodUrl) {
+      if (isConnectedElementPresent) {
+        this.log('info', 'Check Authenticated succeeded')
+        return true
+      }
+      if (isDisconnectElementPresent) {
+        this.log('info', 'Active session found, returning true')
+        return true
+      }
+    }
+    return false
   }
 
   async waitForUserAuthentication() {
@@ -5734,6 +5774,198 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.setWorkerState({ visible: true })
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
     await this.setWorkerState({ visible: false })
+  }
+
+  async tryAutoLogin(credentials) {
+    this.log('info', 'Trying autologin')
+    await this.autoLogin(credentials)
+  }
+
+  async autoLogin(credentials) {
+    this.log('info', 'Autologin start')
+    const emailSelector = '#login'
+    const passwordInputSelector = '#password'
+    const loginButtonSelector = '#btnSubmit'
+    await this.waitForElementInWorker(emailSelector)
+    await this.runInWorker('fillForm', credentials)
+    await this.runInWorker('click', loginButtonSelector)
+
+    await Promise.race([
+      this.waitForElementInWorker('button[data-testid="button-keepconnected"]'),
+      this.waitForElementInWorker(passwordInputSelector)
+    ])
+
+    const isShowingKeepConnected = await this.isElementInWorker(
+      'button[data-testid="button-keepconnected"]'
+    )
+    this.log('info', 'isShowingKeepConnected: ' + isShowingKeepConnected)
+
+    if (isShowingKeepConnected) {
+      await this.runInWorker(
+        'click',
+        'button[data-testid="button-keepconnected"]'
+      )
+      return
+    }
+
+    await this.runInWorker('fillForm', credentials)
+    await this.runInWorker('click', loginButtonSelector)
+  }
+
+  async fetch(context) {
+    this.log('info', '🤖 fetch start')
+    if (this.store.userCredentials != undefined) {
+      await this.saveCredentials(this.store.userCredentials)
+    }
+
+    const { recentBills, oldBillsUrl } = await this.fetchRecentBills()
+    await this.saveBills(recentBills, {
+      context,
+      fileIdAttributes: ['vendorRef'],
+      contentType: 'application/pdf',
+      qualificationLabel: 'isp_invoice'
+    })
+    const oldBills = await this.fetchOldBills({ oldBillsUrl })
+    await this.saveBills(oldBills, {
+      context,
+      fileIdAttributes: ['vendorRef'],
+      contentType: 'application/pdf',
+      qualificationLabel: 'isp_invoice'
+    })
+
+    await this.navigateToPersonalInfos()
+    await this.runInWorker('getIdentity')
+    await this.saveIdentity(this.store.infosIdentity)
+  }
+
+  async fetchOldBills({ oldBillsUrl }) {
+    this.log('info', 'fetching old bills')
+    const { oldBills } = await this.runInWorker(
+      'getOldBillsFromWorker',
+      oldBillsUrl
+    )
+    const cid = oldBillsUrl.split('=').pop()
+
+    const saveBillsEntries = []
+    for (const bill of oldBills) {
+      const { entityName, partitionKeyName, partitionKeyValue, tecId } = bill
+      const amount = bill.amount / 100
+      const vendorRef = tecId
+      const fileurl = `https://espace-client.orange.fr/ecd_wp/facture/historicPDF?entityName=${entityName}&partitionKeyName=${partitionKeyName}&partitionKeyValue=${partitionKeyValue}&tecId=${tecId}&cid=${cid}`
+      saveBillsEntries.push({
+        vendor: 'sosh.fr',
+        date: bill.date,
+        amount,
+        recurrence: 'monthly',
+        vendorRef,
+        filename: await this.runInWorker(
+          'getFileName',
+          bill.date,
+          amount,
+          vendorRef
+        ),
+        fileurl,
+        requestOptions: {
+          headers: {
+            ...ORANGE_SPECIAL_HEADERS,
+            ...PDF_HEADERS
+          }
+        },
+        fileAttributes: {
+          metadata: {
+            invoiceNumber: vendorRef,
+            contentAuthor: 'sosh',
+            datetime: bill.date,
+            datetimeLabel: 'startDate',
+            isSubscription: true,
+            startDate: bill.date,
+            carbonCopy: true
+          }
+        }
+      })
+    }
+    return saveBillsEntries
+  }
+
+  async fetchRecentBills() {
+    await this.waitForElementInWorker('a', {
+      includesText: 'Consulter votre facture'
+    })
+    await this.runInWorker('click', 'a', {
+      includesText: 'Consulter votre facture'
+    })
+    await this.waitForElementInWorker('a[href*="/historique-des-factures"]')
+    await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
+    await Promise.race([
+      this.waitForElementInWorker('[data-e2e="bh-more-bills"]'),
+      this.waitForElementInWorker('.alert-icon icon-error-severe'),
+      this.waitForElementInWorker(
+        '.alert-container alert-container-sm alert-danger mb-0'
+      )
+    ])
+
+    const recentBills = await this.runInWorker('getRecentBillsFromInterceptor')
+    const saveBillsEntries = []
+    for (const bill of recentBills.billsHistory.billList) {
+      const amount = bill.amount / 100
+      const vendorRef = bill.id || bill.tecId
+      saveBillsEntries.push({
+        vendor: 'sosh.fr',
+        date: bill.date,
+        amount,
+        recurrence: 'monthly',
+        vendorRef,
+        filename: await this.runInWorker(
+          'getFileName',
+          bill.date,
+          amount,
+          vendorRef
+        ),
+        fileurl:
+          'https://espace-client.orange.fr/ecd_wp/facture/v1.0/pdf' +
+          bill.hrefPdf,
+        requestOptions: {
+          headers: {
+            ...ORANGE_SPECIAL_HEADERS,
+            ...PDF_HEADERS
+          }
+        },
+        fileAttributes: {
+          metadata: {
+            invoiceNumber: vendorRef,
+            contentAuthor: 'sosh',
+            datetime: bill.date,
+            datetimeLabel: 'startDate',
+            isSubscription: true,
+            startDate: bill.date,
+            carbonCopy: true
+          }
+        }
+      })
+    }
+
+    // will be used to fetch old bills if needed
+    const oldBillsUrl = recentBills.billsHistory.oldBillsHref
+    return { recentBills: saveBillsEntries, oldBillsUrl }
+  }
+
+  async navigateToPersonalInfos() {
+    this.log('info', 'navigateToPersonalInfos starts')
+    await this.clickAndWait(
+      'a[href="/compte?sosh="]',
+      'a[href="/compte/infos-perso"]'
+    )
+    await this.clickAndWait(
+      'a[href="/compte/infos-perso"]',
+      'div[data-e2e="e2e-personal-info-identity"]'
+    )
+    await Promise.all([
+      this.waitForElementInWorker('div[data-e2e="e2e-personal-info-identity"]'),
+      this.waitForElementInWorker(
+        'a[href="/compte/modification-moyens-contact"]'
+      ),
+      this.waitForElementInWorker('a[href="/compte/adresse"]')
+    ])
   }
 
   async waitForUserAction(url) {
@@ -5745,8 +5977,9 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async getUserDataFromWebsite() {
     this.log('info', '🤖 getUserDataFromWebsite starts')
+    await this.waitForElementInWorker('.dashboardConso__welcome')
     const sourceAccountId = await this.runInWorker('getUserMail')
-    if (sourceAccountId === 'UNKNOWN_ERROR') {
+    if (!sourceAccountId) {
       throw new Error('Could not get a sourceAccountIdentifier')
     }
 
@@ -5755,368 +5988,24 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     }
   }
 
-  async fetch(context) {
-    this.log('info', '🤖 fetch start')
-    const credentials = await this.getCredentials()
-    if (!credentials) {
-      await this.saveCredentials(this.store.userCredentials)
-    }
-    await this.waitForElementInWorker(
-      'a[class="o-link-arrow text-primary pt-0"]'
-    )
-    const clientRef = await this.runInWorker('findClientRef')
-    if (clientRef) {
-      this.log('info', 'clientRef found')
-      const clientLink = `https://espace-client.orange.fr/facture-paiement/${clientRef}`
-      await this.goto(clientLink) // replaced a link click with goto to avoid javascript code
-      // which forced to move to the app on iphone
-      await this.waitForElementInWorker(`[data-e2e="bp-tile-historic"]`)
-      const redFrame = await this.isElementInWorker(
-        '.alert-icon icon-error-severe'
-      )
-      if (redFrame) {
-        this.log('info', 'Website did not load the bills')
-        throw new Error('VENDOR_DOWN')
-      }
-      let recentPdfNumber = await this.runInWorker('getPdfNumber')
-      const hasMoreBills = await this.isElementInWorker(
-        '[data-e2e="bh-more-bills"]'
-      )
-      if (hasMoreBills) {
-        await this.clickAndWait(
-          '[data-e2e="bh-more-bills"]',
-          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-        )
-      }
-      let allPdfNumber = await this.runInWorker('getPdfNumber')
-      let oldPdfNumber = allPdfNumber - recentPdfNumber
-      for (let i = 0; i < recentPdfNumber; i++) {
-        this.log('info', 'fetching ' + (i + 1) + '/' + recentPdfNumber)
-        // If something went wrong during the loading of the pdf board, a red frame with an error message appears
-        // So we need to check every lap to see if we got one
-        const redFrame = await this.isElementInWorker(
-          '.alert-icon icon-error-severe'
-        )
-        if (redFrame) {
-          this.log('info', 'Website did not load the bills')
-          throw new Error('VENDOR_DOWN')
-        }
-        await this.runInWorker('waitForRecentPdfClicked', i)
-        await this.clickAndWait(
-          'a[class="o-link"]',
-          '[data-e2e="bp-tile-historic"]'
-        )
-        await this.clickAndWait(
-          '[data-e2e="bp-tile-historic"]',
-          '[aria-labelledby="bp-billsHistoryTitle"]'
-        )
-        await this.clickAndWait(
-          '[data-e2e="bh-more-bills"]',
-          '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-        )
-      }
-      this.log('info', 'recentPdf loop ended')
-      if (oldPdfNumber != 0) {
-        for (let i = 0; i < oldPdfNumber; i++) {
-          this.log('info', 'fetching ' + (i + 1) + '/' + oldPdfNumber)
-          // Same as above with the red frame, but for old bills board
-          const redFrame = await this.isElementInWorker(
-            'span[class="alert-icon icon-error-severe"]'
-          )
-          if (redFrame) {
-            this.log('info', 'Something went wrong during old pdfs loading')
-            throw new Error('VENDOR_DOWN')
-          }
-          await this.runInWorker('waitForOldPdfClicked', i)
-          await this.clickAndWait(
-            'a[class="o-link"]',
-            '[data-e2e="bp-tile-historic"]'
-          )
-          await this.clickAndWait(
-            '[data-e2e="bp-tile-historic"]',
-            '[aria-labelledby="bp-billsHistoryTitle"]'
-          )
-          await this.clickAndWait(
-            '[data-e2e="bh-more-bills"]',
-            '[aria-labelledby="bp-historicBillsHistoryTitle"]'
-          )
-        }
-        this.log('info', 'oldPdf loop ended')
-      }
-      this.log('info', 'pdfButtons all clicked')
-      await this.runInWorker('processingBills')
-      this.store.dataUri = []
-      for (let i = 0; i < this.store.resolvedBase64.length; i++) {
-        let dateArray = this.store.resolvedBase64[i].href.match(
-          /([0-9]{4})-([0-9]{2})-([0-9]{2})/g
-        )
-        this.store.resolvedBase64[i].date = dateArray[0]
-        const index = this.store.allBills.findIndex(function (bill) {
-          return bill.date === dateArray[0]
-        })
-        this.store.dataUri.push({
-          vendor: 'sosh.fr',
-          date: this.store.allBills[index].date,
-          amount: this.store.allBills[index].amount / 100,
-          recurrence: 'monthly',
-          vendorRef: this.store.allBills[index].id
-            ? this.store.allBills[index].id
-            : this.store.allBills[index].tecId,
-          filename: await this.runInWorker(
-            'getFileName',
-            this.store.allBills[index].date,
-            this.store.allBills[index].amount / 100,
-            this.store.allBills[index].id || this.store.allBills[index].tecId
-          ),
-          dataUri: this.store.resolvedBase64[i].uri,
-          fileAttributes: {
-            metadata: {
-              invoiceNumber: this.store.allBills[index].id
-                ? this.store.allBills[index].id
-                : this.store.allBills[index].tecId,
-              contentAuthor: 'sosh',
-              datetime: this.store.allBills[index].date,
-              datetimeLabel: 'startDate',
-              isSubscription: true,
-              startDate: this.store.allBills[index].date,
-              carbonCopy: true
-            }
-          }
-        })
-      }
-      await this.saveBills(this.store.dataUri, {
-        context,
-        fileIdAttributes: ['filename'],
-        contentType: 'application/pdf',
-        qualificationLabel: 'isp_invoice'
-      })
-    }
-    await this.clickAndWait(
-      'a[href="/compte?sosh="]',
-      'a[href="/compte/infos-perso"]'
-    )
-    await this.clickAndWait(
-      'a[href="/compte/infos-perso"]',
-      'div[data-e2e="e2e-personal-info-identity"]'
-    )
-    await Promise.all([
-      await this.waitForElementInWorker(
-        'div[data-e2e="e2e-personal-info-identity"]'
-      ),
-      await this.waitForElementInWorker(
-        'a[href="/compte/modification-moyens-contact"]'
-      ),
-      await this.waitForElementInWorker('a[href="/compte/adresse"]')
-    ])
-    await this.runInWorker('getIdentity')
-    await this.saveIdentity(this.store.infosIdentity)
-    await this.clickAndWait(
-      '#oecs__popin-icon-Identification',
-      '#oecs__connecte-se-deconnecter'
-    )
-    await this.clickAndWait(
-      '#oecs__connecte-se-deconnecter',
-      '#oecs__connexion'
-    )
-  }
-
-  findPdfButtons() {
-    this.log('info', 'Starting findPdfButtons')
-    const buttons = Array.from(
-      document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
-    )
-    return buttons
-  }
-
-  findBillsHistoricButton() {
-    this.log('info', 'Starting findPdfButtons')
-    const button = document.querySelector('[data-e2e="bp-tile-historic"]')
-    return button
-  }
-
-  findPdfNumber() {
-    this.log('info', 'Starting findPdfNumber')
-    const buttons = Array.from(
-      document.querySelectorAll('a[class="icon-pdf-file bp-downloadIcon"]')
-    )
-    return buttons.length
-  }
-
-  findStayLoggedButton() {
-    this.log('info', 'Starting findStayLoggedButton')
-    const button = document.querySelector(
-      'button[data-testid="button-keepconnected"]'
-    )
-    if (button) {
-      return true
-    }
-    return false
-  }
-
-  findHelloMessage() {
-    this.log('info', 'Starting findHelloMessage')
-    const messageSpan = document.querySelector(
-      'span[class="d-block text-center"]'
-    )
-    return messageSpan
-  }
-
-  findLoginButton() {
-    this.log('info', 'Starting findLoginButton')
-    const loginButton = document.querySelector('#oecs__connexion')
-    return loginButton
-  }
-
-  findAccountPage() {
-    this.log('info', 'Starting findAccountPage')
-    const loginButton = document.querySelector('#oecs__connexion')
-    return loginButton
-  }
-
-  findAccountList() {
-    this.log('info', 'Starting findAccountList')
-    let accountList = []
-    const accountListElement = document.querySelectorAll(
-      'a[data-oevent-action="clic_liste"]'
-    )
-    for (let i = 0; i < accountListElement.length; i++) {
-      let listedEmail =
-        accountListElement[i].childNodes[1].children[0].childNodes[0].innerHTML
-      accountList.push(listedEmail)
-    }
-    return accountList
-  }
-
-  async checkAuthWithCredentials(credentials) {
-    this.log('info', 'authWithCredentials starts')
-    await this.waitForElementInWorker('#oecs__aide-contact')
-    const helloMessage = await this.runInWorker('getHelloMessage')
-    if (helloMessage) {
-      // If helloMessage is found, return true to continue the process as we are already logged in
-      return true
-    }
-    const loginPage = await this.runInWorker('getLoginPage')
-
-    if (!loginPage) {
-      const accountPage = await this.runInWorker('getAccountPage')
-      if (!accountPage) {
-        const accountListElement = await this.runInWorker('getAccountList')
-        for (let i = 0; i < accountListElement.length; i++) {
-          this.log('info', 'getting in accountList loop')
-          const findMail = accountListElement[i]
-          if (findMail === credentials.email) {
-            this.log(
-              'info',
-              'One mail in accountList match saved credentials, continue'
-            )
-            await this.runInWorker('accountSelection', i)
-            break
-          }
-        }
-      }
-    }
-    this.log('info', 'found credentials, processing')
-    const askFullLogin = await this.isElementInWorker('#login-label')
-    if (askFullLogin) {
-      this.log('info', 'askFullLogin condition')
-      await this.tryAutoLogin(credentials, 'full')
-      return true
-    }
-    await this.waitForElementInWorker('p[data-testid="selected-account-login"]')
-    const testEmail = await this.runInWorker('getTestEmail')
-    if (credentials.email === testEmail) {
-      this.log('info', 'sameMailLogin condition')
-      await this.sameMailLogin(credentials)
-      return true
-    }
-    if (credentials.email != testEmail) {
-      this.log('info', 'differentMailLogin condition')
-      await this.differentMailLogin(credentials)
-    }
-  }
-
-  async checkAuthWithoutCredentials() {
-    this.log('info', 'checkAuthWithoutCredentials starts')
-    const helloMessage = await this.runInWorker('getHelloMessage')
-    if (helloMessage) {
-      this.log('info', 'no credentials found but user is still logged in')
-      return true
-    }
-    const isAccountListPage = await this.isElementInWorker('#undefined-label')
-    if (isAccountListPage) {
-      this.log('info', 'Webview on accountsList page, go to first login step')
-      await this.runInWorker('click', '#undefined-label')
-      await this.waitForElementInWorker('#login-label')
-    }
-    this.log('info', 'no credentials found, use normal user login')
-    await this.waitForUserAuthentication()
-    return true
-  }
-
-  async sameMailLogin(credentials) {
-    this.log('info', 'sameMailLogin starts')
-    const stayLogButton = await this.isElementInWorker(
-      'button[data-testid="button-keepconnected"]'
-    )
-    if (stayLogButton) {
-      await this.runInWorker(
-        'click',
-        'button[data-testid="button-keepconnected"]'
-      )
-      await this.waitForElementInWorker('#oecs__connecte')
-      return true
-    }
-    this.log('info', 'found credentials, trying to autoLog')
-    await this.tryAutoLogin(credentials, 'half')
-    return true
-  }
-
-  async differentMailLogin(credentials) {
-    this.log('info', 'getting in different testEmail conditions')
-    await this.clickAndWait('#changeAccountLink', '#undefined-label')
-    await this.clickAndWait('#undefined-label', '#login')
-    await this.tryAutoLogin(credentials, 'full')
-    return true
-  }
-
   // ////////
   // WORKER//
   // ////////
 
-  getLogoutButton() {
-    this.log('info', 'Starting getLogoutButton')
-    const logoutButton = document.querySelector(
-      '#oecs__connecte-se-deconnecter'
-    )
-    return logoutButton
+  async getOldBillsFromWorker(oldBillsUrl) {
+    const OLD_BILLS_URL_PREFIX =
+      'https://espace-client.orange.fr/ecd_wp/facture/historicBills'
+    return await ky_umd__WEBPACK_IMPORTED_MODULE_4___default().get(OLD_BILLS_URL_PREFIX + oldBillsUrl, {
+        headers: {
+          ...ORANGE_SPECIAL_HEADERS,
+          ...JSON_HEADERS
+        }
+      })
+      .json()
   }
 
-  async getAccountList() {
-    this.log('info', 'Starting getAccountList')
-    const accountList = this.findAccountList()
-    return accountList
-  }
-
-  async clickLoginPage() {
-    this.log('info', 'Starting clickLoginPage')
-    document.querySelector('#oecs__connexion').click()
-  }
-
-  async accountSelection(i) {
-    this.log('info', 'Starting accountSelection')
-    document.querySelectorAll('a[data-oevent-action="clic_liste"]')[i].click()
-  }
-
-  async getAccountPage() {
-    this.log('info', 'Starting getAccountPage')
-    const accountButton = this.findAccountPage()
-    return accountButton
-  }
-
-  async getLoginPage() {
-    this.log('info', 'Starting getLoginPage')
-    const loginButton = this.findLoginButton()
-    return loginButton
+  async getRecentBillsFromInterceptor() {
+    return interceptor.recentBills
   }
 
   async findAndSendCredentials(loginField) {
@@ -6132,21 +6021,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     return userCredentials
   }
 
-  waitForRecentPdfClicked(i) {
-    let recentPdfs = document.querySelectorAll(
-      '[aria-labelledby="bp-billsHistoryTitle"] a[class="icon-pdf-file bp-downloadIcon"]'
-    )
-    recentPdfs[i].click()
-  }
-
-  waitForOldPdfClicked(i) {
-    let oldPdfs = document.querySelectorAll(
-      '[aria-labelledby="bp-historicBillsHistoryTitle"] a[class="icon-pdf-file bp-downloadIcon"]'
-    )
-    oldPdfs[i].click()
-  }
-
-  async fillingForm(credentials) {
+  async fillForm(credentials) {
     if (document.querySelector('#login')) {
       this.log('info', 'filling email field')
       document.querySelector('#login').value = credentials.email
@@ -6159,199 +6034,62 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     }
   }
 
-  async checkAuthenticated() {
-    this.log('info', 'checkAuthenticated starts')
-    const loginField = document.querySelector(
-      'p[data-testid="selected-account-login"]'
+  async detectOrangeOnlyAccount() {
+    await this.goto(DEFAULT_PAGE_URL)
+    await this.waitForElementInWorker('strong')
+    const isSosh = await this.runInWorker(
+      'checkForElement',
+      `#oecs__logo[href="https://www.sosh.fr/"]`
     )
-    const passwordField = document.querySelector('#password')
-    if (loginField && passwordField) {
-      const userCredentials = await this.findAndSendCredentials.bind(this)(
-        loginField
+    this.log('info', 'isSosh ' + isSosh)
+    if (!isSosh) {
+      throw new Error(
+        'This should be sosh account. Found only orange contracts'
       )
-      this.log('info', 'Sending user credentials to Pilot')
-      this.sendToPilot({
-        userCredentials
-      })
     }
-    if (
-      document.location.href.includes(DEFAULT_PAGE_URL) &&
-      document.querySelector('#oecs__connecte')
-    ) {
-      this.log('info', 'Check Authenticated succeeded')
-      return true
-    }
-    if (
-      document.location.href.includes(DEFAULT_PAGE_URL) &&
-      document.querySelector('#oecs__connecte-se-deconnecter')
-    ) {
-      this.log('info', 'Active session found, returning true')
-      return true
-    }
-
-    //
-    return false
   }
 
   async getUserMail() {
-    try {
-      const result = document.querySelector(
-        '.oecs__zone-footer-button-mail'
-      ).innerHTML
-      if (result) {
-        return result
-      }
-    } catch (err) {
-      if (
-        err.message === "Cannot read properties of null (reading 'innerHTML')"
-      ) {
-        this.log(
-          'info',
-          `Error message : ${err.message}, trying to reload page`
-        )
-        window.location.reload()
-        this.log('info', 'Profil homePage reloaded')
-      } else {
-        this.log('info', 'Untreated problem encountered')
-        return 'UNKNOWN_ERROR'
-      }
-    }
-    return false
-  }
-
-  async getHelloMessage() {
-    this.log('info', 'Starting findHelloMessage')
-    const messageSpan = this.findHelloMessage()
-    return messageSpan
-  }
-
-  async findClientRef() {
-    let parsedElem
-    let clientRef
-    if (document.querySelector('a[class="o-link-arrow text-primary pt-0"]')) {
-      this.log('info', 'clientRef founded')
-      parsedElem = document
-        .querySelector('a[class="o-link-arrow text-primary pt-0"]')
-        .getAttribute('href')
-
-      const clientRefArray = parsedElem.match(/([0-9]*)/g)
-      this.log('info', clientRefArray.length)
-
-      for (let i = 0; i < clientRefArray.length; i++) {
-        this.log('info', 'Get in clientRef loop')
-
-        const testedIndex = clientRefArray.pop()
-        if (testedIndex.length === 0) {
-          this.log('info', 'No clientRef founded')
-        } else {
-          this.log('info', 'clientRef founded')
-          clientRef = testedIndex
-          break
-        }
-      }
-      return clientRef
-    }
-  }
-
-  async getStayLoggedButton() {
-    this.log('info', 'Starting getStayLoggedButton')
-    const button = this.findStayLoggedButton()
-    return button
-  }
-
-  async getTestEmail() {
-    this.log('info', 'Getting in getTestEmail')
-    const result = document
-      .querySelector('p[data-testid="selected-account-login"]')
-      .innerHTML.replace('<strong>', '')
-      .replace('</strong>', '')
-    if (result) {
-      return result
-    }
-    return null
-  }
-
-  async getPdfNumber() {
-    this.log('info', 'Getting in getPdfNumber')
-    let pdfNumber = this.findPdfNumber()
-    return pdfNumber
-  }
-
-  async processingBills() {
-    let resolvedBase64 = []
-    this.log('info', 'Awaiting promises')
-    const recentToBase64 = await Promise.all(
-      recentPromisesToConvertBlobToBase64
-    )
-    const oldToBase64 = await Promise.all(oldPromisesToConvertBlobToBase64)
-    this.log('info', 'Processing promises')
-    const promisesToBase64 = recentToBase64.concat(oldToBase64)
-    const xhrUrls = recentXhrUrls.concat(oldXhrUrls)
-    for (let i = 0; i < promisesToBase64.length; i++) {
-      resolvedBase64.push({
-        uri: promisesToBase64[i],
-        href: xhrUrls[i]
-      })
-    }
-    const recentBillsToAdd = recentBills[0].billsHistory.billList
-    const oldBillsToAdd = oldBills[0].oldBills
-    let allBills = recentBillsToAdd.concat(oldBillsToAdd)
-    this.log('info', 'billsArray ready, Sending to pilot')
-    await this.sendToPilot({
-      resolvedBase64,
-      allBills
-    })
+    return window.o_idzone?.USER_MAIL_ADDRESS
   }
 
   async getIdentity() {
-    this.log('info', 'Starting getIdentity')
-    const checkIdObject = userInfos.length > 0
-    let infosIdentity
-    if (checkIdObject) {
-      const [, firstName, lastName] = document
-        .querySelector('div[data-e2e="e2e-personal-info-identity"]')
-        .nextSibling.nextSibling.textContent.split(' ')
-      const fullName = `${firstName} ${lastName}`
-      const postCode = userInfos[0].postalAddress.postalCode
-      const city = userInfos[0].postalAddress.cityName
-      const streetNumber = userInfos[0].postalAddress.streetNumber.number
-      const streetName = userInfos[0].postalAddress.street.name
-      const streetType = userInfos[0].postalAddress.street.type
-      const formattedAddress = `${streetNumber} ${streetType} ${streetName} ${postCode} ${city}`
-      const [foundNumber, foundEmail] = document.querySelectorAll('.item-desc')
-      const phoneNumber = foundNumber.textContent.replace(/ /g, '')
-      const email = foundEmail.textContent
-      infosIdentity = {
-        email,
-        name: {
-          firstName,
-          lastName,
-          fullName
-        },
-        address: [
-          {
-            formattedAddress,
-            postCode,
-            city,
-            street: {
-              streetNumber,
-              streetName,
-              streetType
-            }
-          }
-        ],
-        phoneNumber: [
-          {
-            type:
-              phoneNumber.startsWith('06') | phoneNumber.startsWith('07')
-                ? 'mobile'
-                : 'home',
-            number: phoneNumber
-          }
-        ]
-      }
-      await this.sendToPilot({ infosIdentity })
+    this.log('info', 'getIdentity starts')
+    const addressInfos = interceptor.userInfos.billingAddresses?.[0]
+    const phoneNumber =
+      interceptor.userInfos.portfolio?.contracts?.[0]?.telco?.publicNumber
+    const address = []
+    if (addressInfos) {
+      address.push({
+        houseNumber: addressInfos.postalAddress.streetNumber.number,
+        street: `${addressInfos.postalAddress.street.type} ${addressInfos.postalAddress.street.name}`,
+        postCode: addressInfos.postalAddress.postalCode,
+        city: addressInfos.postalAddress.cityName,
+        formattedAddress: `${address.houseNumber} ${address.street} ${address.postCode} ${address.city}`
+      })
     }
+    const infosIdentity = {
+      name: {
+        givenName:
+          interceptor.indentification?.contracts?.[0]?.holder?.firstName,
+        lastName: interceptor.indentification?.contracts?.[0]?.holder?.lastName
+      },
+      mail: interceptor.identification?.contactInformation?.email?.address,
+      address
+    }
+
+    if (phoneNumber && phoneNumber.match) {
+      infosIdentity.phone = [
+        {
+          type: phoneNumber.match(/^06|07|\+336|\+337/g) ? 'mobile' : 'home',
+          number: phoneNumber
+        }
+      ]
+    }
+
+    await this.sendToPilot({
+      infosIdentity
+    })
   }
 
   checkForCaptcha() {
@@ -6379,7 +6117,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async waitForCaptchaResolution() {
-    await (0,p_wait_for__WEBPACK_IMPORTED_MODULE_3__["default"])(this.checkCaptchaResolution, {
+    await (0,p_wait_for__WEBPACK_IMPORTED_MODULE_2__["default"])(this.checkCaptchaResolution, {
       interval: 1000,
       timeout: 60 * 1000
     })
@@ -6398,25 +6136,13 @@ connector
   .init({
     additionalExposedMethodsNames: [
       'getUserMail',
-      'findClientRef',
-      'processingBills',
-      'getTestEmail',
-      'fillingForm',
-      'getStayLoggedButton',
-      'getHelloMessage',
-      'getPdfNumber',
-      'waitForRecentPdfClicked',
-      'waitForOldPdfClicked',
-      'getLoginPage',
-      'getAccountPage',
-      'clickLoginPage',
-      'getAccountList',
-      'accountSelection',
-      'getLogoutButton',
+      'fillForm',
       'getIdentity',
       'checkForCaptcha',
       'waitForCaptchaResolution',
-      'getFileName'
+      'getFileName',
+      'getRecentBillsFromInterceptor',
+      'getOldBillsFromWorker'
     ]
   })
   .catch(err => {
