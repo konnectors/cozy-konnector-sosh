@@ -330,13 +330,11 @@ class SoshContentScript extends ContentScript {
       'div[data-e2e="e2e-personal-info-identity"]'
     )
     await Promise.all([
-      await this.waitForElementInWorker(
-        'div[data-e2e="e2e-personal-info-identity"]'
-      ),
-      await this.waitForElementInWorker(
+      this.waitForElementInWorker('div[data-e2e="e2e-personal-info-identity"]'),
+      this.waitForElementInWorker(
         'a[href="/compte/modification-moyens-contact"]'
       ),
-      await this.waitForElementInWorker('a[href="/compte/adresse"]')
+      this.waitForElementInWorker('a[href="/compte/adresse"]')
     ])
   }
 
@@ -351,7 +349,7 @@ class SoshContentScript extends ContentScript {
     this.log('info', '🤖 getUserDataFromWebsite starts')
     await this.waitForElementInWorker('.dashboardConso__welcome')
     const sourceAccountId = await this.runInWorker('getUserMail')
-    if (sourceAccountId === 'UNKNOWN_ERROR') {
+    if (!sourceAccountId) {
       throw new Error('Could not get a sourceAccountIdentifier')
     }
 
@@ -427,52 +425,42 @@ class SoshContentScript extends ContentScript {
   }
 
   async getIdentity() {
-    this.log('info', 'Starting getIdentity')
-    let infosIdentity
-    const [, firstName, lastName] = document
-      .querySelector('div[data-e2e="e2e-personal-info-identity"]')
-      .nextSibling.nextSibling.textContent.split(' ')
-    const fullName = `${firstName} ${lastName}`
-    const postCode = interceptor.userInfos?.[0].postalAddress.postalCode
-    const city = interceptor.userInfos?.[0].postalAddress.cityName
-    const streetNumber =
-      interceptor.userInfos?.[0].postalAddress.streetNumber.number
-    const streetName = interceptor.userInfos?.[0].postalAddress.street.name
-    const streetType = interceptor.userInfos?.[0].postalAddress.street.type
-    const formattedAddress = `${streetNumber} ${streetType} ${streetName} ${postCode} ${city}`
-    const [foundNumber, foundEmail] = document.querySelectorAll('.item-desc')
-    const phoneNumber = foundNumber.textContent.replace(/ /g, '')
-    const email = foundEmail.textContent
-    infosIdentity = {
-      email,
+    this.log('info', 'getIdentity starts')
+    const addressInfos = interceptor.userInfos.billingAddresses?.[0]
+    const phoneNumber =
+      interceptor.userInfos.portfolio?.contracts?.[0]?.telco?.publicNumber
+    const address = []
+    if (addressInfos) {
+      address.push({
+        houseNumber: addressInfos.postalAddress.streetNumber.number,
+        street: `${addressInfos.postalAddress.street.type} ${addressInfos.postalAddress.street.name}`,
+        postCode: addressInfos.postalAddress.postalCode,
+        city: addressInfos.postalAddress.cityName,
+        formattedAddress: `${address.houseNumber} ${address.street} ${address.postCode} ${address.city}`
+      })
+    }
+    const infosIdentity = {
       name: {
-        firstName,
-        lastName,
-        fullName
+        givenName:
+          interceptor.indentification?.contracts?.[0]?.holder?.firstName,
+        lastName: interceptor.indentification?.contracts?.[0]?.holder?.lastName
       },
-      address: [
+      mail: interceptor.identification?.contactInformation?.email?.address,
+      address
+    }
+
+    if (phoneNumber && phoneNumber.match) {
+      infosIdentity.phone = [
         {
-          formattedAddress,
-          postCode,
-          city,
-          street: {
-            streetNumber,
-            streetName,
-            streetType
-          }
-        }
-      ],
-      phoneNumber: [
-        {
-          type:
-            phoneNumber.startsWith('06') | phoneNumber.startsWith('07')
-              ? 'mobile'
-              : 'home',
+          type: phoneNumber.match(/^06|07|\+336|\+337/g) ? 'mobile' : 'home',
           number: phoneNumber
         }
       ]
     }
-    await this.sendToPilot({ infosIdentity })
+
+    await this.sendToPilot({
+      infosIdentity
+    })
   }
 
   checkForCaptcha() {

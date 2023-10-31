@@ -1,7 +1,7 @@
 export default class XhrInterceptor {
   constructor() {
-    this.recentBills = null
-    this.userInfos = null
+    this.recentBills = {}
+    this.userInfos = {}
   }
 
   init() {
@@ -22,13 +22,33 @@ export default class XhrInterceptor {
         })
         return proxied.apply(this, [].slice.call(arguments))
       }
+      // Intercepting user infomations for Identity object
+      if (arguments[1]?.includes('ecd_wp/portfoliomanager/portfolio?')) {
+        originalResponse.addEventListener('readystatechange', function () {
+          if (originalResponse.readyState === 4) {
+            const jsonInfos = JSON.parse(originalResponse.responseText)
+            self.userInfos.portfolio = jsonInfos
+          }
+        })
+        return proxied.apply(this, [].slice.call(arguments))
+      }
 
+      // Intercepting more infos for Identity object
+      if (arguments[1]?.includes('ecd_wp/account/identification')) {
+        originalResponse.addEventListener('readystatechange', function () {
+          if (originalResponse.readyState === 4) {
+            const jsonInfos = JSON.parse(originalResponse.responseText)
+            self.userInfos.identification = jsonInfos
+          }
+        })
+        return proxied.apply(this, [].slice.call(arguments))
+      }
       // Intercepting billingAddress infos for Identity object
       if (arguments[1]?.includes('ecd_wp/account/billingAddresses')) {
         originalResponse.addEventListener('readystatechange', function () {
           if (originalResponse.readyState === 4) {
             const jsonInfos = JSON.parse(originalResponse.responseText)
-            self.userInfos = jsonInfos
+            self.userInfos.billingAddresses = jsonInfos
           }
         })
         return proxied.apply(this, [].slice.call(arguments))
