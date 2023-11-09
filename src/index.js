@@ -2,7 +2,7 @@
 
 import { ContentScript } from 'cozy-clisk/dist/contentscript'
 import Minilog from '@cozy/minilog'
-import waitFor from 'p-wait-for'
+import waitFor, { TimeoutError } from 'p-wait-for'
 import ky from 'ky/umd'
 import XhrInterceptor from './interceptor'
 
@@ -37,6 +37,7 @@ class SoshContentScript extends ContentScript {
   async navigateToLoginForm() {
     this.log('info', '🤖 navigateToLoginForm starts')
     await this.goto(LOGIN_FORM_PAGE)
+    this.log('debug', 'waiting for login page load...')
     await Promise.race([
       this.waitForElementInWorker('#login-label'),
       this.waitForElementInWorker('#password-label'),
@@ -70,12 +71,14 @@ class SoshContentScript extends ContentScript {
       await this.waitForUserAction(captchaUrl)
     }
 
+    // The user is considered identified
     const isIdentificationPresent = await this.isElementInWorker(
       '#oecs__popin-icon-Identification'
     )
     this.log('info', 'isIdentificationPresent: ' + isIdentificationPresent)
 
     if (isIdentificationPresent) {
+      // always choose to change the user, easier to be sure what user we are in
       await this.clickAndWait(
         '#oecs__popin-icon-Identification',
         '#oecs__connecte-changer-utilisateur'
@@ -87,8 +90,40 @@ class SoshContentScript extends ContentScript {
     }
 
     if (await this.isElementInWorker('#undefined-label')) {
-      await this.clickAndWait('#undefined-label', '#login-label')
+      this.log(
+        'info',
+        'Found "Utiliser un autre compte". Clicking it and waiting for login screen'
+      )
+      await this.runInWorker('waitForUndefinedLabelReallyClicked')
+      await this.waitForElementInWorker('#login-label')
     }
+    this.log('debug', 'End of navigateToLoginForm')
+  }
+
+  /**
+   * Sometimes, depending on the device, #undefined-label may not be clickable yet
+   * we click on it until it disappears
+   */
+  async waitForUndefinedLabelReallyClicked() {
+    await waitFor(
+      function clickOnElementUntilItDisapear() {
+        const elem = document.querySelector('#undefined-label')
+        if (elem) {
+          elem.click()
+          return false
+        }
+        return true
+      },
+      {
+        interval: 100,
+        timeout: {
+          milliseconds: 30 * 1000,
+          message: new TimeoutError(
+            `waitForUndefinedLabelReallyClicked timed out after ${30 * 1000}ms`
+          )
+        }
+      }
+    )
   }
 
   async ensureAuthenticated() {
@@ -513,7 +548,8 @@ connector
       'waitForCaptchaResolution',
       'getFileName',
       'getRecentBillsFromInterceptor',
-      'getOldBillsFromWorker'
+      'getOldBillsFromWorker',
+      'waitForUndefinedLabelReallyClicked'
     ]
   })
   .catch(err => {
