@@ -128,6 +128,7 @@ class SoshContentScript extends ContentScript {
 
   async ensureAuthenticated() {
     this.log('info', '🤖 ensureAuthenticated starts')
+    this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
     await this.navigateToLoginForm()
     const credentials = await this.getCredentials()
     if (credentials) {
@@ -140,20 +141,49 @@ class SoshContentScript extends ContentScript {
     await this.detectOrangeOnlyAccount()
   }
 
-  async checkAuthenticated() {
-    const loginField = document.querySelector(
-      'p[data-testid="selected-account-login"]'
-    )
-    const passwordField = document.querySelector('#password')
-    if (loginField && passwordField) {
-      const userCredentials = await this.findAndSendCredentials.bind(this)(
-        loginField
-      )
-      this.log('info', 'Sending user credentials to Pilot')
-      this.sendToPilot({
-        userCredentials
+  async onWorkerEvent({ event, payload }) {
+    if (event === 'loginSubmit') {
+      const { login, password } = payload || {}
+      if (login && password) {
+        this.store.userCredentials = { login, password }
+      } else {
+        this.log('warn', 'Did not manage to intercept credentials')
+      }
+    }
+  }
+
+  onWorkerReady() {
+    function addClickListener() {
+      document.body.addEventListener('click', e => {
+        const clickedElementId = e.target.getAttribute('id')
+        if (clickedElementId === 'btnSubmit') {
+          const login = document.querySelector(
+            `[data-testid=selected-account-login]`
+          )?.innerHTML
+          const password = document.querySelector('#password')?.value
+          this.bridge.emit('workerEvent', {
+            event: 'loginSubmit',
+            payload: { login, password }
+          })
+        }
       })
     }
+    if (!document?.body) {
+      log('info', 'no body, did not add dom event listener')
+      return
+    }
+
+    if (
+      document.readyState === 'complete' ||
+      document.readyState === 'loaded'
+    ) {
+      addClickListener.bind(this)()
+    } else {
+      document.addEventListener('DOMContentLoaded', addClickListener.bind(this))
+    }
+  }
+
+  async checkAuthenticated() {
     const isGoodUrl = document.location.href.includes(DEFAULT_PAGE_URL)
     const isConnectedElementPresent = Boolean(
       document.querySelector('#oecs__connecte')
@@ -382,14 +412,23 @@ class SoshContentScript extends ContentScript {
 
   async getUserDataFromWebsite() {
     this.log('info', '🤖 getUserDataFromWebsite starts')
-    await this.waitForElementInWorker('.dashboardConso__welcome')
-    const sourceAccountId = await this.runInWorker('getUserMail')
-    if (!sourceAccountId) {
+    const credentials = await this.getCredentials()
+    const credentialsLogin = credentials?.login
+    const storeLogin = this.store?.userCredentials?.login
+
+    // prefer credentials over user email since it may not be know by the user
+    let sourceAccountIdentifier = credentialsLogin || storeLogin
+    if (!sourceAccountIdentifier) {
+      await this.waitForElementInWorker('.dashboardConso__welcome')
+      sourceAccountIdentifier = await this.runInWorker('getUserMail')
+    }
+
+    if (!sourceAccountIdentifier) {
       throw new Error('Could not get a sourceAccountIdentifier')
     }
 
     return {
-      sourceAccountIdentifier: sourceAccountId
+      sourceAccountIdentifier: sourceAccountIdentifier
     }
   }
 
@@ -412,19 +451,6 @@ class SoshContentScript extends ContentScript {
 
   async getRecentBillsFromInterceptor() {
     return interceptor.recentBills
-  }
-
-  async findAndSendCredentials(loginField) {
-    this.log('info', 'getting in findAndSendCredentials')
-    let userLogin = loginField.innerHTML
-      .replace('<strong>', '')
-      .replace('</strong>', '')
-    let divPassword = document.querySelector('#password').value
-    const userCredentials = {
-      email: userLogin,
-      password: divPassword
-    }
-    return userCredentials
   }
 
   async fillForm(credentials) {
