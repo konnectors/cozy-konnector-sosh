@@ -5667,7 +5667,6 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   async navigateToLoginForm() {
     this.log('info', '🤖 navigateToLoginForm starts')
     await this.goto(LOGIN_FORM_PAGE)
-    this.log('debug', 'waiting for login page load...')
     await Promise.race([
       this.waitForElementInWorker('#login-label'),
       this.waitForElementInWorker('#password-label'),
@@ -5701,14 +5700,12 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       await this.waitForUserAction(captchaUrl)
     }
 
-    // The user is considered identified
     const isIdentificationPresent = await this.isElementInWorker(
       '#oecs__popin-icon-Identification'
     )
     this.log('info', 'isIdentificationPresent: ' + isIdentificationPresent)
 
     if (isIdentificationPresent) {
-      // always choose to change the user, easier to be sure what user we are in
       await this.clickAndWait(
         '#oecs__popin-icon-Identification',
         '#oecs__connecte-changer-utilisateur'
@@ -5720,45 +5717,12 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     }
 
     if (await this.isElementInWorker('#undefined-label')) {
-      this.log(
-        'info',
-        'Found "Utiliser un autre compte". Clicking it and waiting for login screen'
-      )
-      await this.runInWorker('waitForUndefinedLabelReallyClicked')
-      await this.waitForElementInWorker('#login-label')
+      await this.clickAndWait('#undefined-label', '#login-label')
     }
-    this.log('debug', 'End of navigateToLoginForm')
-  }
-
-  /**
-   * Sometimes, depending on the device, #undefined-label may not be clickable yet
-   * we click on it until it disappears
-   */
-  async waitForUndefinedLabelReallyClicked() {
-    await (0,p_wait_for__WEBPACK_IMPORTED_MODULE_2__["default"])(
-      function clickOnElementUntilItDisapear() {
-        const elem = document.querySelector('#undefined-label')
-        if (elem) {
-          elem.click()
-          return false
-        }
-        return true
-      },
-      {
-        interval: 100,
-        timeout: {
-          milliseconds: 30 * 1000,
-          message: new p_wait_for__WEBPACK_IMPORTED_MODULE_2__.TimeoutError(
-            `waitForUndefinedLabelReallyClicked timed out after ${30 * 1000}ms`
-          )
-        }
-      }
-    )
   }
 
   async ensureAuthenticated() {
     this.log('info', '🤖 ensureAuthenticated starts')
-    this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
     await this.navigateToLoginForm()
     const credentials = await this.getCredentials()
     if (credentials) {
@@ -5771,49 +5735,20 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.detectOrangeOnlyAccount()
   }
 
-  async onWorkerEvent({ event, payload }) {
-    if (event === 'loginSubmit') {
-      const { login, password } = payload || {}
-      if (login && password) {
-        this.store.userCredentials = { login, password }
-      } else {
-        this.log('warn', 'Did not manage to intercept credentials')
-      }
-    }
-  }
-
-  onWorkerReady() {
-    function addClickListener() {
-      document.body.addEventListener('click', e => {
-        const clickedElementId = e.target.getAttribute('id')
-        if (clickedElementId === 'btnSubmit') {
-          const login = document.querySelector(
-            `[data-testid=selected-account-login]`
-          )?.innerHTML
-          const password = document.querySelector('#password')?.value
-          this.bridge.emit('workerEvent', {
-            event: 'loginSubmit',
-            payload: { login, password }
-          })
-        }
+  async checkAuthenticated() {
+    const loginField = document.querySelector(
+      'p[data-testid="selected-account-login"]'
+    )
+    const passwordField = document.querySelector('#password')
+    if (loginField && passwordField) {
+      const userCredentials = await this.findAndSendCredentials.bind(this)(
+        loginField
+      )
+      this.log('info', 'Sending user credentials to Pilot')
+      this.sendToPilot({
+        userCredentials
       })
     }
-    if (!document?.body) {
-      log('info', 'no body, did not add dom event listener')
-      return
-    }
-
-    if (
-      document.readyState === 'complete' ||
-      document.readyState === 'loaded'
-    ) {
-      addClickListener.bind(this)()
-    } else {
-      document.addEventListener('DOMContentLoaded', addClickListener.bind(this))
-    }
-  }
-
-  async checkAuthenticated() {
     const isGoodUrl = document.location.href.includes(DEFAULT_PAGE_URL)
     const isConnectedElementPresent = Boolean(
       document.querySelector('#oecs__connecte')
@@ -6042,23 +5977,14 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async getUserDataFromWebsite() {
     this.log('info', '🤖 getUserDataFromWebsite starts')
-    const credentials = await this.getCredentials()
-    const credentialsLogin = credentials?.login
-    const storeLogin = this.store?.userCredentials?.login
-
-    // prefer credentials over user email since it may not be know by the user
-    let sourceAccountIdentifier = credentialsLogin || storeLogin
-    if (!sourceAccountIdentifier) {
-      await this.waitForElementInWorker('.dashboardConso__welcome')
-      sourceAccountIdentifier = await this.runInWorker('getUserMail')
-    }
-
-    if (!sourceAccountIdentifier) {
+    await this.waitForElementInWorker('.dashboardConso__welcome')
+    const sourceAccountId = await this.runInWorker('getUserMail')
+    if (!sourceAccountId) {
       throw new Error('Could not get a sourceAccountIdentifier')
     }
 
     return {
-      sourceAccountIdentifier: sourceAccountIdentifier
+      sourceAccountIdentifier: sourceAccountId
     }
   }
 
@@ -6080,6 +6006,19 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async getRecentBillsFromInterceptor() {
     return interceptor.recentBills
+  }
+
+  async findAndSendCredentials(loginField) {
+    this.log('info', 'getting in findAndSendCredentials')
+    let userLogin = loginField.innerHTML
+      .replace('<strong>', '')
+      .replace('</strong>', '')
+    let divPassword = document.querySelector('#password').value
+    const userCredentials = {
+      email: userLogin,
+      password: divPassword
+    }
+    return userCredentials
   }
 
   async fillForm(credentials) {
@@ -6203,8 +6142,7 @@ connector
       'waitForCaptchaResolution',
       'getFileName',
       'getRecentBillsFromInterceptor',
-      'getOldBillsFromWorker',
-      'waitForUndefinedLabelReallyClicked'
+      'getOldBillsFromWorker'
     ]
   })
   .catch(err => {
