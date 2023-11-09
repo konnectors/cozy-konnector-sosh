@@ -126,11 +126,18 @@ class SoshContentScript extends ContentScript {
     )
   }
 
-  async ensureAuthenticated() {
+  async ensureAuthenticated({ account }) {
     this.log('info', '🤖 ensureAuthenticated starts')
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
-    await this.navigateToLoginForm()
+
     const credentials = await this.getCredentials()
+
+    if (!account || !credentials) {
+      await this.ensureNotAuthenticated()
+    }
+
+    await this.navigateToLoginForm()
+
     if (credentials) {
       this.log('info', 'found credentials, processing')
       await this.tryAutoLogin(credentials)
@@ -139,6 +146,26 @@ class SoshContentScript extends ContentScript {
       await this.waitForUserAuthentication()
     }
     await this.detectOrangeOnlyAccount()
+  }
+
+  async ensureNotAuthenticated() {
+    this.log('info', '🤖 ensureNotAuthenticated starts')
+    await this.goto(DEFAULT_PAGE_URL)
+    await Promise.race([
+      this.waitForElementInWorker('#oecs__connecte-se-deconnecter'),
+      this.waitForElementInWorker('#oecs__connexion')
+    ])
+
+    const authenticated = await this.runInWorker('checkAuthenticated')
+    if (!authenticated) {
+      return true
+    }
+
+    await this.clickAndWait(
+      '#oecs__connecte-se-deconnecter',
+      '#oecs__connexion'
+    )
+    return true
   }
 
   async onWorkerEvent({ event, payload }) {
