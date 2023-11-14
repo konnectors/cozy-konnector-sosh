@@ -24,6 +24,8 @@ const JSON_HEADERS = {
 }
 
 const BASE_URL = 'https://www.sosh.fr'
+const LOGOUT_URL =
+  'https://iapref.sosh.fr/pkmslogout?comeback=https%3A%2F%2Flogin.orange.fr%2F%3Faction%3Dsupprimer%26return_url%3Dhttps%253A%252F%252Fwww.sosh.fr%252F'
 const DEFAULT_PAGE_URL = BASE_URL + '/client'
 const LOGIN_FORM_PAGE =
   'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
@@ -150,22 +152,8 @@ class SoshContentScript extends ContentScript {
 
   async ensureNotAuthenticated() {
     this.log('info', '🤖 ensureNotAuthenticated starts')
-    await this.goto(DEFAULT_PAGE_URL)
-    await Promise.race([
-      this.waitForElementInWorker('#oecs__connecte-se-deconnecter'),
-      this.waitForElementInWorker('#oecs__connexion')
-    ])
-
-    const authenticated = await this.runInWorker('checkAuthenticated')
-    if (!authenticated) {
-      return true
-    }
-
-    await this.clickAndWait(
-      '#oecs__connecte-se-deconnecter',
-      '#oecs__connexion'
-    )
-    return true
+    await this.goto(LOGOUT_URL)
+    await this.waitForElementInWorker('#oecs__connexion')
   }
 
   async onWorkerEvent({ event, payload }) {
