@@ -23,6 +23,7 @@ const JSON_HEADERS = {
   'Content-Type': 'application/json'
 }
 
+const ERROR_URL = 'https://e.orange.fr/error403.html?ref=idme-ssr&status=error'
 const BASE_URL = 'https://www.sosh.fr'
 const LOGOUT_URL =
   'https://iapref.sosh.fr/pkmslogout?comeback=https%3A%2F%2Flogin.orange.fr%2F%3Faction%3Dsupprimer%26return_url%3Dhttps%253A%252F%252Fwww.sosh.fr%252F'
@@ -36,18 +37,32 @@ class SoshContentScript extends ContentScript {
   // ///////
   // PILOT//
   // ///////
+  async PromiseRaceWithError(promises, msg) {
+    try {
+      this.log('debug', msg)
+      await Promise.race(promises)
+    } catch (err) {
+      this.log('error', err.message)
+      throw new Error(`${msg} failed to meet conditions`)
+    }
+  }
   async navigateToLoginForm() {
     this.log('info', '🤖 navigateToLoginForm starts')
     await this.goto(LOGIN_FORM_PAGE)
-    this.log('debug', 'waiting for login page load...')
-    await Promise.race([
-      this.waitForElementInWorker('#login-label'),
-      this.waitForElementInWorker('#password-label'),
-      this.waitForElementInWorker('button[data-testid="button-keepconnected"]'),
-      this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
-      this.waitForElementInWorker('#undefined-label'),
-      this.waitForElementInWorker('#oecs__popin-icon-Identification')
-    ])
+    await this.PromiseRaceWithError(
+      [
+        this.waitForElementInWorker('#login-label'),
+        this.waitForElementInWorker('#password-label'),
+        this.waitForElementInWorker(
+          'button[data-testid="button-keepconnected"]'
+        ),
+        this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
+        this.waitForElementInWorker('#undefined-label'),
+        this.waitForElementInWorker('#oecs__popin-icon-Identification'),
+        this.waitForErrorUrl()
+      ],
+      'navigateToLoginForm: waiting for login page load'
+    )
     const loginLabelPresent = await this.isElementInWorker('#login-label')
     this.log('info', 'loginLabelPresent: ' + loginLabelPresent)
     const passwordLabelPresent = await this.isElementInWorker('#password-label')
@@ -231,6 +246,30 @@ class SoshContentScript extends ContentScript {
     await this.autoLogin(credentials)
   }
 
+  async waitForErrorUrl() {
+    await this.runInWorkerUntilTrue({ method: 'checkErrorUrl' })
+    this.log('error', `Found error url: ${ERROR_URL}`)
+    throw new Error('VENDOR_DOWN')
+  }
+
+  async checkErrorUrl() {
+    await waitFor(
+      () => {
+        return window.location.href === ERROR_URL
+      },
+      {
+        interval: 1000,
+        timeout: {
+          milliseconds: 30 * 1000,
+          message: new TimeoutError(
+            `waitForErrorUrl timed out after ${30 * 1000}ms`
+          )
+        }
+      }
+    )
+    return true
+  }
+
   async autoLogin(credentials) {
     this.log('info', 'Autologin start')
     const emailSelector = '#login'
@@ -240,10 +279,16 @@ class SoshContentScript extends ContentScript {
     await this.runInWorker('fillForm', credentials)
     await this.runInWorker('click', loginButtonSelector)
 
-    await Promise.race([
-      this.waitForElementInWorker('button[data-testid="button-keepconnected"]'),
-      this.waitForElementInWorker(passwordInputSelector)
-    ])
+    await this.PromiseRaceWithError(
+      [
+        this.waitForElementInWorker(
+          'button[data-testid="button-keepconnected"]'
+        ),
+        this.waitForElementInWorker(passwordInputSelector),
+        this.waitForErrorUrl()
+      ],
+      'autoLogin: page load after submit'
+    )
 
     const isShowingKeepConnected = await this.isElementInWorker(
       'button[data-testid="button-keepconnected"]'
@@ -346,13 +391,16 @@ class SoshContentScript extends ContentScript {
     })
     await this.waitForElementInWorker('a[href*="/historique-des-factures"]')
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
-    await Promise.race([
-      this.waitForElementInWorker('[data-e2e="bh-more-bills"]'),
-      this.waitForElementInWorker('.alert-icon icon-error-severe'),
-      this.waitForElementInWorker(
-        '.alert-container alert-container-sm alert-danger mb-0'
-      )
-    ])
+    await this.PromiseRaceWithError(
+      [
+        this.waitForElementInWorker('[data-e2e="bh-more-bills"]'),
+        this.waitForElementInWorker('.alert-icon icon-error-severe'),
+        this.waitForElementInWorker(
+          '.alert-container alert-container-sm alert-danger mb-0'
+        )
+      ],
+      'fetchRecentBills: show bills history'
+    )
 
     const recentBills = await this.runInWorker('getRecentBillsFromInterceptor')
     const saveBillsEntries = []
@@ -590,7 +638,8 @@ connector
       'getFileName',
       'getRecentBillsFromInterceptor',
       'getOldBillsFromWorker',
-      'waitForUndefinedLabelReallyClicked'
+      'waitForUndefinedLabelReallyClicked',
+      'checkErrorUrl'
     ]
   })
   .catch(err => {
