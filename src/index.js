@@ -393,7 +393,7 @@ class SoshContentScript extends ContentScript {
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
     await this.PromiseRaceWithError(
       [
-        this.waitForElementInWorker('[data-e2e="bh-more-bills"]'),
+        this.runInWorkerUntilTrue({ method: 'checkMoreBillsButton' }),
         this.waitForElementInWorker('.alert-icon icon-error-severe'),
         this.waitForElementInWorker(
           '.alert-container alert-container-sm alert-danger mb-0'
@@ -445,6 +445,37 @@ class SoshContentScript extends ContentScript {
     // will be used to fetch old bills if needed
     const oldBillsUrl = recentBills.billsHistory.oldBillsHref
     return { recentBills: saveBillsEntries, oldBillsUrl }
+  }
+
+  async checkMoreBillsButton() {
+    this.log('info', '📍️ checkMoreBillsButton starts')
+    await waitFor(
+      () => {
+        const moreBillsButton = document.querySelector(
+          '[data-e2e="bh-more-bills"]'
+        )
+
+        if (moreBillsButton) {
+          this.log('info', 'moreBillsButton found, returning true')
+          return true
+        } else {
+          this.log('info', 'no moreBillsButton, checking bills length')
+          const billsLength = document.querySelectorAll(
+            '[data-e2e="bh-bill-table-line"]'
+          ).length
+          if (billsLength <= 12) {
+            this.log('info', '12 or less bills found')
+            return true
+          }
+          return false
+        }
+      },
+      {
+        interval: 1000,
+        timeout: 30 * 1000
+      }
+    )
+    return true
   }
 
   async navigateToPersonalInfos() {
@@ -639,7 +670,8 @@ connector
       'getRecentBillsFromInterceptor',
       'getOldBillsFromWorker',
       'waitForUndefinedLabelReallyClicked',
-      'checkErrorUrl'
+      'checkErrorUrl',
+      'checkMoreBillsButton'
     ]
   })
   .catch(err => {
