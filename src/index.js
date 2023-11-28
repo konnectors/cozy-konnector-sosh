@@ -146,23 +146,22 @@ class SoshContentScript extends ContentScript {
   async ensureAuthenticated({ account }) {
     this.log('info', '🤖 ensureAuthenticated starts')
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
-
     const credentials = await this.getCredentials()
 
     if (!account || !credentials) {
       await this.ensureNotAuthenticated()
     }
-
     await this.navigateToLoginForm()
-
-    if (credentials) {
-      this.log('info', 'found credentials, processing')
-      await this.tryAutoLogin(credentials)
-    } else {
-      this.log('info', 'no credentials found, use normal user login')
-      await this.waitForUserAuthentication()
+    if (await this.isElementInWorker('#password, #login')) {
+      if (credentials) {
+        this.log('info', 'found credentials, processing')
+        await this.tryAutoLogin(credentials)
+      } else {
+        this.log('info', 'no credentials found, use normal user login')
+        await this.waitForUserAuthentication()
+      }
+      await this.detectOrangeOnlyAccount()
     }
-    await this.detectOrangeOnlyAccount()
   }
 
   async ensureNotAuthenticated() {
@@ -275,9 +274,13 @@ class SoshContentScript extends ContentScript {
     const emailSelector = '#login'
     const passwordInputSelector = '#password'
     const loginButtonSelector = '#btnSubmit'
-    await this.waitForElementInWorker(emailSelector)
-    await this.runInWorker('fillForm', credentials)
-    await this.runInWorker('click', loginButtonSelector)
+    await this.waitForElementInWorker(
+      `${emailSelector}, ${passwordInputSelector}`
+    )
+    if (await this.isElementInWorker(emailSelector)) {
+      await this.runInWorker('fillForm', credentials)
+      await this.runInWorker('click', loginButtonSelector)
+    }
 
     await this.PromiseRaceWithError(
       [
@@ -312,7 +315,14 @@ class SoshContentScript extends ContentScript {
     if (this.store.userCredentials != undefined) {
       await this.saveCredentials(this.store.userCredentials)
     }
-
+    if (await this.isElementInWorker('#password')) {
+      await this.evaluateInWorker(function reload() {
+        document.location.reload()
+      })
+      await this.waitForElementInWorker('a', {
+        includesText: 'Consulter votre facture'
+      })
+    }
     const { recentBills, oldBillsUrl } = await this.fetchRecentBills()
     await this.saveBills(recentBills, {
       context,
@@ -550,7 +560,7 @@ class SoshContentScript extends ContentScript {
   async fillForm(credentials) {
     if (document.querySelector('#login')) {
       this.log('info', 'filling email field')
-      document.querySelector('#login').value = credentials.email
+      document.querySelector('#login').value = credentials.login
       return
     }
     if (document.querySelector('#password')) {
