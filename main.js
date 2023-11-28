@@ -5778,23 +5778,22 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   async ensureAuthenticated({ account }) {
     this.log('info', '🤖 ensureAuthenticated starts')
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
-
     const credentials = await this.getCredentials()
 
     if (!account || !credentials) {
       await this.ensureNotAuthenticated()
     }
-
     await this.navigateToLoginForm()
-
-    if (credentials) {
-      this.log('info', 'found credentials, processing')
-      await this.tryAutoLogin(credentials)
-    } else {
-      this.log('info', 'no credentials found, use normal user login')
-      await this.waitForUserAuthentication()
+    if (await this.isElementInWorker('#password, #login')) {
+      if (credentials) {
+        this.log('info', 'found credentials, processing')
+        await this.tryAutoLogin(credentials)
+      } else {
+        this.log('info', 'no credentials found, use normal user login')
+        await this.waitForUserAuthentication()
+      }
+      await this.detectOrangeOnlyAccount()
     }
-    await this.detectOrangeOnlyAccount()
   }
 
   async ensureNotAuthenticated() {
@@ -5907,9 +5906,13 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     const emailSelector = '#login'
     const passwordInputSelector = '#password'
     const loginButtonSelector = '#btnSubmit'
-    await this.waitForElementInWorker(emailSelector)
-    await this.runInWorker('fillForm', credentials)
-    await this.runInWorker('click', loginButtonSelector)
+    await this.waitForElementInWorker(
+      `${emailSelector}, ${passwordInputSelector}`
+    )
+    if (await this.isElementInWorker(emailSelector)) {
+      await this.runInWorker('fillForm', credentials)
+      await this.runInWorker('click', loginButtonSelector)
+    }
 
     await this.PromiseRaceWithError(
       [
@@ -5944,7 +5947,14 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     if (this.store.userCredentials != undefined) {
       await this.saveCredentials(this.store.userCredentials)
     }
-
+    if (await this.isElementInWorker('#password')) {
+      await this.evaluateInWorker(function reload() {
+        document.location.reload()
+      })
+      await this.waitForElementInWorker('a', {
+        includesText: 'Consulter votre facture'
+      })
+    }
     const { recentBills, oldBillsUrl } = await this.fetchRecentBills()
     await this.saveBills(recentBills, {
       context,
@@ -6025,7 +6035,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
     await this.PromiseRaceWithError(
       [
-        this.waitForElementInWorker('[data-e2e="bh-more-bills"]'),
+        this.runInWorkerUntilTrue({ method: 'checkMoreBillsButton' }),
         this.waitForElementInWorker('.alert-icon icon-error-severe'),
         this.waitForElementInWorker(
           '.alert-container alert-container-sm alert-danger mb-0'
@@ -6077,6 +6087,37 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     // will be used to fetch old bills if needed
     const oldBillsUrl = recentBills.billsHistory.oldBillsHref
     return { recentBills: saveBillsEntries, oldBillsUrl }
+  }
+
+  async checkMoreBillsButton() {
+    this.log('info', '📍️ checkMoreBillsButton starts')
+    await (0,p_wait_for__WEBPACK_IMPORTED_MODULE_2__["default"])(
+      () => {
+        const moreBillsButton = document.querySelector(
+          '[data-e2e="bh-more-bills"]'
+        )
+
+        if (moreBillsButton) {
+          this.log('info', 'moreBillsButton found, returning true')
+          return true
+        } else {
+          this.log('info', 'no moreBillsButton, checking bills length')
+          const billsLength = document.querySelectorAll(
+            '[data-e2e="bh-bill-table-line"]'
+          ).length
+          if (billsLength <= 12) {
+            this.log('info', '12 or less bills found')
+            return true
+          }
+          return false
+        }
+      },
+      {
+        interval: 1000,
+        timeout: 30 * 1000
+      }
+    )
+    return true
   }
 
   async navigateToPersonalInfos() {
@@ -6150,7 +6191,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   async fillForm(credentials) {
     if (document.querySelector('#login')) {
       this.log('info', 'filling email field')
-      document.querySelector('#login').value = credentials.email
+      document.querySelector('#login').value = credentials.login
       return
     }
     if (document.querySelector('#password')) {
@@ -6270,7 +6311,8 @@ connector
       'getRecentBillsFromInterceptor',
       'getOldBillsFromWorker',
       'waitForUndefinedLabelReallyClicked',
-      'checkErrorUrl'
+      'checkErrorUrl',
+      'checkMoreBillsButton'
     ]
   })
   .catch(err => {
