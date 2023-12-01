@@ -319,28 +319,86 @@ class SoshContentScript extends ContentScript {
       await this.evaluateInWorker(function reload() {
         document.location.reload()
       })
+      await Promise.race([
+        this.waitForElementInWorker('a', {
+          includesText: 'Consulter votre facture'
+        }),
+        this.waitForElementInWorker('.dashboardConso__contracts li')
+      ])
+    }
+    let numberOfContracts = 1
+    if (await this.isElementInWorker('.dashboardConso__contracts li')) {
+      await this.runInWorker('getNumberOfContracts')
+      // If we found the contractSelection state, we need to choose the first of the list
+      // to reach the wanted page for the rest of the execution
+      await this.runInWorker('click', 'button', {
+        includesText: `${this.store.allContractsInfos[0].phone}`
+      })
       await this.waitForElementInWorker('a', {
         includesText: 'Consulter votre facture'
       })
     }
-    const { recentBills, oldBillsUrl } = await this.fetchRecentBills()
-    await this.saveBills(recentBills, {
-      context,
-      fileIdAttributes: ['vendorRef'],
-      contentType: 'application/pdf',
-      qualificationLabel: 'isp_invoice'
-    })
-    const oldBills = await this.fetchOldBills({ oldBillsUrl })
-    await this.saveBills(oldBills, {
-      context,
-      fileIdAttributes: ['vendorRef'],
-      contentType: 'application/pdf',
-      qualificationLabel: 'isp_invoice'
-    })
+    if (this.store.allContractsInfos) {
+      const contractsLength = this.store.allContractsInfos.length
+      this.log('info', `Found ${contractsLength} contracts`)
+      numberOfContracts = contractsLength
+    }
+    for (let i = 0; i < numberOfContracts; i++) {
+      const { recentBills, oldBillsUrl } = await this.fetchRecentBills()
+      await this.saveBills(recentBills, {
+        context,
+        fileIdAttributes: ['vendorRef'],
+        contentType: 'application/pdf',
+        qualificationLabel: 'isp_invoice'
+      })
+      const oldBills = await this.fetchOldBills({ oldBillsUrl })
+      await this.saveBills(oldBills, {
+        context,
+        fileIdAttributes: ['vendorRef'],
+        contentType: 'application/pdf',
+        qualificationLabel: 'isp_invoice'
+      })
+      if (numberOfContracts > 1 && i + 1 <= numberOfContracts) {
+        await this.navigateToNextContract(i + 1)
+      }
+    }
 
     await this.navigateToPersonalInfos()
     await this.runInWorker('getIdentity')
     await this.saveIdentity(this.store.infosIdentity)
+  }
+
+  async getNumberOfContracts() {
+    this.log('info', '📍️ getNumberOfContracts starts')
+    const contractsElements = document.querySelectorAll(
+      '.dashboardConso__contracts li'
+    )
+    let allContractsInfos = []
+    for (const contract of contractsElements) {
+      const contractInfos = contract.textContent
+        .match(/([A-Za-z])*\s(\d{2}\s\d{2}\s\d{2}\s\d{2}\s\d{2})/g)[0]
+        .split(/(?<=\D)\s/)
+      const [type, phone] = contractInfos
+      allContractsInfos.push({ type, phone })
+    }
+    await this.sendToPilot({ allContractsInfos })
+  }
+
+  async navigateToNextContract(index) {
+    this.log('info', '📍️ navigateToNextContract starts')
+    const wantedContractNumber = this.store.allContractsInfos[index].phone
+    await this.goto(DEFAULT_PAGE_URL)
+    // Here we're using those three tags because we don't know exactly what element we need
+    // but we know it must be clickable
+    await this.waitForElementInWorker('button, a, div', {
+      includesText: `${wantedContractNumber}`
+    })
+    await this.runInWorker('click', 'button, a, div', {
+      includesText: `${wantedContractNumber}`
+    })
+    await this.waitForElementInWorker('a', {
+      includesText: 'Consulter votre facture'
+    })
   }
 
   async fetchOldBills({ oldBillsUrl }) {
@@ -681,7 +739,8 @@ connector
       'getOldBillsFromWorker',
       'waitForUndefinedLabelReallyClicked',
       'checkErrorUrl',
-      'checkMoreBillsButton'
+      'checkMoreBillsButton',
+      'getNumberOfContracts'
     ]
   })
   .catch(err => {
