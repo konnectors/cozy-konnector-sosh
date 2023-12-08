@@ -390,10 +390,10 @@ class SoshContentScript extends ContentScript {
     await this.goto(DEFAULT_PAGE_URL)
     // Here we're using those three tags because we don't know exactly what element we need
     // but we know it must be clickable
-    await this.waitForElementInWorker('button, a, div', {
+    await this.waitForElementInWorker('span', {
       includesText: `${wantedContractNumber}`
     })
-    await this.runInWorker('click', 'button, a, div', {
+    await this.runInWorker('click', 'span', {
       includesText: `${wantedContractNumber}`
     })
     await this.waitForElementInWorker('a', {
