@@ -82,6 +82,7 @@ var s = 1000;
 var m = 60 * s;
 var DEFAULT_LOGIN_TIMEOUT = 5 * m;
 var DEFAULT_WAIT_FOR_ELEMENT_TIMEOUT = 30 * s;
+var DEFAULT_WAIT_FOR_ELEMENT_ACCROSS_PAGES_TIMEOUT = 60 * s;
 var PILOT_TYPE = 'pilot';
 exports.PILOT_TYPE = PILOT_TYPE;
 var WORKER_TYPE = 'worker';
@@ -608,6 +609,8 @@ var ContentScript = /*#__PURE__*/function () {
     key: "waitForElementInWorker",
     value: function () {
       var _waitForElementInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee9(selector) {
+        var _options$timeout;
+
         var options,
             _args9 = arguments;
         return _regenerator.default.wrap(function _callee9$(_context9) {
@@ -619,7 +622,7 @@ var ContentScript = /*#__PURE__*/function () {
                 _context9.next = 4;
                 return this.runInWorkerUntilTrue({
                   method: 'waitForElementNoReload',
-                  timeout: options === null || options === void 0 ? void 0 : options.timeout,
+                  timeout: (_options$timeout = options === null || options === void 0 ? void 0 : options.timeout) !== null && _options$timeout !== void 0 ? _options$timeout : DEFAULT_WAIT_FOR_ELEMENT_ACCROSS_PAGES_TIMEOUT,
                   args: [selector, {
                     includesText: options.includesText
                   }]
@@ -846,8 +849,8 @@ var ContentScript = /*#__PURE__*/function () {
     /**
      * Click on a given element and wait for another given element to be displayed on screen
      *
-     * @param {string} elementToClick
-     * @param {string} elementToWait
+     * @param {string} elementToClick - css selector of the dom element to click in worker
+     * @param {string} elementToWait - css selector of the dom element to wait in worker
      * @returns {Promise<void>}
      */
 
@@ -5464,7 +5467,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.27.3","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^41.2.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"e63eb10142aacdb5445d77e5f496ff3e26c227af"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.28.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^41.2.0","ky":"^0.25.1","lodash":"^4.17.21","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"03d39117a692491d1418fea03ebd8ca536650e83"}');
 
 /***/ }),
 /* 46 */
