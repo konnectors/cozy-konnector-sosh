@@ -2017,16 +2017,17 @@ cozy-client@^41.2.0:
     sift "^6.0.0"
     url-search-params-polyfill "^8.0.0"
 
-cozy-clisk@^0.28.1:
-  version "0.28.1"
-  resolved "https://registry.yarnpkg.com/cozy-clisk/-/cozy-clisk-0.28.1.tgz#c64a052853e83d9100c3b29fbfded56c9f6c781c"
-  integrity sha512-VIz1UK1DgxJQlUiKFoPVTAGCxyQImCmVwidd8FlAUxmE5xmlCNRNXWnt8zyAxC2Bhvj04ofAI4BmF7wk0QBHmw==
+cozy-clisk@^0.29.0:
+  version "0.29.0"
+  resolved "https://registry.yarnpkg.com/cozy-clisk/-/cozy-clisk-0.29.0.tgz#813d0f568e338e236a7bc03be47f8a0167b9b877"
+  integrity sha512-QQetzvhLGMgcbTc5kJE9MQMjZOWh5JSQNyvr/PpD3OoayEQz9HnmZtmOKeIug+ioWL4RIeZX+QXY4AjPDODYOg==
   dependencies:
     "@cozy/minilog" "^1.0.0"
     bluebird-retry "^0.11.0"
     cozy-client "^41.2.0"
     ky "^0.25.1"
     lodash "^4.17.21"
+    p-timeout "^6.0.0"
     p-wait-for "^5.0.2"
     post-me "^0.4.5"
 
