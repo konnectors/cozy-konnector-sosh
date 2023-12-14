@@ -2017,10 +2017,10 @@ cozy-client@^41.2.0:
     sift "^6.0.0"
     url-search-params-polyfill "^8.0.0"
 
-cozy-clisk@^0.29.0:
-  version "0.29.0"
-  resolved "https://registry.yarnpkg.com/cozy-clisk/-/cozy-clisk-0.29.0.tgz#813d0f568e338e236a7bc03be47f8a0167b9b877"
-  integrity sha512-QQetzvhLGMgcbTc5kJE9MQMjZOWh5JSQNyvr/PpD3OoayEQz9HnmZtmOKeIug+ioWL4RIeZX+QXY4AjPDODYOg==
+cozy-clisk@^0.30.0:
+  version "0.30.0"
+  resolved "https://registry.yarnpkg.com/cozy-clisk/-/cozy-clisk-0.30.0.tgz#88692520978fe9c547441b2d867ad35e0e0095bd"
+  integrity sha512-zEeTZ3PFwDBMWW5E7j7veyGvZtsKPyzP4c+KItDubGzu+HDfy0rpFM9XjmGv3zVtO7gHwxEAvy5JJJjB5WhFlg==
   dependencies:
     "@cozy/minilog" "^1.0.0"
     bluebird-retry "^0.11.0"
