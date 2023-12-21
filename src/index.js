@@ -655,12 +655,23 @@ class SoshContentScript extends ContentScript {
       interceptor.userInfos.portfolio?.contracts?.[0]?.telco?.publicNumber
     const address = []
     if (addressInfos) {
+      const houseNumber = addressInfos.postalAddress?.streetNumber?.number
+      const streetType = addressInfos.postalAddress?.street?.type
+      const streetName = addressInfos.postalAddress?.street?.name
+      const street =
+        streetType && streetName ? `${streetType} ${streetName}` : undefined
+      const postCode = addressInfos.postalAddress?.postalCode
+      const city = addressInfos.postalAddress?.cityName
+      const formattedAddress =
+        houseNumber && street && postCode && city
+          ? `${houseNumber} ${street} ${postCode} ${city}`
+          : undefined
       address.push({
-        houseNumber: addressInfos.postalAddress.streetNumber.number,
-        street: `${addressInfos.postalAddress.street.type} ${addressInfos.postalAddress.street.name}`,
-        postCode: addressInfos.postalAddress.postalCode,
-        city: addressInfos.postalAddress.cityName,
-        formattedAddress: `${address.houseNumber} ${address.street} ${address.postCode} ${address.city}`
+        houseNumber,
+        street,
+        postCode,
+        city,
+        formattedAddress
       })
     }
     const infosIdentity = {
