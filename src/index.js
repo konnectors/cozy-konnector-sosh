@@ -548,20 +548,21 @@ class SoshContentScript extends ContentScript {
 
   async navigateToPersonalInfos() {
     this.log('info', 'navigateToPersonalInfos starts')
-    await this.clickAndWait(
-      'a[href="/compte?sosh="]',
-      'a[href="/compte/infos-perso"]'
-    )
-    await this.clickAndWait(
-      'a[href="/compte/infos-perso"]',
-      'div[data-e2e="e2e-personal-info-identity"]'
-    )
+    await this.runInWorker('click', 'a[href="/compte?sosh="]')
+    await this.waitForElementInWorker('p', {
+      includesText: 'Infos de contact'
+    }),
+    await this.runInWorker('click', 'p', { includesText: 'Infos de contact' })
     await Promise.all([
-      this.waitForElementInWorker('div[data-e2e="e2e-personal-info-identity"]'),
       this.waitForElementInWorker(
-        'a[href="/compte/modification-moyens-contact"]'
+        'a[data-e2e="btn-contact-info-modifier-votre-identite"]'
       ),
-      this.waitForElementInWorker('a[href="/compte/adresse"]')
+      this.waitForElementInWorker(
+        'a[data-e2e="btn-contact-info-modifier-vos-coordonnees"]'
+      ),
+      this.waitForElementInWorker(
+        'a[data-e2e="btn-contact-info-modifier-vos-adresses-postales"]'
+      )
     ])
   }
 
