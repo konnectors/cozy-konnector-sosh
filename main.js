@@ -72,11 +72,19 @@ var _umd = _interopRequireDefault(__webpack_require__(44));
 
 var _package = _interopRequireDefault(__webpack_require__(45));
 
+var _utils2 = __webpack_require__(46);
+
 var _window;
 
 function _getRequireWildcardCache(nodeInterop) { if (typeof WeakMap !== "function") return null; var cacheBabelInterop = new WeakMap(); var cacheNodeInterop = new WeakMap(); return (_getRequireWildcardCache = function _getRequireWildcardCache(nodeInterop) { return nodeInterop ? cacheNodeInterop : cacheBabelInterop; })(nodeInterop); }
 
 function _interopRequireWildcard(obj, nodeInterop) { if (!nodeInterop && obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(nodeInterop); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (key !== "default" && Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it.return != null) it.return(); } finally { if (didErr) throw err; } } }; }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
 
 var _log = (0, _minilog.default)('ContentScript class');
 
@@ -1067,15 +1075,15 @@ var ContentScript = /*#__PURE__*/function () {
      * - download files when not filtered out
      * - converts blob files to base64 uri to be serializable
      *
-     * @param {Array} entries : list of file entries to save
-     * @param {object} options : saveFiles options
+     * @param {Array<import('../launcher/saveFiles').saveFilesEntry & {shouldReplaceFile: Function}>} entries : list of file entries to save
+     * @param {import('../launcher/saveFiles').saveFileOptions & {context: object, shouldReplaceFile: Function}} options : saveFiles options
      */
 
   }, {
     key: "saveFiles",
     value: function () {
       var _saveFiles = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee19(entries, options) {
-        var context;
+        var context, updatedEntries;
         return _regenerator.default.wrap(function _callee19$(_context19) {
           while (1) {
             switch (_context19.prev = _context19.next) {
@@ -1094,13 +1102,14 @@ var ContentScript = /*#__PURE__*/function () {
                 throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
 
               case 6:
-                _context19.next = 8;
-                return this.bridge.call('saveFiles', entries, options);
-
-              case 8:
-                return _context19.abrupt("return", _context19.sent);
+                updatedEntries = this.prepareSaveFileEntries(entries, options);
+                _context19.next = 9;
+                return this.bridge.call('saveFiles', updatedEntries, options);
 
               case 9:
+                return _context19.abrupt("return", _context19.sent);
+
+              case 10:
               case "end":
                 return _context19.stop();
             }
@@ -1114,6 +1123,50 @@ var ContentScript = /*#__PURE__*/function () {
 
       return saveFiles;
     }()
+    /**
+     * Prepare entries to be given to launcher saveFiles. Especially function attributes which will not be serialized to the launcher
+     *
+     * @param {Array<import('../launcher/saveFiles').saveFilesEntry & {shouldReplaceFile?: Function}>} entries
+     * @param {import('../launcher/saveFiles').saveFileOptions & {context: object, shouldReplaceFile?: Function}} options
+     */
+
+  }, {
+    key: "prepareSaveFileEntries",
+    value: function prepareSaveFileEntries(entries, options) {
+      var _options$context;
+
+      var existingFilesIndex = (options === null || options === void 0 ? void 0 : (_options$context = options.context) === null || _options$context === void 0 ? void 0 : _options$context.existingFilesIndex) || {};
+      var updatedEntries = (0, _toConsumableArray2.default)(entries);
+
+      var _iterator = _createForOfIteratorHelper(updatedEntries),
+          _step;
+
+      try {
+        for (_iterator.s(); !(_step = _iterator.n()).done;) {
+          var entry = _step.value;
+
+          if (entry.forceReplaceFile === true || entry.forceReplaceFile === false) {
+            // entry.forceReplaceFile has priority over shouldReplaceFile function
+            continue;
+          }
+
+          var shouldReplaceFileFn = entry.shouldReplaceFile || options.shouldReplaceFile;
+
+          if (shouldReplaceFileFn) {
+            var existingFile = existingFilesIndex[(0, _utils2.calculateFileKey)(entry, options.fileIdAttributes)];
+            entry.forceReplaceFile = shouldReplaceFileFn(existingFile, entry, options);
+            entry === null || entry === void 0 ? true : delete entry.shouldReplaceFile;
+          }
+        }
+      } catch (err) {
+        _iterator.e(err);
+      } finally {
+        _iterator.f();
+      }
+
+      options === null || options === void 0 ? true : delete options.shouldReplaceFile;
+      return updatedEntries;
+    }
     /**
      * Query all the documents corresponding to the given query object. The client with permissions corresponding
      * to the current konnector manifest will be used.
@@ -5516,10 +5569,146 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.30.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^41.2.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"655ec05dd8d3712b6d4afe92da785f32b1f9cce2"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.31.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^41.2.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"a7802a990d8f27e31a9fbcf7e4bf490afb16a32a"}');
 
 /***/ }),
 /* 46 */
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+
+var _interopRequireDefault = __webpack_require__(2);
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports.dataUriToArrayBuffer = exports.calculateFileKey = void 0;
+
+var _slicedToArray2 = _interopRequireDefault(__webpack_require__(47));
+
+/**
+ * @typedef ArrayBufferWithContentType
+ * @property {string} contentType - dataUri included content type
+ * @property {ArrayBuffer} arrayBuffer - resulting decoded data
+ */
+
+/**
+ * Converts a data URI string to an Array Buffer with its content Type
+ *
+ * @param {string} dataURI - data URI string containing content type and base64 encoded data
+ * @returns {ArrayBufferWithContentType} : array buffer with content type
+ */
+var dataUriToArrayBuffer = function dataUriToArrayBuffer(dataURI) {
+  var parsed = dataURI.match(/^data:(.*);base64,(.*)$/);
+
+  if (parsed === null) {
+    throw new Error('dataUriToArrayBuffer: dataURI is malformed. Should be in the form data:...;base64,...');
+  }
+
+  var _parsed$slice = parsed.slice(1),
+      _parsed$slice2 = (0, _slicedToArray2.default)(_parsed$slice, 2),
+      contentType = _parsed$slice2[0],
+      base64String = _parsed$slice2[1];
+
+  var byteString = __webpack_require__.g.atob(base64String);
+  var arrayBuffer = new ArrayBuffer(byteString.length);
+  var ia = new Uint8Array(arrayBuffer);
+
+  for (var i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+
+  return {
+    contentType: contentType,
+    arrayBuffer: arrayBuffer
+  };
+};
+/**
+ * Calculate the file key from an entry given to saveFiles
+ *
+ * @param {import('../launcher/saveFiles').saveFilesEntry} entry - a savefiles entry
+ * @param {Array<string>} fileIdAttributes - list of entry attributes which will be used to identify the entry in a unique way
+ * @returns {string} - The resulting file key
+ */
+
+
+exports.dataUriToArrayBuffer = dataUriToArrayBuffer;
+
+var calculateFileKey = function calculateFileKey(entry, fileIdAttributes) {
+  return fileIdAttributes.sort().map(function (key) {
+    return entry === null || entry === void 0 ? void 0 : entry[key];
+  }).join('####');
+};
+
+exports.calculateFileKey = calculateFileKey;
+
+/***/ }),
+/* 47 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var arrayWithHoles = __webpack_require__(48);
+var iterableToArrayLimit = __webpack_require__(49);
+var unsupportedIterableToArray = __webpack_require__(11);
+var nonIterableRest = __webpack_require__(50);
+function _slicedToArray(arr, i) {
+  return arrayWithHoles(arr) || iterableToArrayLimit(arr, i) || unsupportedIterableToArray(arr, i) || nonIterableRest();
+}
+module.exports = _slicedToArray, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+/***/ }),
+/* 48 */
+/***/ ((module) => {
+
+function _arrayWithHoles(arr) {
+  if (Array.isArray(arr)) return arr;
+}
+module.exports = _arrayWithHoles, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+/***/ }),
+/* 49 */
+/***/ ((module) => {
+
+function _iterableToArrayLimit(arr, i) {
+  var _i = null == arr ? null : "undefined" != typeof Symbol && arr[Symbol.iterator] || arr["@@iterator"];
+  if (null != _i) {
+    var _s,
+      _e,
+      _x,
+      _r,
+      _arr = [],
+      _n = !0,
+      _d = !1;
+    try {
+      if (_x = (_i = _i.call(arr)).next, 0 === i) {
+        if (Object(_i) !== _i) return;
+        _n = !1;
+      } else for (; !(_n = (_s = _x.call(_i)).done) && (_arr.push(_s.value), _arr.length !== i); _n = !0);
+    } catch (err) {
+      _d = !0, _e = err;
+    } finally {
+      try {
+        if (!_n && null != _i["return"] && (_r = _i["return"](), Object(_r) !== _r)) return;
+      } finally {
+        if (_d) throw _e;
+      }
+    }
+    return _arr;
+  }
+}
+module.exports = _iterableToArrayLimit, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+/***/ }),
+/* 50 */
+/***/ ((module) => {
+
+function _nonIterableRest() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+module.exports = _nonIterableRest, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+/***/ }),
+/* 51 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -5681,7 +5870,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var p_wait_for__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(18);
 /* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(44);
 /* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(ky_umd__WEBPACK_IMPORTED_MODULE_4__);
-/* harmony import */ var _interceptor__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(46);
+/* harmony import */ var _interceptor__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(51);
 /* eslint-disable no-console */
 
 
