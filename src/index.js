@@ -59,6 +59,7 @@ class SoshContentScript extends ContentScript {
         this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
         this.waitForElementInWorker('#undefined-label'),
         this.waitForElementInWorker('#oecs__popin-icon-Identification'),
+        this.waitForElementInWorker('#changeAccountLink'),
         this.waitForErrorUrl()
       ],
       'navigateToLoginForm: waiting for login page load'
@@ -104,6 +105,14 @@ class SoshContentScript extends ContentScript {
         '#oecs__connecte-changer-utilisateur',
         '#undefined-label'
       )
+    }
+
+    const isChangAccountLinkPresent = await this.isElementInWorker(
+      '#changeAccountLink'
+    )
+    this.log('info', 'isChangAccountLinkPresent: ' + isChangAccountLinkPresent)
+    if (isChangAccountLinkPresent) {
+      await this.clickAndWait('#changeAccountLink', '#undefined-label')
     }
 
     if (await this.isElementInWorker('#undefined-label')) {
@@ -298,6 +307,7 @@ class SoshContentScript extends ContentScript {
         this.waitForElementInWorker(
           'button[data-testid="button-keepconnected"]'
         ),
+        this.waitForElementInWorker('button[data-testid="button-reload"]'),
         this.waitForElementInWorker(passwordInputSelector),
         this.waitForErrorUrl()
       ],
@@ -308,6 +318,14 @@ class SoshContentScript extends ContentScript {
       'button[data-testid="button-keepconnected"]'
     )
     this.log('info', 'isShowingKeepConnected: ' + isShowingKeepConnected)
+    const isShowingButtonReload = await this.isElementInWorker(
+      'button[data-testid="button-reload"]'
+    )
+    this.log('info', 'isShowingButtonReload: ' + isShowingButtonReload)
+
+    if (isShowingButtonReload) {
+      await this.runInWorker('click', 'button[data-testid="button-reload"]')
+    }
 
     if (isShowingKeepConnected) {
       await this.runInWorker(
