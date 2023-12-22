@@ -164,6 +164,18 @@ class SoshContentScript extends ContentScript {
     }
   }
 
+  async getContracts() {
+    return interceptor.userInfos.portfolio.contracts
+      .map(contract => ({
+        vendorId: contract.cid,
+        brand: contract.brand.toLowerCase(),
+        label: contract.offerName,
+        type: contract.vertical.toLowerCase() === 'mobile' ? 'phone' : 'isp',
+        holder: contract.holder
+      }))
+      .filter(contract => contract.brand === 'sosh')
+  }
+
   async ensureNotAuthenticated() {
     this.log('info', '🤖 ensureNotAuthenticated starts')
     await this.goto(LOGOUT_URL)
@@ -326,41 +338,35 @@ class SoshContentScript extends ContentScript {
         this.waitForElementInWorker('.dashboardConso__contracts li')
       ])
     }
-    let numberOfContracts = 1
-    if (await this.isElementInWorker('.dashboardConso__contracts li')) {
-      await this.runInWorker('getNumberOfContracts')
-      // If we found the contractSelection state, we need to choose the first of the list
-      // to reach the wanted page for the rest of the execution
-      await this.runInWorker('click', 'button', {
-        includesText: `${this.store.allContractsInfos[0].phone}`
-      })
-      await this.waitForElementInWorker('a', {
-        includesText: 'Consulter votre facture'
-      })
-    }
-    if (this.store.allContractsInfos) {
-      const contractsLength = this.store.allContractsInfos.length
-      this.log('info', `Found ${contractsLength} contracts`)
-      numberOfContracts = contractsLength
-    }
-    for (let i = 0; i < numberOfContracts; i++) {
-      const { recentBills, oldBillsUrl } = await this.fetchRecentBills()
+    await this.goto('https://espace-client.orange.fr/accueil?sosh=')
+    await this.waitForElementInWorker('.menu')
+
+    const contracts = await this.runInWorker('getContracts')
+
+    for (const contract of contracts) {
+      const { recentBills, oldBillsUrl } = await this.fetchRecentBills(
+        contract.vendorId
+      )
       await this.saveBills(recentBills, {
         context,
         fileIdAttributes: ['vendorRef'],
         contentType: 'application/pdf',
-        qualificationLabel: 'isp_invoice'
+        subPath: `${contract.label} - ${contract.vendorId}`,
+        qualificationLabel:
+          contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
-      const oldBills = await this.fetchOldBills({ oldBillsUrl })
+      const oldBills = await this.fetchOldBills({
+        oldBillsUrl,
+        vendorId: contract.vendorId
+      })
       await this.saveBills(oldBills, {
         context,
         fileIdAttributes: ['vendorRef'],
         contentType: 'application/pdf',
-        qualificationLabel: 'isp_invoice'
+        subPath: `${contract.label} - ${contract.vendorId}`,
+        qualificationLabel:
+          contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
-      if (numberOfContracts > 1 && i + 1 <= numberOfContracts) {
-        await this.navigateToNextContract(i + 1)
-      }
     }
 
     await this.navigateToPersonalInfos()
@@ -401,13 +407,13 @@ class SoshContentScript extends ContentScript {
     })
   }
 
-  async fetchOldBills({ oldBillsUrl }) {
+  async fetchOldBills({ oldBillsUrl, vendorId }) {
     this.log('info', 'fetching old bills')
     const { oldBills } = await this.runInWorker(
       'getOldBillsFromWorker',
       oldBillsUrl
     )
-    const cid = oldBillsUrl.split('=').pop()
+    const cid = vendorId
 
     const saveBillsEntries = []
     for (const bill of oldBills) {
@@ -450,13 +456,10 @@ class SoshContentScript extends ContentScript {
     return saveBillsEntries
   }
 
-  async fetchRecentBills() {
-    await this.waitForElementInWorker('a', {
-      includesText: 'Consulter votre facture'
-    })
-    await this.runInWorker('click', 'a', {
-      includesText: 'Consulter votre facture'
-    })
+  async fetchRecentBills(vendorId) {
+    await this.goto(
+      'https://espace-client.orange.fr/facture-paiement/' + vendorId
+    )
     await this.waitForElementInWorker('a[href*="/historique-des-factures"]')
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
     await this.PromiseRaceWithError(
@@ -752,7 +755,8 @@ connector
       'waitForUndefinedLabelReallyClicked',
       'checkErrorUrl',
       'checkMoreBillsButton',
-      'getNumberOfContracts'
+      'getNumberOfContracts',
+      'getContracts'
     ]
   })
   .catch(err => {
