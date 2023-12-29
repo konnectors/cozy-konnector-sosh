@@ -417,22 +417,6 @@ class SoshContentScript extends ContentScript {
     await this.logout()
   }
 
-  async getNumberOfContracts() {
-    this.log('info', '📍️ getNumberOfContracts starts')
-    const contractsElements = document.querySelectorAll(
-      '.dashboardConso__contracts li'
-    )
-    let allContractsInfos = []
-    for (const contract of contractsElements) {
-      const contractInfos = contract.textContent
-        .match(/([A-Za-z])*\s(\d{2}\s\d{2}\s\d{2}\s\d{2}\s\d{2})/g)[0]
-        .split(/(?<=\D)\s/)
-      const [type, phone] = contractInfos
-      allContractsInfos.push({ type, phone })
-    }
-    await this.sendToPilot({ allContractsInfos })
-  }
-
   async navigateToNextContract(index) {
     this.log('info', '📍️ navigateToNextContract starts')
     const wantedContractNumber = this.store.allContractsInfos[index].phone
@@ -783,7 +767,6 @@ connector
       'waitForUndefinedLabelReallyClicked',
       'checkErrorUrl',
       'checkMoreBillsButton',
-      'getNumberOfContracts',
       'getContracts'
     ]
   })
