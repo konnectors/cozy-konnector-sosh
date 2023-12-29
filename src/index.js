@@ -230,9 +230,12 @@ class SoshContentScript extends ContentScript {
       .map(contract => ({
         vendorId: contract.cid,
         brand: contract.brand.toLowerCase(),
-        label: contract.offerName,
+        label: contract.offerName.match(/\d{1,3},\d{2}€/)
+          ? contract.offerName.replace(/\s\d{1,3},\d{2}€/, '')
+          : contract.offerName,
         type: contract.vertical.toLowerCase() === 'mobile' ? 'phone' : 'isp',
-        holder: contract.holder
+        holder: contract.holder,
+        number: contract.telco.publicNumber
       }))
       .filter(contract => contract.brand === 'sosh')
   }
@@ -392,7 +395,7 @@ class SoshContentScript extends ContentScript {
         context,
         fileIdAttributes: ['vendorRef'],
         contentType: 'application/pdf',
-        subPath: `${contract.label} - ${contract.vendorId}`,
+        subPath: `${contract.number} - ${contract.label} - ${contract.vendorId}`,
         qualificationLabel:
           contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
@@ -404,7 +407,7 @@ class SoshContentScript extends ContentScript {
         context,
         fileIdAttributes: ['vendorRef'],
         contentType: 'application/pdf',
-        subPath: `${contract.label} - ${contract.vendorId}`,
+        subPath: `${contract.number} - ${contract.label} - ${contract.vendorId}`,
         qualificationLabel:
           contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
