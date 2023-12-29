@@ -37,6 +37,60 @@ class SoshContentScript extends ContentScript {
   // ///////
   // PILOT//
   // ///////
+  async onWorkerEvent({ event, payload }) {
+    if (event === 'loginSubmit') {
+      const { login, password } = payload || {}
+      if (login && password) {
+        this.store.userCredentials = { login, password }
+      } else {
+        this.log('warn', 'Did not manage to intercept credentials')
+      }
+    }
+  }
+
+  async onWorkerReady() {
+    function addClickListener() {
+      document.body.addEventListener('click', e => {
+        const clickedElementId = e.target.getAttribute('id')
+        const clickedElementContent = e.target.textContent
+        if (
+          clickedElementId === 'btnSubmit' &&
+          clickedElementContent !== 'Continuer'
+        ) {
+          const login = document.querySelector(
+            `[data-testid=selected-account-login]`
+          )?.textContent
+          const password = document.querySelector('#password')?.value
+          this.bridge.emit('workerEvent', {
+            event: 'loginSubmit',
+            payload: { login, password }
+          })
+        }
+      })
+    }
+    // Necessary here for the interception to cover every known scenarios
+    // Doing so we ensure if the logout leads to the password step that the listener won't start until the user has filled up the login
+    await this.waitForElementNoReload('#login')
+    await this.waitForElementNoReload('#password')
+    if (
+      !(await this.checkForElement('#remember')) &&
+      (await this.checkForElement('#password'))
+    ) {
+      this.log(
+        'warn',
+        'Cannot find the rememberMe checkbox, logout might not work as expected'
+      )
+    } else {
+      const checkBox = document.querySelector('#remember')
+      checkBox.click()
+      // Setting the visibility to hidden on the parent to make the element disapear
+      // preventing users to click it
+      checkBox.parentNode.parentNode.style.visibility = 'hidden'
+    }
+    this.log('info', 'password element found, adding listener')
+    addClickListener.bind(this)()
+  }
+
   async PromiseRaceWithError(promises, msg) {
     try {
       this.log('debug', msg)
@@ -156,8 +210,7 @@ class SoshContentScript extends ContentScript {
     this.log('info', '🤖 ensureAuthenticated starts')
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
     const credentials = await this.getCredentials()
-
-    if (!account || !credentials) {
+    if (!account) {
       await this.ensureNotAuthenticated()
     }
     await this.navigateToLoginForm()
@@ -188,48 +241,6 @@ class SoshContentScript extends ContentScript {
     this.log('info', '🤖 ensureNotAuthenticated starts')
     await this.goto(LOGOUT_URL)
     await this.waitForElementInWorker('#oecs__connexion')
-  }
-
-  async onWorkerEvent({ event, payload }) {
-    if (event === 'loginSubmit') {
-      const { login, password } = payload || {}
-      if (login && password) {
-        this.store.userCredentials = { login, password }
-      } else {
-        this.log('warn', 'Did not manage to intercept credentials')
-      }
-    }
-  }
-
-  onWorkerReady() {
-    function addClickListener() {
-      document.body.addEventListener('click', e => {
-        const clickedElementId = e.target.getAttribute('id')
-        if (clickedElementId === 'btnSubmit') {
-          const login = document.querySelector(
-            `[data-testid=selected-account-login]`
-          )?.innerHTML
-          const password = document.querySelector('#password')?.value
-          this.bridge.emit('workerEvent', {
-            event: 'loginSubmit',
-            payload: { login, password }
-          })
-        }
-      })
-    }
-    if (!document?.body) {
-      log('info', 'no body, did not add dom event listener')
-      return
-    }
-
-    if (
-      document.readyState === 'complete' ||
-      document.readyState === 'loaded'
-    ) {
-      addClickListener.bind(this)()
-    } else {
-      document.addEventListener('DOMContentLoaded', addClickListener.bind(this))
-    }
   }
 
   async checkAuthenticated() {
