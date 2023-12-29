@@ -339,6 +339,19 @@ class SoshContentScript extends ContentScript {
     await this.runInWorker('click', loginButtonSelector)
   }
 
+  async logout() {
+    this.log('info', '📍️ logout starts')
+    try {
+      await this.clickAndWait(
+        '#oecs__connecte-se-deconnecter',
+        '#oecs__connexion'
+      )
+    } catch (e) {
+      log('error', 'Not completly disconnected, never found the second link')
+      throw e
+    }
+  }
+
   async fetch(context) {
     this.log('info', '🤖 fetch start')
     if (this.store.userCredentials != undefined) {
@@ -389,6 +402,8 @@ class SoshContentScript extends ContentScript {
     await this.navigateToPersonalInfos()
     await this.runInWorker('getIdentity')
     await this.saveIdentity(this.store.infosIdentity)
+    // Logging out every run to avoid in between scenarios and sosh/orange mismatched sessions
+    await this.logout()
   }
 
   async getNumberOfContracts() {
