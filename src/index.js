@@ -25,11 +25,10 @@ const JSON_HEADERS = {
 
 const ERROR_URL = 'https://e.orange.fr/error403.html?ref=idme-ssr&status=error'
 const BASE_URL = 'https://www.sosh.fr'
-const LOGOUT_URL =
-  'https://iapref.sosh.fr/pkmslogout?comeback=https%3A%2F%2Flogin.orange.fr%2F%3Faction%3Dsupprimer%26return_url%3Dhttps%253A%252F%252Fwww.sosh.fr%252F'
 const DEFAULT_PAGE_URL = BASE_URL + '/client'
 const LOGIN_FORM_PAGE =
   'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
+let FORCE_FETCH_ALL = false
 const interceptor = new XhrInterceptor()
 interceptor.init()
 
@@ -37,6 +36,60 @@ class SoshContentScript extends ContentScript {
   // ///////
   // PILOT//
   // ///////
+  async onWorkerEvent({ event, payload }) {
+    if (event === 'loginSubmit') {
+      const { login, password } = payload || {}
+      if (login && password) {
+        this.store.userCredentials = { login, password }
+      } else {
+        this.log('warn', 'Did not manage to intercept credentials')
+      }
+    }
+  }
+
+  async onWorkerReady() {
+    function addClickListener() {
+      document.body.addEventListener('click', e => {
+        const clickedElementId = e.target.getAttribute('id')
+        const clickedElementContent = e.target.textContent
+        if (
+          clickedElementId === 'btnSubmit' &&
+          clickedElementContent !== 'Continuer'
+        ) {
+          const login = document.querySelector(
+            `[data-testid=selected-account-login]`
+          )?.textContent
+          const password = document.querySelector('#password')?.value
+          this.bridge.emit('workerEvent', {
+            event: 'loginSubmit',
+            payload: { login, password }
+          })
+        }
+      })
+    }
+    // Necessary here for the interception to cover every known scenarios
+    // Doing so we ensure if the logout leads to the password step that the listener won't start until the user has filled up the login
+    await this.waitForElementNoReload('#login')
+    await this.waitForElementNoReload('#password')
+    if (
+      !(await this.checkForElement('#remember')) &&
+      (await this.checkForElement('#password'))
+    ) {
+      this.log(
+        'warn',
+        'Cannot find the rememberMe checkbox, logout might not work as expected'
+      )
+    } else {
+      const checkBox = document.querySelector('#remember')
+      checkBox.click()
+      // Setting the visibility to hidden on the parent to make the element disapear
+      // preventing users to click it
+      checkBox.parentNode.parentNode.style.visibility = 'hidden'
+    }
+    this.log('info', 'password element found, adding listener')
+    addClickListener.bind(this)()
+  }
+
   async PromiseRaceWithError(promises, msg) {
     try {
       this.log('debug', msg)
@@ -46,8 +99,13 @@ class SoshContentScript extends ContentScript {
       throw new Error(`${msg} failed to meet conditions`)
     }
   }
+
   async navigateToLoginForm() {
     this.log('info', '🤖 navigateToLoginForm starts')
+    if (await this.isElementInWorker('#login-label')) {
+      this.log('info', 'Already on loginPage, returning true')
+      return true
+    }
     await this.goto(LOGIN_FORM_PAGE)
     await this.PromiseRaceWithError(
       [
@@ -58,8 +116,7 @@ class SoshContentScript extends ContentScript {
         ),
         this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
         this.waitForElementInWorker('#undefined-label'),
-        this.waitForElementInWorker('#oecs__popin-icon-Identification'),
-        this.waitForErrorUrl()
+        this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
       ],
       'navigateToLoginForm: waiting for login page load'
     )
@@ -79,42 +136,18 @@ class SoshContentScript extends ContentScript {
       '#undefined-label'
     )
     this.log('info', 'undefinedLabelPresent: ' + undefinedLabelPresent)
-
-    const { askForCaptcha, captchaUrl } = await this.runInWorker(
-      'checkForCaptcha'
-    )
-    if (askForCaptcha) {
-      this.log('info', 'captcha found, waiting for resolution')
-      await this.waitForUserAction(captchaUrl)
-    }
-
-    // The user is considered identified
-    const isIdentificationPresent = await this.isElementInWorker(
-      '#oecs__popin-icon-Identification'
-    )
-    this.log('info', 'isIdentificationPresent: ' + isIdentificationPresent)
-
-    if (isIdentificationPresent) {
-      // always choose to change the user, easier to be sure what user we are in
-      await this.clickAndWait(
-        '#oecs__popin-icon-Identification',
-        '#oecs__connecte-changer-utilisateur'
+    await this.handleCaptcha()
+    await this.handleKeepConnected('changeAccount')
+    // This is necessary for specific logout/autoLogin scenario.
+    // If the connector had crashed on last execution we could get a captcha on first navigation
+    // and a new one after the logout to reach back loginPage
+    if (!(await this.isElementInWorker('#login'))) {
+      await this.runInWorker('click', '#oecs__connexion')
+      await this.waitForElementInWorker(
+        '#login, div[class*="captcha_responseContainer"]'
       )
-      await this.clickAndWait(
-        '#oecs__connecte-changer-utilisateur',
-        '#undefined-label'
-      )
+      await this.handleCaptcha()
     }
-
-    if (await this.isElementInWorker('#undefined-label')) {
-      this.log(
-        'info',
-        'Found "Utiliser un autre compte". Clicking it and waiting for login screen'
-      )
-      await this.runInWorker('waitForUndefinedLabelReallyClicked')
-      await this.waitForElementInWorker('#login-label')
-    }
-    this.log('debug', 'End of navigateToLoginForm')
   }
 
   /**
@@ -146,70 +179,64 @@ class SoshContentScript extends ContentScript {
   async ensureAuthenticated({ account }) {
     this.log('info', '🤖 ensureAuthenticated starts')
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
-    const credentials = await this.getCredentials()
-
-    if (!account || !credentials) {
+    if (!account) {
       await this.ensureNotAuthenticated()
     }
     await this.navigateToLoginForm()
-    if (await this.isElementInWorker('#password, #login')) {
-      if (credentials) {
-        this.log('info', 'found credentials, processing')
-        await this.tryAutoLogin(credentials)
-      } else {
-        this.log('info', 'no credentials found, use normal user login')
-        await this.waitForUserAuthentication()
-      }
-      await this.detectOrangeOnlyAccount()
+    const credentials = await this.getCredentials()
+    if (credentials) {
+      this.log('info', 'found credentials, processing')
+      await this.tryAutoLogin(credentials)
+    } else {
+      this.log('info', 'no credentials found, use normal user login')
+      await this.waitForUserAuthentication()
     }
+  }
+
+  async getContracts() {
+    return interceptor.userInfos.portfolio.contracts
+      .map(contract => ({
+        vendorId: contract.cid,
+        brand: contract.brand.toLowerCase(),
+        label: contract.offerName.match(/\d{1,3},\d{2}€/)
+          ? contract.offerName.replace(/\s\d{1,3},\d{2}€/, '')
+          : contract.offerName,
+        type: contract.vertical.toLowerCase() === 'mobile' ? 'phone' : 'isp',
+        holder: contract.holder,
+        number: contract.telco.publicNumber
+      }))
+      .filter(contract => contract.brand === 'sosh')
   }
 
   async ensureNotAuthenticated() {
     this.log('info', '🤖 ensureNotAuthenticated starts')
-    await this.goto(LOGOUT_URL)
-    await this.waitForElementInWorker('#oecs__connexion')
-  }
-
-  async onWorkerEvent({ event, payload }) {
-    if (event === 'loginSubmit') {
-      const { login, password } = payload || {}
-      if (login && password) {
-        this.store.userCredentials = { login, password }
-      } else {
-        this.log('warn', 'Did not manage to intercept credentials')
-      }
+    await this.goto(DEFAULT_PAGE_URL)
+    await this.waitForElementInWorker(
+      '#login, #password, div[class*="captcha_responseContainer"], button[data-testid="button-keepconnected"], #oecs__connexion, #oecs__connecte-se-deconnecter'
+    )
+    // Website could trigger a captcha when reaching for homePage, it's weird but it happen, so we're covering the case
+    await this.handleCaptcha()
+    const connectionButton = await this.isElementInWorker('#oecs__connexion')
+    const loginInput = await this.isElementInWorker('#login')
+    if (connectionButton || loginInput) {
+      this.log('info', 'Already logged out, continue')
+      return true
     }
-  }
-
-  onWorkerReady() {
-    function addClickListener() {
-      document.body.addEventListener('click', e => {
-        const clickedElementId = e.target.getAttribute('id')
-        if (clickedElementId === 'btnSubmit') {
-          const login = document.querySelector(
-            `[data-testid=selected-account-login]`
-          )?.innerHTML
-          const password = document.querySelector('#password')?.value
-          this.bridge.emit('workerEvent', {
-            event: 'loginSubmit',
-            payload: { login, password }
-          })
-        }
-      })
+    const isLogged = await this.isElementInWorker(
+      '#oecs__connecte-se-deconnecter'
+    )
+    if (isLogged) {
+      await this.logout()
+      return true
     }
-    if (!document?.body) {
-      log('info', 'no body, did not add dom event listener')
-      return
+    const isLoggedOut = await this.handleKeepConnected('logout')
+    if (isLoggedOut) {
+      this.log('info', 'handleKeepConnected - Logout successful')
+      return true
     }
-
-    if (
-      document.readyState === 'complete' ||
-      document.readyState === 'loaded'
-    ) {
-      addClickListener.bind(this)()
-    } else {
-      document.addEventListener('DOMContentLoaded', addClickListener.bind(this))
-    }
+    this.log('info', 'Case unknown, trying to logout')
+    await this.logout()
+    return true
   }
 
   async checkAuthenticated() {
@@ -269,6 +296,69 @@ class SoshContentScript extends ContentScript {
     return true
   }
 
+  async handleCaptcha() {
+    this.log('info', '📍️ handleCaptcha starts')
+    const { askForCaptcha, captchaUrl } = await this.runInWorker(
+      'checkForCaptcha'
+    )
+    if (askForCaptcha) {
+      this.log('info', 'captcha found, waiting for resolution')
+      await this.waitForUserAction(captchaUrl)
+    }
+  }
+  // Options are mandatory because we don't wanna handle the keepConnected/alreadyConnected scenario the same way
+  // In one scenario we just need to go back to the first loginStep
+  // In the other we wanna click the keepConnected button, because it indicates last connection has been done with the "rememberMe" radio checked
+  // and logout completly is needed to avoid orange/sosh problems as well as too many scenarios to handle.
+  async handleKeepConnected(option) {
+    this.log('info', `📍️ handleKeepConnected for ${option} starts`)
+    const isShowingKeepConnected = await this.isElementInWorker(
+      'button[data-testid="button-keepconnected"]'
+    )
+    const isShowingPasswordStep = await this.isElementInWorker('#password')
+    const isShowingLoginStep = await this.isElementInWorker('#login-label')
+    const isLogged = await this.isElementInWorker(
+      '#oecs__connecte-se-deconnecter'
+    )
+    if (isLogged) {
+      this.log('info', 'User is logged, simply logging out')
+      await this.logout()
+      return true
+    }
+    this.log('info', 'isShowingKeepConnected: ' + isShowingKeepConnected)
+    this.log('info', 'isShowingPasswordStep: ' + isShowingPasswordStep)
+    if (isShowingLoginStep) {
+      this.log('info', `Last action leads directly to login step`)
+      return true
+    }
+    if (option === 'changeAccount') {
+      // always choose to login on another account
+      if (isShowingKeepConnected || isShowingPasswordStep) {
+        await this.clickAndWait('#changeAccountLink', '#undefined-label')
+        if (await this.isElementInWorker('#undefined-label')) {
+          await this.clickAndWait('#undefined-label', '#login-label')
+        }
+        return true
+      }
+    }
+    if (option === 'logout') {
+      if (isShowingKeepConnected) {
+        await this.clickAndWait(
+          'button[data-testid="button-keepconnected"]',
+          '.menu'
+        )
+        await this.logout()
+        return true
+      }
+    }
+    this.log('warn', `Option "${option}" leads to unknown case`)
+    this.log(
+      'warn',
+      `isShowingKeepConnected : ${isShowingKeepConnected} | isShowingPasswordStep : ${isShowingPasswordStep} | isShowingLoginStep : ${isShowingLoginStep}`
+    )
+    return false
+  }
+
   async autoLogin(credentials) {
     this.log('info', 'Autologin start')
     const emailSelector = '#login'
@@ -287,6 +377,7 @@ class SoshContentScript extends ContentScript {
         this.waitForElementInWorker(
           'button[data-testid="button-keepconnected"]'
         ),
+        this.waitForElementInWorker('button[data-testid="button-reload"]'),
         this.waitForElementInWorker(passwordInputSelector),
         this.waitForErrorUrl()
       ],
@@ -297,6 +388,14 @@ class SoshContentScript extends ContentScript {
       'button[data-testid="button-keepconnected"]'
     )
     this.log('info', 'isShowingKeepConnected: ' + isShowingKeepConnected)
+    const isShowingButtonReload = await this.isElementInWorker(
+      'button[data-testid="button-reload"]'
+    )
+    this.log('info', 'isShowingButtonReload: ' + isShowingButtonReload)
+
+    if (isShowingButtonReload) {
+      await this.runInWorker('click', 'button[data-testid="button-reload"]')
+    }
 
     if (isShowingKeepConnected) {
       await this.runInWorker(
@@ -310,8 +409,22 @@ class SoshContentScript extends ContentScript {
     await this.runInWorker('click', loginButtonSelector)
   }
 
+  async logout() {
+    this.log('info', '📍️ logout starts')
+    try {
+      await this.clickAndWait(
+        '#oecs__connecte-se-deconnecter',
+        '#oecs__connexion'
+      )
+    } catch (e) {
+      log('error', 'Not completly disconnected, never found the second link')
+      throw e
+    }
+  }
+
   async fetch(context) {
     this.log('info', '🤖 fetch start')
+    const distanceInDays = await this.handleContextInfos(context)
     if (this.store.userCredentials != undefined) {
       await this.saveCredentials(this.store.userCredentials)
     }
@@ -326,62 +439,68 @@ class SoshContentScript extends ContentScript {
         this.waitForElementInWorker('.dashboardConso__contracts li')
       ])
     }
-    let numberOfContracts = 1
-    if (await this.isElementInWorker('.dashboardConso__contracts li')) {
-      await this.runInWorker('getNumberOfContracts')
-      // If we found the contractSelection state, we need to choose the first of the list
-      // to reach the wanted page for the rest of the execution
-      await this.runInWorker('click', 'button', {
-        includesText: `${this.store.allContractsInfos[0].phone}`
-      })
-      await this.waitForElementInWorker('a', {
-        includesText: 'Consulter votre facture'
-      })
-    }
-    if (this.store.allContractsInfos) {
-      const contractsLength = this.store.allContractsInfos.length
-      this.log('info', `Found ${contractsLength} contracts`)
-      numberOfContracts = contractsLength
-    }
-    for (let i = 0; i < numberOfContracts; i++) {
-      const { recentBills, oldBillsUrl } = await this.fetchRecentBills()
+    await this.goto('https://espace-client.orange.fr/accueil?sosh=')
+    await this.waitForElementInWorker('.menu')
+
+    const contracts = await this.runInWorker('getContracts')
+
+    for (const contract of contracts) {
+      const { recentBills, oldBillsUrl } = await this.fetchRecentBills(
+        contract.vendorId,
+        distanceInDays
+      )
       await this.saveBills(recentBills, {
         context,
         fileIdAttributes: ['vendorRef'],
         contentType: 'application/pdf',
-        qualificationLabel: 'isp_invoice'
+        subPath: `${contract.number} - ${contract.label} - ${contract.vendorId}`,
+        qualificationLabel:
+          contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
-      const oldBills = await this.fetchOldBills({ oldBillsUrl })
-      await this.saveBills(oldBills, {
-        context,
-        fileIdAttributes: ['vendorRef'],
-        contentType: 'application/pdf',
-        qualificationLabel: 'isp_invoice'
-      })
-      if (numberOfContracts > 1 && i + 1 <= numberOfContracts) {
-        await this.navigateToNextContract(i + 1)
+      if (FORCE_FETCH_ALL) {
+        const oldBills = await this.fetchOldBills({
+          oldBillsUrl,
+          vendorId: contract.vendorId
+        })
+        await this.saveBills(oldBills, {
+          context,
+          fileIdAttributes: ['vendorRef'],
+          contentType: 'application/pdf',
+          subPath: `${contract.number} - ${contract.label} - ${contract.vendorId}`,
+          qualificationLabel:
+            contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
+        })
       }
     }
 
     await this.navigateToPersonalInfos()
     await this.runInWorker('getIdentity')
-    await this.saveIdentity(this.store.infosIdentity)
+    await this.saveIdentity({ contact: this.store.infosIdentity })
+    // Logging out every run to avoid in between scenarios and sosh/orange mismatched sessions
+    await this.logout()
   }
 
-  async getNumberOfContracts() {
-    this.log('info', '📍️ getNumberOfContracts starts')
-    const contractsElements = document.querySelectorAll(
-      '.dashboardConso__contracts li'
+  async handleContextInfos(context) {
+    this.log('info', '📍️ handleContextInfos starts')
+    const { trigger } = context
+    // force fetch all data (the long way) when last trigger execution is older than 90 days
+    // or when the last job was an error
+    const isLastJobError =
+      trigger.current_state?.last_failure > trigger.current_state?.last_success
+    const hasLastExecution = Boolean(trigger.current_state?.last_execution)
+    const distanceInDays = getDateDistanceInDays(
+      trigger.current_state?.last_execution
     )
-    let allContractsInfos = []
-    for (const contract of contractsElements) {
-      const contractInfos = contract.textContent
-        .match(/([A-Za-z])*\s(\d{2}\s\d{2}\s\d{2}\s\d{2}\s\d{2})/g)[0]
-        .split(/(?<=\D)\s/)
-      const [type, phone] = contractInfos
-      allContractsInfos.push({ type, phone })
+    this.log('debug', `distanceInDays: ${distanceInDays}`)
+    if (distanceInDays >= 90 || !hasLastExecution || isLastJobError) {
+      this.log('info', '🐢️ Long execution')
+      this.log('debug', `isLastJobError: ${isLastJobError}`)
+      this.log('debug', `hasLastExecution: ${hasLastExecution}`)
+      FORCE_FETCH_ALL = true
+    } else {
+      this.log('info', '🐇️ Quick execution')
     }
-    await this.sendToPilot({ allContractsInfos })
+    return distanceInDays
   }
 
   async navigateToNextContract(index) {
@@ -401,13 +520,13 @@ class SoshContentScript extends ContentScript {
     })
   }
 
-  async fetchOldBills({ oldBillsUrl }) {
+  async fetchOldBills({ oldBillsUrl, vendorId }) {
     this.log('info', 'fetching old bills')
     const { oldBills } = await this.runInWorker(
       'getOldBillsFromWorker',
       oldBillsUrl
     )
-    const cid = oldBillsUrl.split('=').pop()
+    const cid = vendorId
 
     const saveBillsEntries = []
     for (const bill of oldBills) {
@@ -450,13 +569,10 @@ class SoshContentScript extends ContentScript {
     return saveBillsEntries
   }
 
-  async fetchRecentBills() {
-    await this.waitForElementInWorker('a', {
-      includesText: 'Consulter votre facture'
-    })
-    await this.runInWorker('click', 'a', {
-      includesText: 'Consulter votre facture'
-    })
+  async fetchRecentBills(vendorId, distanceInDays) {
+    await this.goto(
+      'https://espace-client.orange.fr/facture-paiement/' + vendorId
+    )
     await this.waitForElementInWorker('a[href*="/historique-des-factures"]')
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
     await this.PromiseRaceWithError(
@@ -470,9 +586,26 @@ class SoshContentScript extends ContentScript {
       'fetchRecentBills: show bills history'
     )
 
+    let billsToFetch
     const recentBills = await this.runInWorker('getRecentBillsFromInterceptor')
     const saveBillsEntries = []
-    for (const bill of recentBills.billsHistory.billList) {
+    if (!FORCE_FETCH_ALL) {
+      const allRecentBills = recentBills.billsHistory.billList
+      // FORCE_FETCH_ALL being define priorly, if we're meeting this condition,
+      // we just need to look for 3 month back maximum.
+      // In order to get the fastest execution possible, we're checking how many months we got to cover since last execution
+      // as the website is providing one bill a month in most cases, while special cases will be covered from one month to another.
+      let numberToFetch = Math.ceil(distanceInDays / 30)
+      this.log(
+        'info',
+        `Fetching ${numberToFetch} ${numberToFetch > 1 ? 'bills' : 'bill'}`
+      )
+      billsToFetch = allRecentBills.slice(0, numberToFetch)
+    } else {
+      this.log('info', 'Fetching all bills')
+      billsToFetch = recentBills.billsHistory.billList
+    }
+    for (const bill of billsToFetch) {
       const amount = bill.amount / 100
       const vendorRef = bill.id || bill.tecId
       saveBillsEntries.push({
@@ -551,7 +684,7 @@ class SoshContentScript extends ContentScript {
     await this.runInWorker('click', 'a[href="/compte?sosh="]')
     await this.waitForElementInWorker('p', {
       includesText: 'Infos de contact'
-    }),
+    })
     await this.runInWorker('click', 'p', { includesText: 'Infos de contact' })
     await Promise.all([
       this.waitForElementInWorker(
@@ -629,23 +762,14 @@ class SoshContentScript extends ContentScript {
     }
   }
 
-  async detectOrangeOnlyAccount() {
-    await this.goto(DEFAULT_PAGE_URL)
-    await this.waitForElementInWorker('strong')
-    const isSosh = await this.runInWorker(
-      'checkForElement',
-      `#oecs__logo[href="https://www.sosh.fr/"]`
-    )
-    this.log('info', 'isSosh ' + isSosh)
-    if (!isSosh) {
+  async getUserMail() {
+    const foundAddress = window.o_idzone?.USER_MAIL_ADDRESS
+    if (!foundAddress) {
       throw new Error(
-        'This should be sosh account. Found only orange contracts'
+        'Neither credentials or user mail address found, unexpected page reached'
       )
     }
-  }
-
-  async getUserMail() {
-    return window.o_idzone?.USER_MAIL_ADDRESS
+    return foundAddress
   }
 
   async getIdentity() {
@@ -752,7 +876,7 @@ connector
       'waitForUndefinedLabelReallyClicked',
       'checkErrorUrl',
       'checkMoreBillsButton',
-      'getNumberOfContracts'
+      'getContracts'
     ]
   })
   .catch(err => {
@@ -765,4 +889,11 @@ async function hashVendorRef(vendorRef) {
   const hashArray = Array.from(new Uint8Array(hashBuffer)) // convert buffer to byte array
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('') // convert bytes to hex string
   return hashHex
+}
+
+function getDateDistanceInDays(dateString) {
+  const distanceMs = Date.now() - new Date(dateString).getTime()
+  const days = 1000 * 60 * 60 * 24
+
+  return Math.floor(distanceMs / days)
 }
