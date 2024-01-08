@@ -107,14 +107,19 @@ class SoshContentScript extends ContentScript {
       return true
     }
     await this.goto(LOGIN_FORM_PAGE)
-    await Promise.race([
-      this.waitForElementInWorker('#login-label'),
-      this.waitForElementInWorker('#password-label'),
-      this.waitForElementInWorker('button[data-testid="button-keepconnected"]'),
-      this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
-      this.waitForElementInWorker('#undefined-label'),
-      this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
-    ])
+    await this.PromiseRaceWithError(
+      [
+        this.waitForElementInWorker('#login-label'),
+        this.waitForElementInWorker('#password-label'),
+        this.waitForElementInWorker(
+          'button[data-testid="button-keepconnected"]'
+        ),
+        this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
+        this.waitForElementInWorker('#undefined-label'),
+        this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
+      ],
+      'navigateToLoginForm: waiting for login page load'
+    )
     const loginLabelPresent = await this.isElementInWorker('#login-label')
     this.log('info', 'loginLabelPresent: ' + loginLabelPresent)
     const passwordLabelPresent = await this.isElementInWorker('#password-label')
@@ -209,6 +214,7 @@ class SoshContentScript extends ContentScript {
     await this.waitForElementInWorker(
       '#login, #password, div[class*="captcha_responseContainer"], button[data-testid="button-keepconnected"], #oecs__connexion, #oecs__connecte-se-deconnecter'
     )
+    // Website could trigger a captcha when reaching for homePage, it's weird but it happen, so we're covering the case
     await this.handleCaptcha()
     const connectionButton = await this.isElementInWorker('#oecs__connexion')
     const loginInput = await this.isElementInWorker('#login')
