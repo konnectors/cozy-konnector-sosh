@@ -114,7 +114,7 @@ class SoshContentScript extends ContentScript {
         return true
       },
       {
-        interval: 100,
+        interval: 1000,
         timeout: {
           milliseconds: 30 * 1000,
           message: new TimeoutError(
@@ -210,7 +210,10 @@ class SoshContentScript extends ContentScript {
         'button[data-testid="button-keepconnected"]'
       )
     } else if (currentState === 'accountListPage') {
-      await this.runInWorker('click', '#undefined-label')
+      await this.runInWorkerUntilTrue({
+        method: 'waitForUndefinedLabelReallyClicked',
+        timeout: 10 * 1000
+      })
     } else if (currentState === 'reloadButtonPage') {
       await this.runInWorker('click', 'button[data-testid="button-reload"]')
     } else if (currentState === 'disconnectedPage') {
@@ -255,8 +258,8 @@ class SoshContentScript extends ContentScript {
     let state = await this.runInWorker('getCurrentState')
     while (state !== 'loginPage') {
       this.log('debug', `current state: ${state}`)
-      if (Date.now() - start > 30 * 1000) {
-        throw new Error('ensureNotAuthenticated took more than 30s')
+      if (Date.now() - start > 300 * 1000) {
+        throw new Error('ensureNotAuthenticated took more than 5m')
       }
       await this.triggerNextState(state)
       state = await this.runInWorkerUntilTrue({
@@ -297,7 +300,10 @@ class SoshContentScript extends ContentScript {
   }
 
   async waitForErrorUrl() {
-    await this.runInWorkerUntilTrue({ method: 'checkErrorUrl' })
+    await this.runInWorkerUntilTrue({
+      method: 'checkErrorUrl',
+      timeout: 10 * 1000
+    })
     this.log('error', `Found error url: ${ERROR_URL}`)
     throw new Error('VENDOR_DOWN')
   }
@@ -534,7 +540,10 @@ class SoshContentScript extends ContentScript {
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
     await this.PromiseRaceWithError(
       [
-        this.runInWorkerUntilTrue({ method: 'checkMoreBillsButton' }),
+        this.runInWorkerUntilTrue({
+          method: 'checkMoreBillsButton',
+          timeout: 10 * 1000
+        }),
         this.waitForElementInWorker('.alert-icon icon-error-severe'),
         this.waitForElementInWorker(
           '.alert-container alert-container-sm alert-danger mb-0'
