@@ -69,8 +69,7 @@ class SoshContentScript extends ContentScript {
     }
     // Necessary here for the interception to cover every known scenarios
     // Doing so we ensure if the logout leads to the password step that the listener won't start until the user has filled up the login
-    await this.waitForElementNoReload('#login')
-    await this.waitForElementNoReload('#password')
+    await this.waitForDomReady()
     if (
       !(await this.checkForElement('#remember')) &&
       (await this.checkForElement('#password'))
