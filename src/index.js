@@ -751,8 +751,8 @@ class SoshContentScript extends ContentScript {
     const infosIdentity = {
       name: {
         givenName:
-          interceptor.indentification?.contracts?.[0]?.holder?.firstName,
-        lastName: interceptor.indentification?.contracts?.[0]?.holder?.lastName
+          interceptor.identification?.contracts?.[0]?.holder?.firstName,
+        lastName: interceptor.identification?.contracts?.[0]?.holder?.lastName
       },
       mail: interceptor.identification?.contactInformation?.email?.address,
       address
