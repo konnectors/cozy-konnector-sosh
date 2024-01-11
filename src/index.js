@@ -80,10 +80,12 @@ class SoshContentScript extends ContentScript {
       )
     } else {
       const checkBox = document.querySelector('#remember')
-      checkBox.click()
-      // Setting the visibility to hidden on the parent to make the element disapear
-      // preventing users to click it
-      checkBox.parentNode.parentNode.style.visibility = 'hidden'
+      if (checkBox) {
+        checkBox.click()
+        // Setting the visibility to hidden on the parent to make the element disapear
+        // preventing users to click it
+        checkBox.parentNode.parentNode.style.visibility = 'hidden'
+      }
     }
     this.log('info', 'password element found, adding listener')
     addClickListener.bind(this)()
