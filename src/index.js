@@ -467,23 +467,6 @@ class SoshContentScript extends ContentScript {
     return distanceInDays
   }
 
-  async navigateToNextContract(index) {
-    this.log('info', '📍️ navigateToNextContract starts')
-    const wantedContractNumber = this.store.allContractsInfos[index].phone
-    await this.goto(DEFAULT_PAGE_URL)
-    // Here we're using those three tags because we don't know exactly what element we need
-    // but we know it must be clickable
-    await this.waitForElementInWorker('span', {
-      includesText: `${wantedContractNumber}`
-    })
-    await this.runInWorker('click', 'span', {
-      includesText: `${wantedContractNumber}`
-    })
-    await this.waitForElementInWorker('a', {
-      includesText: 'Consulter votre facture'
-    })
-  }
-
   async fetchOldBills({ oldBillsUrl, vendorId }) {
     this.log('info', 'fetching old bills')
     const { oldBills } = await this.runInWorker(
