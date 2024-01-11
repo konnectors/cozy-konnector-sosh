@@ -123,6 +123,7 @@ class SoshContentScript extends ContentScript {
         }
       }
     )
+    return true
   }
 
   async ensureAuthenticated() {
