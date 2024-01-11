@@ -26,8 +26,6 @@ const JSON_HEADERS = {
 const ERROR_URL = 'https://e.orange.fr/error403.html?ref=idme-ssr&status=error'
 const BASE_URL = 'https://www.sosh.fr'
 const DEFAULT_PAGE_URL = BASE_URL + '/client'
-const LOGIN_FORM_PAGE =
-  'https://login.orange.fr/?service=sosh&return_url=https%3A%2F%2Fwww.sosh.fr%2F&propagation=true&domain=sosh&force_authent=true'
 let FORCE_FETCH_ALL = false
 const interceptor = new XhrInterceptor()
 interceptor.init()
@@ -101,56 +99,6 @@ class SoshContentScript extends ContentScript {
     }
   }
 
-  async navigateToLoginForm() {
-    this.log('info', '🤖 navigateToLoginForm starts')
-    if (await this.isElementInWorker('#login-label')) {
-      this.log('info', 'Already on loginPage, returning true')
-      return true
-    }
-    await this.goto(LOGIN_FORM_PAGE)
-    await this.PromiseRaceWithError(
-      [
-        this.waitForElementInWorker('#login-label'),
-        this.waitForElementInWorker('#password-label'),
-        this.waitForElementInWorker(
-          'button[data-testid="button-keepconnected"]'
-        ),
-        this.waitForElementInWorker('div[class*="captcha_responseContainer"]'),
-        this.waitForElementInWorker('#undefined-label'),
-        this.waitForElementInWorker('#oecs__connecte-se-deconnecter')
-      ],
-      'navigateToLoginForm: waiting for login page load'
-    )
-    const loginLabelPresent = await this.isElementInWorker('#login-label')
-    this.log('info', 'loginLabelPresent: ' + loginLabelPresent)
-    const passwordLabelPresent = await this.isElementInWorker('#password-label')
-    this.log('info', 'passwordLabelPresent: ' + passwordLabelPresent)
-    const keepConnectedPresent = await this.isElementInWorker(
-      'button[data-testid="button-keepconnected"]'
-    )
-    this.log('info', 'keepConnectedPresent: ' + keepConnectedPresent)
-    const captchaPresent = await this.isElementInWorker(
-      'div[class*="captcha_responseContainer"]'
-    )
-    this.log('info', 'captchaPresent: ' + captchaPresent)
-    const undefinedLabelPresent = await this.isElementInWorker(
-      '#undefined-label'
-    )
-    this.log('info', 'undefinedLabelPresent: ' + undefinedLabelPresent)
-    await this.handleCaptcha()
-    await this.handleKeepConnected('changeAccount')
-    // This is necessary for specific logout/autoLogin scenario.
-    // If the connector had crashed on last execution we could get a captcha on first navigation
-    // and a new one after the logout to reach back loginPage
-    if (!(await this.isElementInWorker('#login'))) {
-      await this.runInWorker('click', '#oecs__connexion')
-      await this.waitForElementInWorker(
-        '#login, div[class*="captcha_responseContainer"]'
-      )
-      await this.handleCaptcha()
-    }
-  }
-
   /**
    * Sometimes, depending on the device, #undefined-label may not be clickable yet
    * we click on it until it disappears
@@ -177,17 +125,14 @@ class SoshContentScript extends ContentScript {
     )
   }
 
-  async ensureAuthenticated({ account }) {
+  async ensureAuthenticated() {
     this.log('info', '🤖 ensureAuthenticated starts')
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
-    if (!account) {
-      await this.ensureNotAuthenticated()
-    }
-    await this.navigateToLoginForm()
+    await this.ensureNotAuthenticated()
     const credentials = await this.getCredentials()
     if (credentials) {
       this.log('info', 'found credentials, processing')
-      await this.tryAutoLogin(credentials)
+      await this.autoLogin(credentials)
     } else {
       this.log('info', 'no credentials found, use normal user login')
       await this.waitForUserAuthentication()
@@ -209,34 +154,117 @@ class SoshContentScript extends ContentScript {
       .filter(contract => contract.brand === 'sosh')
   }
 
+  getCurrentState() {
+    const isErrorUrl = window.location.href.includes('error')
+    const isLoginPage = Boolean(document.querySelector('#login'))
+    const isPasswordAlone = Boolean(
+      document.querySelector('#password') && !isLoginPage
+    )
+    const isAccountList = Boolean(document.querySelector('#undefined-label'))
+    const isReloadButton = Boolean(
+      document.querySelector('button[data-testid="button-reload"]')
+    )
+    const isKeepConnected = Boolean(
+      document.querySelector('button[data-testid="button-keepconnected"]')
+    )
+    const isCaptcha = Boolean(
+      document.querySelector('div[class*="captcha_responseContainer"]')
+    )
+    const isConnected = Boolean(
+      document.querySelector('#oecs__connecte-se-deconnecter')
+    )
+    const isDisconnected = Boolean(document.querySelector('#oecs__connexion'))
+    const isConsentPage = Boolean(
+      document.querySelector('#didomi-notice-disagree-button')
+    )
+    if (isErrorUrl) return 'errorPage'
+    else if (isLoginPage) return 'loginPage'
+    else if (isConnected) return 'connected'
+    else if (isPasswordAlone) return 'passwordAlonePage'
+    else if (isCaptcha) return 'captchaPage'
+    else if (isKeepConnected) return 'keepConnectedPage'
+    else if (isAccountList) return 'accountListPage'
+    else if (isReloadButton) return 'reloadButtonPage'
+    else if (isDisconnected) return 'disconnectedPage'
+    else if (isConsentPage) return 'consentPage'
+    else return false
+  }
+
+  async triggerNextState(currentState) {
+    if (currentState === 'errorPage') {
+      this.log('error', `Got an error page: ${window.location.href}`)
+      throw new Error(`VENDOR_DOWN`)
+    } else if (currentState === 'consentPage') {
+      await this.runInWorker('click', '#didomi-notice-disagree-button')
+    } else if (currentState === 'loginPage') {
+      return true
+    } else if (currentState === 'connected') {
+      await this.runInWorker('click', '#oecs__connecte-se-deconnecter')
+    } else if (currentState === 'passwordAlonePage') {
+      await this.runInWorker('click', '#changeAccountLink')
+    } else if (currentState === 'captchaPage') {
+      await this.handleCaptcha()
+    } else if (currentState === 'keepConnectedPage') {
+      await this.runInWorker(
+        'click',
+        'button[data-testid="button-keepconnected"]'
+      )
+    } else if (currentState === 'accountListPage') {
+      await this.runInWorker('click', '#undefined-label')
+    } else if (currentState === 'reloadButtonPage') {
+      await this.runInWorker('click', 'button[data-testid="button-reload"]')
+    } else if (currentState === 'disconnectedPage') {
+      await this.runInWorker('click', '#oecs__connexion')
+    } else {
+      throw new Error(`Unknown page state: ${currentState}`)
+    }
+  }
+
+  async waitForNextState(previousState) {
+    let currentState
+    await waitFor(
+      () => {
+        currentState = this.getCurrentState()
+        this.log('info', 'waitForNextState: currentState ' + currentState)
+        if (currentState === false) return false
+        const result = previousState !== currentState
+        return result
+      },
+      {
+        interval: 1000,
+        timeout: {
+          milliseconds: 30 * 1000,
+          message: new TimeoutError(
+            `waitForNextState timed out after ${
+              30 * 1000
+            }ms waiting for a state different from ${previousState}`
+          )
+        }
+      }
+    )
+    return currentState
+  }
+
   async ensureNotAuthenticated() {
     this.log('info', '🤖 ensureNotAuthenticated starts')
-    await this.goto(DEFAULT_PAGE_URL)
+    await this.goto(BASE_URL)
     await this.waitForElementInWorker(
-      '#login, #password, div[class*="captcha_responseContainer"], button[data-testid="button-keepconnected"], #oecs__connexion, #oecs__connecte-se-deconnecter'
+      '#oecs__connexion, #oecs__connecte-se-deconnecter'
     )
-    // Website could trigger a captcha when reaching for homePage, it's weird but it happen, so we're covering the case
-    await this.handleCaptcha()
-    const connectionButton = await this.isElementInWorker('#oecs__connexion')
-    const loginInput = await this.isElementInWorker('#login')
-    if (connectionButton || loginInput) {
-      this.log('info', 'Already logged out, continue')
-      return true
+    const start = Date.now()
+    let state = await this.runInWorker('getCurrentState')
+    while (state !== 'loginPage') {
+      this.log('debug', `current state: ${state}`)
+      if (Date.now() - start > 30 * 1000) {
+        throw new Error('ensureNotAuthenticated took more than 30s')
+      }
+      await this.triggerNextState(state)
+      state = await this.runInWorkerUntilTrue({
+        method: 'waitForNextState',
+        args: [state],
+        timeout: 20 * 1000
+      })
     }
-    const isLogged = await this.isElementInWorker(
-      '#oecs__connecte-se-deconnecter'
-    )
-    if (isLogged) {
-      await this.logout()
-      return true
-    }
-    const isLoggedOut = await this.handleKeepConnected('logout')
-    if (isLoggedOut) {
-      this.log('info', 'handleKeepConnected - Logout successful')
-      return true
-    }
-    this.log('info', 'Case unknown, trying to logout')
-    await this.logout()
     return true
   }
 
@@ -266,11 +294,6 @@ class SoshContentScript extends ContentScript {
     await this.setWorkerState({ visible: true })
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
     await this.setWorkerState({ visible: false })
-  }
-
-  async tryAutoLogin(credentials) {
-    this.log('info', 'Trying autologin')
-    await this.autoLogin(credentials)
   }
 
   async waitForErrorUrl() {
@@ -306,58 +329,6 @@ class SoshContentScript extends ContentScript {
       this.log('info', 'captcha found, waiting for resolution')
       await this.waitForUserAction(captchaUrl)
     }
-  }
-  // Options are mandatory because we don't wanna handle the keepConnected/alreadyConnected scenario the same way
-  // In one scenario we just need to go back to the first loginStep
-  // In the other we wanna click the keepConnected button, because it indicates last connection has been done with the "rememberMe" radio checked
-  // and logout completly is needed to avoid orange/sosh problems as well as too many scenarios to handle.
-  async handleKeepConnected(option) {
-    this.log('info', `📍️ handleKeepConnected for ${option} starts`)
-    const isShowingKeepConnected = await this.isElementInWorker(
-      'button[data-testid="button-keepconnected"]'
-    )
-    const isShowingPasswordStep = await this.isElementInWorker('#password')
-    const isShowingLoginStep = await this.isElementInWorker('#login-label')
-    const isLogged = await this.isElementInWorker(
-      '#oecs__connecte-se-deconnecter'
-    )
-    if (isLogged) {
-      this.log('info', 'User is logged, simply logging out')
-      await this.logout()
-      return true
-    }
-    this.log('info', 'isShowingKeepConnected: ' + isShowingKeepConnected)
-    this.log('info', 'isShowingPasswordStep: ' + isShowingPasswordStep)
-    if (isShowingLoginStep) {
-      this.log('info', `Last action leads directly to login step`)
-      return true
-    }
-    if (option === 'changeAccount') {
-      // always choose to login on another account
-      if (isShowingKeepConnected || isShowingPasswordStep) {
-        await this.clickAndWait('#changeAccountLink', '#undefined-label')
-        if (await this.isElementInWorker('#undefined-label')) {
-          await this.clickAndWait('#undefined-label', '#login-label')
-        }
-        return true
-      }
-    }
-    if (option === 'logout') {
-      if (isShowingKeepConnected) {
-        await this.clickAndWait(
-          'button[data-testid="button-keepconnected"]',
-          '.menu'
-        )
-        await this.logout()
-        return true
-      }
-    }
-    this.log('warn', `Option "${option}" leads to unknown case`)
-    this.log(
-      'warn',
-      `isShowingKeepConnected : ${isShowingKeepConnected} | isShowingPasswordStep : ${isShowingPasswordStep} | isShowingLoginStep : ${isShowingLoginStep}`
-    )
-    return false
   }
 
   async autoLogin(credentials) {
@@ -408,19 +379,6 @@ class SoshContentScript extends ContentScript {
 
     await this.runInWorker('fillForm', credentials)
     await this.runInWorker('click', loginButtonSelector)
-  }
-
-  async logout() {
-    this.log('info', '📍️ logout starts')
-    try {
-      await this.clickAndWait(
-        '#oecs__connecte-se-deconnecter',
-        '#oecs__connexion'
-      )
-    } catch (e) {
-      log('error', 'Not completly disconnected, never found the second link')
-      throw e
-    }
   }
 
   async fetch(context) {
@@ -477,8 +435,6 @@ class SoshContentScript extends ContentScript {
     await this.navigateToPersonalInfos()
     await this.runInWorker('getIdentity')
     await this.saveIdentity({ contact: this.store.infosIdentity })
-    // Logging out every run to avoid in between scenarios and sosh/orange mismatched sessions
-    await this.logout()
   }
 
   async handleContextInfos(context) {
@@ -877,7 +833,9 @@ connector
       'waitForUndefinedLabelReallyClicked',
       'checkErrorUrl',
       'checkMoreBillsButton',
-      'getContracts'
+      'getContracts',
+      'waitForNextState',
+      'getCurrentState'
     ]
   })
   .catch(err => {
