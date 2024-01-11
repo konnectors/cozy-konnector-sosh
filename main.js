@@ -5989,7 +5989,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         return true
       },
       {
-        interval: 100,
+        interval: 1000,
         timeout: {
           milliseconds: 30 * 1000,
           message: new p_wait_for__WEBPACK_IMPORTED_MODULE_2__.TimeoutError(
@@ -5998,6 +5998,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         }
       }
     )
+    return true
   }
 
   async ensureAuthenticated() {
@@ -6085,7 +6086,10 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         'button[data-testid="button-keepconnected"]'
       )
     } else if (currentState === 'accountListPage') {
-      await this.runInWorker('click', '#undefined-label')
+      await this.runInWorkerUntilTrue({
+        method: 'waitForUndefinedLabelReallyClicked',
+        timeout: 10 * 1000
+      })
     } else if (currentState === 'reloadButtonPage') {
       await this.runInWorker('click', 'button[data-testid="button-reload"]')
     } else if (currentState === 'disconnectedPage') {
@@ -6130,8 +6134,8 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     let state = await this.runInWorker('getCurrentState')
     while (state !== 'loginPage') {
       this.log('debug', `current state: ${state}`)
-      if (Date.now() - start > 30 * 1000) {
-        throw new Error('ensureNotAuthenticated took more than 30s')
+      if (Date.now() - start > 300 * 1000) {
+        throw new Error('ensureNotAuthenticated took more than 5m')
       }
       await this.triggerNextState(state)
       state = await this.runInWorkerUntilTrue({
@@ -6172,7 +6176,10 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   async waitForErrorUrl() {
-    await this.runInWorkerUntilTrue({ method: 'checkErrorUrl' })
+    await this.runInWorkerUntilTrue({
+      method: 'checkErrorUrl',
+      timeout: 10 * 1000
+    })
     this.log('error', `Found error url: ${ERROR_URL}`)
     throw new Error('VENDOR_DOWN')
   }
@@ -6335,23 +6342,6 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     return distanceInDays
   }
 
-  async navigateToNextContract(index) {
-    this.log('info', '📍️ navigateToNextContract starts')
-    const wantedContractNumber = this.store.allContractsInfos[index].phone
-    await this.goto(DEFAULT_PAGE_URL)
-    // Here we're using those three tags because we don't know exactly what element we need
-    // but we know it must be clickable
-    await this.waitForElementInWorker('span', {
-      includesText: `${wantedContractNumber}`
-    })
-    await this.runInWorker('click', 'span', {
-      includesText: `${wantedContractNumber}`
-    })
-    await this.waitForElementInWorker('a', {
-      includesText: 'Consulter votre facture'
-    })
-  }
-
   async fetchOldBills({ oldBillsUrl, vendorId }) {
     this.log('info', 'fetching old bills')
     const { oldBills } = await this.runInWorker(
@@ -6409,7 +6399,10 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
     await this.PromiseRaceWithError(
       [
-        this.runInWorkerUntilTrue({ method: 'checkMoreBillsButton' }),
+        this.runInWorkerUntilTrue({
+          method: 'checkMoreBillsButton',
+          timeout: 10 * 1000
+        }),
         this.waitForElementInWorker('.alert-icon icon-error-severe'),
         this.waitForElementInWorker(
           '.alert-container alert-container-sm alert-danger mb-0'
@@ -6632,8 +6625,8 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     const infosIdentity = {
       name: {
         givenName:
-          interceptor.indentification?.contracts?.[0]?.holder?.firstName,
-        lastName: interceptor.indentification?.contracts?.[0]?.holder?.lastName
+          interceptor.identification?.contracts?.[0]?.holder?.firstName,
+        lastName: interceptor.identification?.contracts?.[0]?.holder?.lastName
       },
       mail: interceptor.identification?.contactInformation?.email?.address,
       address
