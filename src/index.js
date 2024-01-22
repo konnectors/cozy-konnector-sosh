@@ -729,7 +729,7 @@ class SoshContentScript extends ContentScript {
       interceptor.userInfos.portfolio?.contracts?.[0]?.telco?.publicNumber
     const address = []
     if (addressInfos) {
-      const houseNumber = addressInfos.postalAddress?.streetNumber?.number
+      const streetNumber = addressInfos.postalAddress?.streetNumber?.number
       const streetType = addressInfos.postalAddress?.street?.type
       const streetName = addressInfos.postalAddress?.street?.name
       const street =
@@ -737,11 +737,11 @@ class SoshContentScript extends ContentScript {
       const postCode = addressInfos.postalAddress?.postalCode
       const city = addressInfos.postalAddress?.cityName
       const formattedAddress =
-        houseNumber && street && postCode && city
-          ? `${houseNumber} ${street} ${postCode} ${city}`
+        streetNumber && street && postCode && city
+          ? `${streetNumber} ${street} ${postCode} ${city}`
           : undefined
       address.push({
-        houseNumber,
+        streetNumber,
         street,
         postCode,
         city,
@@ -754,7 +754,12 @@ class SoshContentScript extends ContentScript {
           interceptor.identification?.contracts?.[0]?.holder?.firstName,
         lastName: interceptor.identification?.contracts?.[0]?.holder?.lastName
       },
-      mail: interceptor.identification?.contactInformation?.email?.address,
+      email: [
+        {
+          address:
+            interceptor.identification?.contactInformation?.email?.address
+        }
+      ],
       address
     }
 
