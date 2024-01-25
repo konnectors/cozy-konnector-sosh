@@ -1876,10 +1876,10 @@ cozy-app-publish@0.33.0:
     tar "^6.1.11"
     verror "^1.10.1"
 
-cozy-clisk@^0.33.1:
-  version "0.33.1"
-  resolved "https://registry.yarnpkg.com/cozy-clisk/-/cozy-clisk-0.33.1.tgz#78ff85abf7e2be95f035eedd259868fd1a8b3c5e"
-  integrity sha512-DbekMYZSG9i1p1IoB4gna4Ai51IKNgzoZdjjqcSE9DrenUMdq22qSOPCTfuCEXOSlQTfBqmAW1TQepgePkepaw==
+cozy-clisk@^0.33.2:
+  version "0.33.2"
+  resolved "https://registry.yarnpkg.com/cozy-clisk/-/cozy-clisk-0.33.2.tgz#4cda34ffcc7acce80be3155a54b61aa199d277cd"
+  integrity sha512-xzrHeeBq0RcxcIon6Sl84cJXVzLkw3+FfH0VD6erUtZHEZXZUaut601xt2D2EFnTK3LEuLnLiJ/M8Ce2tIgAVQ==
   dependencies:
     "@cozy/minilog" "^1.0.0"
     bluebird-retry "^0.11.0"
