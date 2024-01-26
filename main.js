@@ -337,6 +337,7 @@ var ContentScript = /*#__PURE__*/function () {
 
               case 4:
                 if (contentScriptType === WORKER_TYPE) {
+                  this.onWorkerReady();
                   (_this$requestIntercep = this.requestInterceptor) === null || _this$requestIntercep === void 0 ? void 0 : _this$requestIntercep.on('response', function (response) {
                     var _this3$bridge;
 
@@ -345,7 +346,6 @@ var ContentScript = /*#__PURE__*/function () {
                       payload: response
                     });
                   });
-                  this.onWorkerReady();
                 } else if (contentScriptType === PILOT_TYPE) {
                   this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this));
                 }
@@ -5664,7 +5664,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.33.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"18d190022e7b5b0e7eac0ff40dec04bf6ccd8984"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.33.2","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"161b8c0162c7132dde1349ab98696c3fab1651f7"}');
 
 /***/ }),
 /* 46 */
@@ -6030,95 +6030,99 @@ var RequestInterceptor = /*#__PURE__*/function () {
                 return _context2.abrupt("return");
 
               case 3:
-                resp.label = interception.label; // response serialization, to be able to transfer to the pilot
+                if (interception.label) {
+                  this.log('warn', "RequestInterceptor: interception.label is deprecated, you should use interception.identifier");
+                }
+
+                resp.identifier = interception.identifier || interception.label; // response serialization, to be able to transfer to the pilot
 
                 if (!(interception.serialization === 'json')) {
-                  _context2.next = 14;
+                  _context2.next = 15;
                   break;
                 }
 
                 if (!(resp.response instanceof Response)) {
-                  _context2.next = 11;
+                  _context2.next = 12;
                   break;
                 }
 
-                _context2.next = 8;
+                _context2.next = 9;
                 return resp.response.clone().json();
 
-              case 8:
+              case 9:
                 resp.response = _context2.sent;
-                _context2.next = 12;
+                _context2.next = 13;
                 break;
-
-              case 11:
-                resp.response = JSON.parse(resp.response.responseText);
 
               case 12:
-                _context2.next = 37;
+                resp.response = JSON.parse(resp.response.responseText);
+
+              case 13:
+                _context2.next = 38;
                 break;
 
-              case 14:
+              case 15:
                 if (!(interception.serialization === 'text')) {
-                  _context2.next = 24;
+                  _context2.next = 25;
                   break;
                 }
 
                 if (!(resp.response instanceof Response)) {
-                  _context2.next = 21;
+                  _context2.next = 22;
                   break;
                 }
 
-                _context2.next = 18;
+                _context2.next = 19;
                 return resp.response.clone().text();
 
-              case 18:
+              case 19:
                 resp.response = _context2.sent;
-                _context2.next = 22;
+                _context2.next = 23;
                 break;
-
-              case 21:
-                resp.response = resp.response.responseText;
 
               case 22:
-                _context2.next = 37;
+                resp.response = resp.response.responseText;
+
+              case 23:
+                _context2.next = 38;
                 break;
 
-              case 24:
+              case 25:
                 if (!(interception.serialization === 'dataUri')) {
-                  _context2.next = 36;
+                  _context2.next = 37;
                   break;
                 }
 
                 if (!(resp.response instanceof Response)) {
-                  _context2.next = 33;
+                  _context2.next = 34;
                   break;
                 }
 
                 _context2.t0 = _utils.blobToBase64;
-                _context2.next = 29;
+                _context2.next = 30;
                 return resp.response.clone().blob();
 
-              case 29:
+              case 30:
                 _context2.t1 = _context2.sent;
                 resp.response = (0, _context2.t0)(_context2.t1);
-                _context2.next = 34;
+                _context2.next = 35;
                 break;
-
-              case 33:
-                resp.response = (0, _utils.blobToBase64)(resp.response.response);
 
               case 34:
-                _context2.next = 37;
+                resp.response = (0, _utils.blobToBase64)(resp.response.response);
+
+              case 35:
+                _context2.next = 38;
                 break;
 
-              case 36:
+              case 37:
                 this.log('error', '❌❌❌ wrong serialization method : ' + interception.serialization);
 
-              case 37:
+              case 38:
                 this.emit('response', resp);
                 this.log('debug', "RequestInterceptor: intercepted ".concat(resp.method, " ").concat(resp.url, " response"));
 
-              case 39:
+              case 40:
               case "end":
                 return _context2.stop();
             }
@@ -6146,7 +6150,8 @@ _microee.default.mixin(RequestInterceptor);
 var _default = RequestInterceptor;
 /**
  * @typedef EmittedResponse
- * @property {string} label - a name given to the interception
+ * @property {string} [label] - a name given to the interception (deprecated in favor of identifier)
+ * @property {string} identifier - an identifier given to the interception
  * @property {'GET'|'POST'|'PUT'|'DELETE'} method - the method of the intercepted request
  * @property {string} url - the url intercepted request url
  * @property {Response} response - raw response of the intercepted request
@@ -6156,7 +6161,8 @@ var _default = RequestInterceptor;
 
 /**
  * @typedef InterceptionDocument
- * @property {string} label - a name given to the interception, will be found in the response later
+ * @property {string} [label] - a name given to the interception, will be found in the response later (deprecated in favor of identifier)
+ * @property {string} identifier - an identifier given to the interception
  * @property {string} url - the url to intercept
  * @property {'GET'|'POST'|'PUT'|'DELETE'} method - the method of the url to intercept
  * @property {boolean} exact - true if the intercepted url must exactly correspond to the given url
