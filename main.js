@@ -18,8 +18,16 @@ Object.defineProperty(exports, "ContentScript", ({
     return _ContentScript.default;
   }
 }));
+Object.defineProperty(exports, "RequestInterceptor", ({
+  enumerable: true,
+  get: function get() {
+    return _RequestInterceptor.default;
+  }
+}));
 
 var _ContentScript = _interopRequireDefault(__webpack_require__(3));
+
+var _RequestInterceptor = _interopRequireDefault(__webpack_require__(51));
 
 /***/ }),
 /* 2 */
@@ -112,6 +120,7 @@ var ContentScript = /*#__PURE__*/function () {
   function ContentScript() {
     var _this = this;
 
+    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
     (0, _classCallCheck2.default)(this, ContentScript);
     sendPageMessage('NEW_WORKER_INITIALIZING');
 
@@ -199,6 +208,16 @@ var ContentScript = /*#__PURE__*/function () {
         return args === null || args === void 0 ? void 0 : (_args$2 = args[0]) === null || _args$2 === void 0 ? void 0 : _args$2.fileurl;
       }
     });
+    this.waitForRequestInterception = wrapTimerDebug(this, 'waitForRequestInterception', {
+      suffixFn: function suffixFn(args) {
+        return args === null || args === void 0 ? void 0 : args[0];
+      }
+    });
+
+    if (options.requestInterceptor) {
+      this.requestInterceptor = options.requestInterceptor;
+      this.requestInterceptor.setLogger(this.log.bind(this));
+    }
   }
   /**
    * Init the bridge communication with the launcher.
@@ -281,6 +300,13 @@ var ContentScript = /*#__PURE__*/function () {
     key: "onWorkerReady",
     value: function onWorkerReady() {}
     /**
+     * This method is called fon the pilot when the worker sends workerEvent events to the bridge
+     */
+
+  }, {
+    key: "onWorkerEvent",
+    value: function onWorkerEvent() {}
+    /**
      * Set the ContentScript type. This is usefull to know which webview is the pilot or the worker
      *
      * @param {string} contentScriptType - ("pilot" | "worker")
@@ -290,6 +316,10 @@ var ContentScript = /*#__PURE__*/function () {
     key: "setContentScriptType",
     value: function () {
       var _setContentScriptType = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee2(contentScriptType) {
+        var _this3 = this;
+
+        var _this$requestIntercep;
+
         return _regenerator.default.wrap(function _callee2$(_context2) {
           while (1) {
             switch (_context2.prev = _context2.next) {
@@ -298,11 +328,29 @@ var ContentScript = /*#__PURE__*/function () {
 
                 _log.info("I am the ".concat(contentScriptType));
 
-                if (contentScriptType === WORKER_TYPE) {
-                  this.onWorkerReady();
+                if (this.bridge) {
+                  _context2.next = 4;
+                  break;
                 }
 
-              case 3:
+                throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
+
+              case 4:
+                if (contentScriptType === WORKER_TYPE) {
+                  this.onWorkerReady();
+                  (_this$requestIntercep = this.requestInterceptor) === null || _this$requestIntercep === void 0 ? void 0 : _this$requestIntercep.on('response', function (response) {
+                    var _this3$bridge;
+
+                    (_this3$bridge = _this3.bridge) === null || _this3$bridge === void 0 ? void 0 : _this3$bridge.emit('workerEvent', {
+                      event: 'requestResponse',
+                      payload: response
+                    });
+                  });
+                } else if (contentScriptType === PILOT_TYPE) {
+                  this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this));
+                }
+
+              case 5:
               case "end":
                 return _context2.stop();
             }
@@ -463,7 +511,7 @@ var ContentScript = /*#__PURE__*/function () {
     key: "waitForNotAuthenticated",
     value: function () {
       var _waitForNotAuthenticated = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee7() {
-        var _this3 = this;
+        var _this4 = this;
 
         var options,
             timeout,
@@ -485,7 +533,7 @@ var ContentScript = /*#__PURE__*/function () {
                       switch (_context6.prev = _context6.next) {
                         case 0:
                           _context6.next = 2;
-                          return _this3.checkAuthenticated.bind(_this3)();
+                          return _this4.checkAuthenticated.bind(_this4)();
 
                         case 2:
                           authenticated = _context6.sent;
@@ -522,6 +570,51 @@ var ContentScript = /*#__PURE__*/function () {
 
       return waitForNotAuthenticated;
     }()
+    /**
+     * Wait for the given labelled request to be intercepted. The labeled request must be defined and
+     * sent to the ContentScript constructor
+     *
+     * @param {string} label - any label string defined in the RequestInterceptor
+     * @param {object} [options] - options object
+     * @param {number} [options.timeout] - number of miliseconds before the function sends a timeout error. Default 60000ms
+     */
+
+  }, {
+    key: "waitForRequestInterception",
+    value: function waitForRequestInterception(label) {
+      var _options$timeout,
+          _this5 = this;
+
+      var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      this.onlyIn(PILOT_TYPE, 'waitForRequestInterception');
+      var timeout = (_options$timeout = options === null || options === void 0 ? void 0 : options.timeout) !== null && _options$timeout !== void 0 ? _options$timeout : 60000;
+      var interceptionPromise = new Promise(function (resolve) {
+        var listener = function listener(_ref2) {
+          var event = _ref2.event,
+              payload = _ref2.payload;
+
+          if (event === 'requestResponse' && payload.label === label) {
+            if (!_this5.bridge) {
+              throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
+            }
+
+            _this5.bridge.removeEventListener('workerEvent', listener);
+
+            resolve(payload);
+          }
+        };
+
+        if (!_this5.bridge) {
+          throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
+        }
+
+        _this5.bridge.addEventListener('workerEvent', listener);
+      });
+      return (0, _pTimeout.default)(interceptionPromise, {
+        milliseconds: timeout,
+        message: "Timed out after waiting ".concat(timeout, "ms for interception of ").concat(label)
+      });
+    }
     /**
      * Run a specified method in the worker webview
      *
@@ -591,14 +684,14 @@ var ContentScript = /*#__PURE__*/function () {
   }, {
     key: "runInWorkerUntilTrue",
     value: function () {
-      var _runInWorkerUntilTrue = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee9(_ref2) {
-        var method, _ref2$timeout, timeout, _ref2$args, args, result, start, isTimeout;
+      var _runInWorkerUntilTrue = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee9(_ref3) {
+        var method, _ref3$timeout, timeout, _ref3$args, args, result, start, isTimeout;
 
         return _regenerator.default.wrap(function _callee9$(_context9) {
           while (1) {
             switch (_context9.prev = _context9.next) {
               case 0:
-                method = _ref2.method, _ref2$timeout = _ref2.timeout, timeout = _ref2$timeout === void 0 ? Infinity : _ref2$timeout, _ref2$args = _ref2.args, args = _ref2$args === void 0 ? [] : _ref2$args;
+                method = _ref3.method, _ref3$timeout = _ref3.timeout, timeout = _ref3$timeout === void 0 ? Infinity : _ref3$timeout, _ref3$args = _ref3.args, args = _ref3$args === void 0 ? [] : _ref3$args;
                 this.onlyIn(PILOT_TYPE, 'runInWorkerUntilTrue');
 
                 _log.debug('runInWorkerUntilTrue', method);
@@ -668,7 +761,7 @@ var ContentScript = /*#__PURE__*/function () {
     key: "waitForElementInWorker",
     value: function () {
       var _waitForElementInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee10(selector) {
-        var _options$timeout;
+        var _options$timeout2;
 
         var options,
             _args10 = arguments;
@@ -681,7 +774,7 @@ var ContentScript = /*#__PURE__*/function () {
                 _context10.next = 4;
                 return this.runInWorkerUntilTrue({
                   method: 'waitForElementNoReload',
-                  timeout: (_options$timeout = options === null || options === void 0 ? void 0 : options.timeout) !== null && _options$timeout !== void 0 ? _options$timeout : DEFAULT_WAIT_FOR_ELEMENT_ACCROSS_PAGES_TIMEOUT,
+                  timeout: (_options$timeout2 = options === null || options === void 0 ? void 0 : options.timeout) !== null && _options$timeout2 !== void 0 ? _options$timeout2 : DEFAULT_WAIT_FOR_ELEMENT_ACCROSS_PAGES_TIMEOUT,
                   args: [selector, {
                     includesText: options.includesText
                   }]
@@ -753,7 +846,7 @@ var ContentScript = /*#__PURE__*/function () {
     key: "waitForElementNoReload",
     value: function () {
       var _waitForElementNoReload = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee12(selector) {
-        var _this4 = this;
+        var _this6 = this;
 
         var options,
             _args12 = arguments;
@@ -768,7 +861,7 @@ var ContentScript = /*#__PURE__*/function () {
 
                 _context12.next = 5;
                 return (0, _pWaitFor.default)(function () {
-                  return _this4.checkForElement(selector, options);
+                  return _this6.checkForElement(selector, options);
                 }, {
                   timeout: {
                     milliseconds: DEFAULT_WAIT_FOR_ELEMENT_TIMEOUT,
@@ -5571,7 +5664,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.32.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","cozy-client":"^41.2.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"gitHead":"f7aab40048ac95009b7f50fc8d663626dbe5c8f8"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.33.2","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"161b8c0162c7132dde1349ab98696c3fab1651f7"}');
 
 /***/ }),
 /* 46 */
@@ -5711,6 +5804,374 @@ module.exports = _nonIterableRest, module.exports.__esModule = true, module.expo
 
 /***/ }),
 /* 51 */
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+
+var _interopRequireDefault = __webpack_require__(2);
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _regenerator = _interopRequireDefault(__webpack_require__(4));
+
+var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(13));
+
+var _slicedToArray2 = _interopRequireDefault(__webpack_require__(47));
+
+var _classCallCheck2 = _interopRequireDefault(__webpack_require__(14));
+
+var _createClass2 = _interopRequireDefault(__webpack_require__(15));
+
+var _microee = _interopRequireDefault(__webpack_require__(23));
+
+var _utils = __webpack_require__(41);
+
+function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it.return != null) it.return(); } finally { if (didErr) throw err; } } }; }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
+/**
+ * Intercept any xhr or fetch request corresponding to the given interception list
+ */
+var RequestInterceptor = /*#__PURE__*/function () {
+  /**
+   * @function Object() { [native code] }
+   * @param {Array<InterceptionDocument>} interceptions - the list of url to intercept
+   */
+  function RequestInterceptor(interceptions) {
+    (0, _classCallCheck2.default)(this, RequestInterceptor);
+    this.interceptions = interceptions;
+    this.savedSetRequestHeader = window.XMLHttpRequest.prototype.setRequestHeader;
+    this.savedOpen = window.XMLHttpRequest.prototype.open;
+    this.savedFetch = window.fetch;
+  }
+  /**
+   * Restore original request function to default values
+   */
+
+
+  (0, _createClass2.default)(RequestInterceptor, [{
+    key: "restore",
+    value: function restore() {
+      window.XMLHttpRequest.prototype.setRequestHeader = this.savedSetRequestHeader;
+      window.XMLHttpRequest.prototype.open = this.savedOpen;
+      window.fetch = this.savedFetch;
+    }
+    /**
+     * Init the replacemenet of xhr and fetch function to be able to intercept requests
+     */
+
+  }, {
+    key: "init",
+    value: function init() {
+      try {
+        var self = this;
+
+        window.XMLHttpRequest.prototype.setRequestHeader = function (key, value) {
+          try {
+            var newValue = this._requestHeaders[key] ? this._requestHeaders[key] += ', ' + value : value;
+            this._requestHeaders[key] = newValue;
+            return self.savedSetRequestHeader.apply(this, [].slice.call(arguments));
+          } catch (err) {
+            this.log('error', '❌❌❌ xhr setRequestHeader interception error ' + err.message);
+          }
+        };
+
+        window.XMLHttpRequest.prototype.open = function (method, url) {
+          try {
+            var response = this;
+            response._requestHeaders = {};
+            response.addEventListener('readystatechange', function () {
+              if (response.readyState === 4) {
+                var responseHeaders = {};
+                var allResponseHeaders = response.getAllResponseHeaders() ? response.getAllResponseHeaders().split('\r\n') : [];
+
+                var _iterator = _createForOfIteratorHelper(allResponseHeaders),
+                    _step;
+
+                try {
+                  for (_iterator.s(); !(_step = _iterator.n()).done;) {
+                    var header = _step.value;
+
+                    var _header$split = header.split(': '),
+                        _header$split2 = (0, _slicedToArray2.default)(_header$split, 2),
+                        key = _header$split2[0],
+                        value = _header$split2[1];
+
+                    responseHeaders[key] = value;
+                  }
+                } catch (err) {
+                  _iterator.e(err);
+                } finally {
+                  _iterator.f();
+                }
+
+                self.serializeAndEmitResponse({
+                  method: method,
+                  url: url,
+                  response: response,
+                  responseHeaders: responseHeaders,
+                  requestHeaders: response._requestHeaders
+                });
+              }
+
+              return response;
+            });
+            return self.savedOpen.apply(response, [].slice.call(arguments));
+          } catch (err) {
+            this.log('error', '❌❌❌ xhr interception error ' + err.message);
+          }
+        };
+
+        window.fetch = /*#__PURE__*/(0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee() {
+          var _len,
+              args,
+              _key,
+              response,
+              input,
+              options,
+              url,
+              method,
+              responseHeaders,
+              _iterator2,
+              _step2,
+              _step2$value,
+              key,
+              value,
+              _args = arguments;
+
+          return _regenerator.default.wrap(function _callee$(_context) {
+            while (1) {
+              switch (_context.prev = _context.next) {
+                case 0:
+                  for (_len = _args.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+                    args[_key] = _args[_key];
+                  }
+
+                  _context.next = 3;
+                  return self.savedFetch.apply(window, args);
+
+                case 3:
+                  response = _context.sent;
+                  _context.prev = 4;
+                  input = args[0], options = args[1];
+                  url = typeof input === 'string' ? input : (input === null || input === void 0 ? void 0 : input.url) || (input === null || input === void 0 ? void 0 : input.toString());
+                  method = (options === null || options === void 0 ? void 0 : options.method) || (input === null || input === void 0 ? void 0 : input.method) || 'GET';
+                  responseHeaders = {};
+                  _iterator2 = _createForOfIteratorHelper(response.headers.entries());
+
+                  try {
+                    for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+                      _step2$value = (0, _slicedToArray2.default)(_step2.value, 2), key = _step2$value[0], value = _step2$value[1];
+                      responseHeaders[key] = value;
+                    }
+                  } catch (err) {
+                    _iterator2.e(err);
+                  } finally {
+                    _iterator2.f();
+                  }
+
+                  self.serializeAndEmitResponse({
+                    method: method,
+                    url: url,
+                    response: response,
+                    responseHeaders: responseHeaders,
+                    requestHeaders: options === null || options === void 0 ? void 0 : options.headers
+                  });
+                  return _context.abrupt("return", response);
+
+                case 15:
+                  _context.prev = 15;
+                  _context.t0 = _context["catch"](4);
+                  this.log('error', '❌❌❌ fetch interception error ' + _context.t0.message);
+
+                case 18:
+                case "end":
+                  return _context.stop();
+              }
+            }
+          }, _callee, this, [[4, 15]]);
+        }));
+      } catch (err) {
+        this.log('error', '❌❌❌ interceptor init error ' + err.message);
+      }
+    }
+    /**
+     * Serialize the intercepted response according to the "serialize" attribute given in the
+     * interception list and emit it as a "response" event
+     *
+     * @param {Response} resp - HTTP response
+     */
+
+  }, {
+    key: "serializeAndEmitResponse",
+    value: function () {
+      var _serializeAndEmitResponse = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee2(resp) {
+        var interception;
+        return _regenerator.default.wrap(function _callee2$(_context2) {
+          while (1) {
+            switch (_context2.prev = _context2.next) {
+              case 0:
+                interception = this.interceptions.find(function (doc) {
+                  return resp.method === doc.method && doc.exact ? resp.url === doc.url : resp.url.includes(doc.url);
+                });
+
+                if (interception) {
+                  _context2.next = 3;
+                  break;
+                }
+
+                return _context2.abrupt("return");
+
+              case 3:
+                if (interception.label) {
+                  this.log('warn', "RequestInterceptor: interception.label is deprecated, you should use interception.identifier");
+                }
+
+                resp.identifier = interception.identifier || interception.label; // response serialization, to be able to transfer to the pilot
+
+                if (!(interception.serialization === 'json')) {
+                  _context2.next = 15;
+                  break;
+                }
+
+                if (!(resp.response instanceof Response)) {
+                  _context2.next = 12;
+                  break;
+                }
+
+                _context2.next = 9;
+                return resp.response.clone().json();
+
+              case 9:
+                resp.response = _context2.sent;
+                _context2.next = 13;
+                break;
+
+              case 12:
+                resp.response = JSON.parse(resp.response.responseText);
+
+              case 13:
+                _context2.next = 38;
+                break;
+
+              case 15:
+                if (!(interception.serialization === 'text')) {
+                  _context2.next = 25;
+                  break;
+                }
+
+                if (!(resp.response instanceof Response)) {
+                  _context2.next = 22;
+                  break;
+                }
+
+                _context2.next = 19;
+                return resp.response.clone().text();
+
+              case 19:
+                resp.response = _context2.sent;
+                _context2.next = 23;
+                break;
+
+              case 22:
+                resp.response = resp.response.responseText;
+
+              case 23:
+                _context2.next = 38;
+                break;
+
+              case 25:
+                if (!(interception.serialization === 'dataUri')) {
+                  _context2.next = 37;
+                  break;
+                }
+
+                if (!(resp.response instanceof Response)) {
+                  _context2.next = 34;
+                  break;
+                }
+
+                _context2.t0 = _utils.blobToBase64;
+                _context2.next = 30;
+                return resp.response.clone().blob();
+
+              case 30:
+                _context2.t1 = _context2.sent;
+                resp.response = (0, _context2.t0)(_context2.t1);
+                _context2.next = 35;
+                break;
+
+              case 34:
+                resp.response = (0, _utils.blobToBase64)(resp.response.response);
+
+              case 35:
+                _context2.next = 38;
+                break;
+
+              case 37:
+                this.log('error', '❌❌❌ wrong serialization method : ' + interception.serialization);
+
+              case 38:
+                this.emit('response', resp);
+                this.log('debug', "RequestInterceptor: intercepted ".concat(resp.method, " ").concat(resp.url, " response"));
+
+              case 40:
+              case "end":
+                return _context2.stop();
+            }
+          }
+        }, _callee2, this);
+      }));
+
+      function serializeAndEmitResponse(_x) {
+        return _serializeAndEmitResponse.apply(this, arguments);
+      }
+
+      return serializeAndEmitResponse;
+    }()
+  }, {
+    key: "setLogger",
+    value: function setLogger(logger) {
+      this.log = logger;
+    }
+  }]);
+  return RequestInterceptor;
+}();
+
+_microee.default.mixin(RequestInterceptor);
+
+var _default = RequestInterceptor;
+/**
+ * @typedef EmittedResponse
+ * @property {string} [label] - a name given to the interception (deprecated in favor of identifier)
+ * @property {string} identifier - an identifier given to the interception
+ * @property {'GET'|'POST'|'PUT'|'DELETE'} method - the method of the intercepted request
+ * @property {string} url - the url intercepted request url
+ * @property {Response} response - raw response of the intercepted request
+ * @property {object} responseHeaders - response headers
+ * @property {object} requestHeaders - request headers
+ */
+
+/**
+ * @typedef InterceptionDocument
+ * @property {string} [label] - a name given to the interception, will be found in the response later (deprecated in favor of identifier)
+ * @property {string} identifier - an identifier given to the interception
+ * @property {string} url - the url to intercept
+ * @property {'GET'|'POST'|'PUT'|'DELETE'} method - the method of the url to intercept
+ * @property {boolean} exact - true if the intercepted url must exactly correspond to the given url
+ */
+
+exports["default"] = _default;
+
+/***/ }),
+/* 52 */
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -5872,7 +6333,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var p_wait_for__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(18);
 /* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(44);
 /* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(ky_umd__WEBPACK_IMPORTED_MODULE_4__);
-/* harmony import */ var _interceptor__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(51);
+/* harmony import */ var _interceptor__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(52);
 /* eslint-disable no-console */
 
 
@@ -6603,7 +7064,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       interceptor.userInfos.portfolio?.contracts?.[0]?.telco?.publicNumber
     const address = []
     if (addressInfos) {
-      const streetNumber = addressInfos.postalAddress?.streetNumber?.number
+      const houseNumber = addressInfos.postalAddress?.streetNumber?.number
       const streetType = addressInfos.postalAddress?.street?.type
       const streetName = addressInfos.postalAddress?.street?.name
       const street =
@@ -6611,11 +7072,11 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       const postCode = addressInfos.postalAddress?.postalCode
       const city = addressInfos.postalAddress?.cityName
       const formattedAddress =
-        streetNumber && street && postCode && city
-          ? `${streetNumber} ${street} ${postCode} ${city}`
+        houseNumber && street && postCode && city
+          ? `${houseNumber} ${street} ${postCode} ${city}`
           : undefined
       address.push({
-        streetNumber,
+        houseNumber,
         street,
         postCode,
         city,
@@ -6628,12 +7089,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
           interceptor.identification?.contracts?.[0]?.holder?.firstName,
         lastName: interceptor.identification?.contracts?.[0]?.holder?.lastName
       },
-      email: [
-        {
-          address:
-            interceptor.identification?.contactInformation?.email?.address
-        }
-      ],
+      mail: interceptor.identification?.contactInformation?.email?.address,
       address
     }
 
