@@ -106,7 +106,9 @@ class SoshContentScript extends ContentScript {
   async waitForUndefinedLabelReallyClicked() {
     await waitFor(
       function clickOnElementUntilItDisapear() {
-        const elem = document.querySelector('#undefined-label')
+        const elem = document.querySelector(
+          '[data-testid=choose-other-account]'
+        )
         if (elem) {
           elem.click()
           return false
@@ -161,7 +163,9 @@ class SoshContentScript extends ContentScript {
     const isPasswordAlone = Boolean(
       document.querySelector('#password') && !isLoginPage
     )
-    const isAccountList = Boolean(document.querySelector('#undefined-label'))
+    const isAccountList = Boolean(
+      document.querySelector('[data-testid=choose-other-account]')
+    )
     const isReloadButton = Boolean(
       document.querySelector('button[data-testid="button-reload"]')
     )
@@ -172,9 +176,11 @@ class SoshContentScript extends ContentScript {
       document.querySelector('div[class*="captcha_responseContainer"]')
     )
     const isConnected = Boolean(
-      document.querySelector('#oecs__connecte-se-deconnecter')
+      document.querySelector('#oecs__zone-identity-layer_client_disconnect')
     )
-    const isDisconnected = Boolean(document.querySelector('#oecs__connexion'))
+    const isDisconnected = Boolean(
+      document.querySelector('#oecs__zone-identity-layer_prospect_connect')
+    )
     const isConsentPage = Boolean(
       document.querySelector('#didomi-notice-disagree-button')
     )
@@ -200,9 +206,12 @@ class SoshContentScript extends ContentScript {
     } else if (currentState === 'loginPage') {
       return true
     } else if (currentState === 'connected') {
-      await this.runInWorker('click', '#oecs__connecte-se-deconnecter')
+      await this.runInWorker(
+        'click',
+        '#oecs__zone-identity-layer_client_disconnect'
+      )
     } else if (currentState === 'passwordAlonePage') {
-      await this.runInWorker('click', '#changeAccountLink')
+      await this.runInWorker('click', '[data-testid=change-account]')
     } else if (currentState === 'captchaPage') {
       await this.handleCaptcha()
     } else if (currentState === 'keepConnectedPage') {
@@ -218,7 +227,10 @@ class SoshContentScript extends ContentScript {
     } else if (currentState === 'reloadButtonPage') {
       await this.runInWorker('click', 'button[data-testid="button-reload"]')
     } else if (currentState === 'disconnectedPage') {
-      await this.runInWorker('click', '#oecs__connexion')
+      await this.runInWorker(
+        'click',
+        '#oecs__zone-identity-layer_prospect_connect'
+      )
     } else {
       throw new Error(`Unknown page state: ${currentState}`)
     }
@@ -253,7 +265,7 @@ class SoshContentScript extends ContentScript {
     this.log('info', '🤖 ensureNotAuthenticated starts')
     await this.goto(BASE_URL)
     await this.waitForElementInWorker(
-      '#oecs__connexion, #oecs__connecte-se-deconnecter'
+      '#oecs__zone-identity-layer_prospect_connect, #oecs__zone-identity-layer_client_disconnect'
     )
     const start = Date.now()
     let state = await this.runInWorker('getCurrentState')
@@ -278,7 +290,7 @@ class SoshContentScript extends ContentScript {
       document.querySelector('#oecs__connecte')
     )
     const isDisconnectElementPresent = Boolean(
-      document.querySelector('#oecs__connecte-se-deconnecter')
+      document.querySelector('#oecs__zone-identity-layer_client_disconnect')
     )
     if (isGoodUrl) {
       if (isConnectedElementPresent) {
