@@ -128,18 +128,24 @@ class SoshContentScript extends ContentScript {
     return true
   }
 
-  async ensureAuthenticated() {
+  async ensureAuthenticated({ account }) {
     this.log('info', '🤖 ensureAuthenticated starts')
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
-    await this.ensureNotAuthenticated()
-    const credentials = await this.getCredentials()
-    if (credentials) {
-      this.log('info', 'found credentials, processing')
-      await this.autoLogin(credentials)
-    } else {
-      this.log('info', 'no credentials found, use normal user login')
+    await this.goto(BASE_URL)
+    await this.waitForElementInWorker(
+      '#oecs__zone-identity-layer_prospect_connect, #oecs__zone-identity-layer_client_disconnect'
+    )
+    const wantedUserId = (await this.getCredentials())?.userId
+    const currentUserId = window.o_idzone?.USER_DEFINED_MSISDN
+    const shouldChangeCurrentAccount =
+      !account || wantedUserId !== currentUserId
+    if (shouldChangeCurrentAccount) {
+      await this.ensureNotAuthenticated()
       await this.waitForUserAuthentication()
+    } else {
+      this.log('debug', 'current user is the expected one, no need to logout')
     }
+    return true
   }
 
   async getContracts() {
@@ -350,61 +356,14 @@ class SoshContentScript extends ContentScript {
     }
   }
 
-  async autoLogin(credentials) {
-    this.log('info', 'Autologin start')
-    const emailSelector = '#login'
-    const passwordInputSelector = '#password'
-    const loginButtonSelector = '#btnSubmit'
-    await this.waitForElementInWorker(
-      `${emailSelector}, ${passwordInputSelector}`
-    )
-    if (await this.isElementInWorker(emailSelector)) {
-      await this.runInWorker('fillForm', credentials)
-      await this.runInWorker('click', loginButtonSelector)
-    }
-
-    await this.PromiseRaceWithError(
-      [
-        this.waitForElementInWorker(
-          'button[data-testid="button-keepconnected"]'
-        ),
-        this.waitForElementInWorker('button[data-testid="button-reload"]'),
-        this.waitForElementInWorker(passwordInputSelector),
-        this.waitForErrorUrl()
-      ],
-      'autoLogin: page load after submit'
-    )
-
-    const isShowingKeepConnected = await this.isElementInWorker(
-      'button[data-testid="button-keepconnected"]'
-    )
-    this.log('info', 'isShowingKeepConnected: ' + isShowingKeepConnected)
-    const isShowingButtonReload = await this.isElementInWorker(
-      'button[data-testid="button-reload"]'
-    )
-    this.log('info', 'isShowingButtonReload: ' + isShowingButtonReload)
-
-    if (isShowingButtonReload) {
-      await this.runInWorker('click', 'button[data-testid="button-reload"]')
-    }
-
-    if (isShowingKeepConnected) {
-      await this.runInWorker(
-        'click',
-        'button[data-testid="button-keepconnected"]'
-      )
-      return
-    }
-
-    await this.runInWorker('fillForm', credentials)
-    await this.runInWorker('click', loginButtonSelector)
-  }
-
   async fetch(context) {
     this.log('info', '🤖 fetch start')
     const distanceInDays = await this.handleContextInfos(context)
     if (this.store.userCredentials != undefined) {
-      await this.saveCredentials(this.store.userCredentials)
+      await this.saveCredentials({
+        ...this.store.userCredentials,
+        userId: window.o_idzone?.USER_DEFINED_MSISDN
+      })
     }
     if (await this.isElementInWorker('#password')) {
       await this.evaluateInWorker(function reload() {
