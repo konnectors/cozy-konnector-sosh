@@ -136,9 +136,11 @@ class SoshContentScript extends ContentScript {
       '#oecs__zone-identity-layer_prospect_connect, #oecs__zone-identity-layer_client_disconnect'
     )
     const wantedUserId = (await this.getCredentials())?.userId
-    const currentUserId = window.o_idzone?.USER_DEFINED_MSISDN
+    const currentUserId = await this.evaluateInWorker(
+      () => window.o_idzone?.USER_DEFINED_MSISDN
+    )
     const shouldChangeCurrentAccount =
-      !account || wantedUserId !== currentUserId
+      !account || currentUserId == null || wantedUserId !== currentUserId
     if (shouldChangeCurrentAccount) {
       await this.ensureNotAuthenticated()
       await this.waitForUserAuthentication()
@@ -315,6 +317,11 @@ class SoshContentScript extends ContentScript {
     this.log('info', '🤖 waitForUserAuthentication start')
     await this.setWorkerState({ visible: true })
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
+    if (this.store.userCredentials) {
+      this.store.userCredentials.userId = await this.evaluateInWorker(
+        () => window.o_idzone?.USER_DEFINED_MSISDN
+      )
+    }
     await this.setWorkerState({ visible: false })
   }
 
@@ -360,10 +367,7 @@ class SoshContentScript extends ContentScript {
     this.log('info', '🤖 fetch start')
     const distanceInDays = await this.handleContextInfos(context)
     if (this.store.userCredentials != undefined) {
-      await this.saveCredentials({
-        ...this.store.userCredentials,
-        userId: window.o_idzone?.USER_DEFINED_MSISDN
-      })
+      await this.saveCredentials(this.store.userCredentials)
     }
     if (await this.isElementInWorker('#password')) {
       await this.evaluateInWorker(function reload() {
