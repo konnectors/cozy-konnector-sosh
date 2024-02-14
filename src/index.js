@@ -313,9 +313,29 @@ class SoshContentScript extends ContentScript {
     return false
   }
 
+  async autoFill(credentials) {
+    if (credentials.login) {
+      const loginElement = document.querySelector('#login')
+      if (loginElement) {
+        loginElement.addEventListener('click', () => {
+          loginElement.value = credentials.login
+        })
+        const submitElement = document.querySelector('#btnSubmit')
+        submitElement.addEventListener('click', async () => {
+          await this.waitForElementNoReload('#password')
+          const passwordElement = document.querySelector('#password')
+          passwordElement.focus()
+          passwordElement.value = credentials.password
+        })
+      }
+    }
+  }
+
   async waitForUserAuthentication() {
     this.log('info', '🤖 waitForUserAuthentication start')
     await this.setWorkerState({ visible: true })
+    const credentials = await this.getCredentials()
+    this.runInWorker('autoFill', credentials)
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
     if (this.store.userCredentials) {
       this.store.userCredentials.userId = await this.evaluateInWorker(
@@ -808,7 +828,8 @@ connector
       'checkMoreBillsButton',
       'getContracts',
       'waitForNextState',
-      'getCurrentState'
+      'getCurrentState',
+      'autoFill'
     ]
   })
   .catch(err => {
