@@ -132,9 +132,11 @@ class SoshContentScript extends ContentScript {
     this.log('info', '🤖 ensureAuthenticated starts')
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
     await this.goto(BASE_URL)
-    await this.waitForElementInWorker(
-      '#oecs__zone-identity-layer_prospect_connect, #oecs__zone-identity-layer_client_disconnect'
-    )
+    await this.runInWorkerUntilTrue({
+      method: 'waitForNextState',
+      args: [false],
+      timeout: 30 * 1000
+    })
     const wantedUserId = (await this.getCredentials())?.userId
     const currentUserId = await this.evaluateInWorker(
       () => window.o_idzone?.USER_DEFINED_MSISDN
@@ -272,9 +274,11 @@ class SoshContentScript extends ContentScript {
   async ensureNotAuthenticated() {
     this.log('info', '🤖 ensureNotAuthenticated starts')
     await this.goto(BASE_URL)
-    await this.waitForElementInWorker(
-      '#oecs__zone-identity-layer_prospect_connect, #oecs__zone-identity-layer_client_disconnect'
-    )
+    await this.runInWorkerUntilTrue({
+      method: 'waitForNextState',
+      args: [false],
+      timeout: 30 * 1000
+    })
     const start = Date.now()
     let state = await this.runInWorker('getCurrentState')
     while (state !== 'loginPage') {
