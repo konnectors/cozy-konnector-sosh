@@ -106,7 +106,9 @@ class SoshContentScript extends ContentScript {
   async waitForUndefinedLabelReallyClicked() {
     await waitFor(
       function clickOnElementUntilItDisapear() {
-        const elem = document.querySelector('#undefined-label')
+        const elem = document.querySelector(
+          '[data-testid=choose-other-account]'
+        )
         if (elem) {
           elem.click()
           return false
@@ -126,18 +128,28 @@ class SoshContentScript extends ContentScript {
     return true
   }
 
-  async ensureAuthenticated() {
+  async ensureAuthenticated({ account }) {
     this.log('info', '🤖 ensureAuthenticated starts')
     this.bridge.addEventListener('workerEvent', this.onWorkerEvent.bind(this))
-    await this.ensureNotAuthenticated()
-    const credentials = await this.getCredentials()
-    if (credentials) {
-      this.log('info', 'found credentials, processing')
-      await this.autoLogin(credentials)
-    } else {
-      this.log('info', 'no credentials found, use normal user login')
+    await this.goto(BASE_URL)
+    await this.runInWorkerUntilTrue({
+      method: 'waitForNextState',
+      args: [false],
+      timeout: 30 * 1000
+    })
+    const wantedUserId = (await this.getCredentials())?.userId
+    const currentUserId = await this.evaluateInWorker(
+      () => window.o_idzone?.USER_DEFINED_MSISDN
+    )
+    const shouldChangeCurrentAccount =
+      !account || currentUserId == null || wantedUserId !== currentUserId
+    if (shouldChangeCurrentAccount) {
+      await this.ensureNotAuthenticated()
       await this.waitForUserAuthentication()
+    } else {
+      this.log('debug', 'current user is the expected one, no need to logout')
     }
+    return true
   }
 
   async getContracts() {
@@ -161,7 +173,9 @@ class SoshContentScript extends ContentScript {
     const isPasswordAlone = Boolean(
       document.querySelector('#password') && !isLoginPage
     )
-    const isAccountList = Boolean(document.querySelector('#undefined-label'))
+    const isAccountList = Boolean(
+      document.querySelector('[data-testid=choose-other-account]')
+    )
     const isReloadButton = Boolean(
       document.querySelector('button[data-testid="button-reload"]')
     )
@@ -172,9 +186,11 @@ class SoshContentScript extends ContentScript {
       document.querySelector('div[class*="captcha_responseContainer"]')
     )
     const isConnected = Boolean(
-      document.querySelector('#oecs__connecte-se-deconnecter')
+      document.querySelector('#oecs__zone-identity-layer_client_disconnect')
     )
-    const isDisconnected = Boolean(document.querySelector('#oecs__connexion'))
+    const isDisconnected = Boolean(
+      document.querySelector('#oecs__zone-identity-layer_prospect_connect')
+    )
     const isConsentPage = Boolean(
       document.querySelector('#didomi-notice-disagree-button')
     )
@@ -200,9 +216,12 @@ class SoshContentScript extends ContentScript {
     } else if (currentState === 'loginPage') {
       return true
     } else if (currentState === 'connected') {
-      await this.runInWorker('click', '#oecs__connecte-se-deconnecter')
+      await this.runInWorker(
+        'click',
+        '#oecs__zone-identity-layer_client_disconnect'
+      )
     } else if (currentState === 'passwordAlonePage') {
-      await this.runInWorker('click', '#changeAccountLink')
+      await this.runInWorker('click', '[data-testid=change-account]')
     } else if (currentState === 'captchaPage') {
       await this.handleCaptcha()
     } else if (currentState === 'keepConnectedPage') {
@@ -218,7 +237,10 @@ class SoshContentScript extends ContentScript {
     } else if (currentState === 'reloadButtonPage') {
       await this.runInWorker('click', 'button[data-testid="button-reload"]')
     } else if (currentState === 'disconnectedPage') {
-      await this.runInWorker('click', '#oecs__connexion')
+      await this.runInWorker(
+        'click',
+        '#oecs__zone-identity-layer_prospect_connect'
+      )
     } else {
       throw new Error(`Unknown page state: ${currentState}`)
     }
@@ -252,9 +274,11 @@ class SoshContentScript extends ContentScript {
   async ensureNotAuthenticated() {
     this.log('info', '🤖 ensureNotAuthenticated starts')
     await this.goto(BASE_URL)
-    await this.waitForElementInWorker(
-      '#oecs__connexion, #oecs__connecte-se-deconnecter'
-    )
+    await this.runInWorkerUntilTrue({
+      method: 'waitForNextState',
+      args: [false],
+      timeout: 30 * 1000
+    })
     const start = Date.now()
     let state = await this.runInWorker('getCurrentState')
     while (state !== 'loginPage') {
@@ -278,7 +302,7 @@ class SoshContentScript extends ContentScript {
       document.querySelector('#oecs__connecte')
     )
     const isDisconnectElementPresent = Boolean(
-      document.querySelector('#oecs__connecte-se-deconnecter')
+      document.querySelector('#oecs__zone-identity-layer_client_disconnect')
     )
     if (isGoodUrl) {
       if (isConnectedElementPresent) {
@@ -293,10 +317,35 @@ class SoshContentScript extends ContentScript {
     return false
   }
 
+  async autoFill(credentials) {
+    if (credentials.login) {
+      const loginElement = document.querySelector('#login')
+      if (loginElement) {
+        loginElement.addEventListener('click', () => {
+          loginElement.value = credentials.login
+        })
+        const submitElement = document.querySelector('#btnSubmit')
+        submitElement.addEventListener('click', async () => {
+          await this.waitForElementNoReload('#password')
+          const passwordElement = document.querySelector('#password')
+          passwordElement.focus()
+          passwordElement.value = credentials.password
+        })
+      }
+    }
+  }
+
   async waitForUserAuthentication() {
     this.log('info', '🤖 waitForUserAuthentication start')
     await this.setWorkerState({ visible: true })
+    const credentials = await this.getCredentials()
+    this.runInWorker('autoFill', credentials)
     await this.runInWorkerUntilTrue({ method: 'waitForAuthenticated' })
+    if (this.store.userCredentials) {
+      this.store.userCredentials.userId = await this.evaluateInWorker(
+        () => window.o_idzone?.USER_DEFINED_MSISDN
+      )
+    }
     await this.setWorkerState({ visible: false })
   }
 
@@ -336,56 +385,6 @@ class SoshContentScript extends ContentScript {
       this.log('info', 'captcha found, waiting for resolution')
       await this.waitForUserAction(captchaUrl)
     }
-  }
-
-  async autoLogin(credentials) {
-    this.log('info', 'Autologin start')
-    const emailSelector = '#login'
-    const passwordInputSelector = '#password'
-    const loginButtonSelector = '#btnSubmit'
-    await this.waitForElementInWorker(
-      `${emailSelector}, ${passwordInputSelector}`
-    )
-    if (await this.isElementInWorker(emailSelector)) {
-      await this.runInWorker('fillForm', credentials)
-      await this.runInWorker('click', loginButtonSelector)
-    }
-
-    await this.PromiseRaceWithError(
-      [
-        this.waitForElementInWorker(
-          'button[data-testid="button-keepconnected"]'
-        ),
-        this.waitForElementInWorker('button[data-testid="button-reload"]'),
-        this.waitForElementInWorker(passwordInputSelector),
-        this.waitForErrorUrl()
-      ],
-      'autoLogin: page load after submit'
-    )
-
-    const isShowingKeepConnected = await this.isElementInWorker(
-      'button[data-testid="button-keepconnected"]'
-    )
-    this.log('info', 'isShowingKeepConnected: ' + isShowingKeepConnected)
-    const isShowingButtonReload = await this.isElementInWorker(
-      'button[data-testid="button-reload"]'
-    )
-    this.log('info', 'isShowingButtonReload: ' + isShowingButtonReload)
-
-    if (isShowingButtonReload) {
-      await this.runInWorker('click', 'button[data-testid="button-reload"]')
-    }
-
-    if (isShowingKeepConnected) {
-      await this.runInWorker(
-        'click',
-        'button[data-testid="button-keepconnected"]'
-      )
-      return
-    }
-
-    await this.runInWorker('fillForm', credentials)
-    await this.runInWorker('click', loginButtonSelector)
   }
 
   async fetch(context) {
@@ -729,7 +728,7 @@ class SoshContentScript extends ContentScript {
       interceptor.userInfos.portfolio?.contracts?.[0]?.telco?.publicNumber
     const address = []
     if (addressInfos) {
-      const houseNumber = addressInfos.postalAddress?.streetNumber?.number
+      const streetNumber = addressInfos.postalAddress?.streetNumber?.number
       const streetType = addressInfos.postalAddress?.street?.type
       const streetName = addressInfos.postalAddress?.street?.name
       const street =
@@ -737,11 +736,11 @@ class SoshContentScript extends ContentScript {
       const postCode = addressInfos.postalAddress?.postalCode
       const city = addressInfos.postalAddress?.cityName
       const formattedAddress =
-        houseNumber && street && postCode && city
-          ? `${houseNumber} ${street} ${postCode} ${city}`
+        streetNumber && street && postCode && city
+          ? `${streetNumber} ${street} ${postCode} ${city}`
           : undefined
       address.push({
-        houseNumber,
+        streetNumber,
         street,
         postCode,
         city,
@@ -754,7 +753,12 @@ class SoshContentScript extends ContentScript {
           interceptor.identification?.contracts?.[0]?.holder?.firstName,
         lastName: interceptor.identification?.contracts?.[0]?.holder?.lastName
       },
-      mail: interceptor.identification?.contactInformation?.email?.address,
+      email: [
+        {
+          address:
+            interceptor.identification?.contactInformation?.email?.address
+        }
+      ],
       address
     }
 
@@ -828,7 +832,8 @@ connector
       'checkMoreBillsButton',
       'getContracts',
       'waitForNextState',
-      'getCurrentState'
+      'getCurrentState',
+      'autoFill'
     ]
   })
   .catch(err => {
