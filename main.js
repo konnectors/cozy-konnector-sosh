@@ -479,17 +479,17 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
       return waitForNotAuthenticated;
     }()
     /**
-     * Wait for the given labelled request to be intercepted. The labeled request must be defined and
+     * Wait for the given identified request to be intercepted. The identified request must be defined and
      * sent to the ContentScript constructor
      *
-     * @param {string} label - any label string defined in the RequestInterceptor
+     * @param {string} identifier - any identifier string defined in the RequestInterceptor
      * @param {object} [options] - options object
      * @param {number} [options.timeout] - number of miliseconds before the function sends a timeout error. Default 60000ms
      */
     )
   }, {
     key: "waitForRequestInterception",
-    value: function waitForRequestInterception(label) {
+    value: function waitForRequestInterception(identifier) {
       var _options$timeout,
         _this5 = this;
       var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
@@ -499,7 +499,7 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
         var listener = function listener(_ref2) {
           var event = _ref2.event,
             payload = _ref2.payload;
-          if (event === 'requestResponse' && payload.label === label) {
+          if (event === 'requestResponse' && payload.identifier === identifier) {
             if (!_this5.bridge) {
               throw new Error('No bridge is defined, you should call ContentScript.init before using this method');
             }
@@ -514,7 +514,7 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
       });
       return (0, _pTimeout.default)(interceptionPromise, {
         milliseconds: timeout,
-        message: "Timed out after waiting ".concat(timeout, "ms for interception of ").concat(label)
+        message: "Timed out after waiting ".concat(timeout, "ms for interception of ").concat(identifier)
       });
     }
 
@@ -5158,7 +5158,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.34.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"95e0d1674bd1ef70b35d335930a70f9db4d286b1"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.34.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"04cbb155c6fa273b976f979fd0722e6760ec3f0f"}');
 
 /***/ }),
 /* 46 */
