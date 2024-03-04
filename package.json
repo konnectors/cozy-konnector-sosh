@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@cozy/minilog": "1.0.0",
-    "cozy-clisk": "^0.34.1",
+    "cozy-clisk": "^0.35.0",
     "date-fns": "3.2.0",
     "p-wait-for": "5.0.2"
   },
@@ -29,6 +29,6 @@
     "travisDeployKey": "./bin/generate_travis_deploy_key"
   },
   "devDependencies": {
-    "cozy-konnector-build": "^1.5.1"
+    "cozy-konnector-build": "^1.6.0"
   }
 }
