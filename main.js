@@ -914,30 +914,49 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
     key: "downloadFileInWorker",
     value: (function () {
       var _downloadFileInWorker = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee17(entry) {
+        var errorMessage, errorToLog;
         return _regenerator.default.wrap(function _callee17$(_context17) {
           while (1) switch (_context17.prev = _context17.next) {
             case 0:
               this.onlyIn(WORKER_TYPE, 'downloadFileInWorker');
               this.log('debug', 'downloading file in worker');
               if (!entry.fileurl) {
-                _context17.next = 9;
+                _context17.next = 24;
                 break;
               }
-              _context17.next = 5;
+              _context17.prev = 3;
+              _context17.next = 6;
               return _umd.default.get(entry.fileurl, entry.requestOptions).blob();
-            case 5:
+            case 6:
               entry.blob = _context17.sent;
-              _context17.next = 8;
+              _context17.next = 9;
               return (0, _utils.blobToBase64)(entry.blob);
-            case 8:
-              entry.dataUri = _context17.sent;
             case 9:
+              entry.dataUri = _context17.sent;
+              _context17.next = 24;
+              break;
+            case 12:
+              _context17.prev = 12;
+              _context17.t0 = _context17["catch"](3);
+              this.log('debug', "Full error : ".concat(JSON.stringify(_context17.t0)));
+              errorMessage = _context17.t0.message;
+              errorToLog = '';
+              if (!errorMessage.includes(/404|403|500|502|503/g)) {
+                _context17.next = 23;
+                break;
+              }
+              if (errorMessage.includes('404')) errorToLog = 'Website cannot find the wanted url';else if (errorMessage.includes('403')) errorToLog = 'User is not allowed to access the wanted URL';else errorToLog = 'Website server error accessing the wanted URL';
+              this.log('error', errorToLog);
+              throw new Error('VENDOR_DOWN');
+            case 23:
+              throw new Error('UNKNOWN_ERROR');
+            case 24:
               return _context17.abrupt("return", entry.dataUri);
-            case 10:
+            case 25:
             case "end":
               return _context17.stop();
           }
-        }, _callee17, this);
+        }, _callee17, this, [[3, 12]]);
       }));
       function downloadFileInWorker(_x13) {
         return _downloadFileInWorker.apply(this, arguments);
@@ -5158,7 +5177,7 @@ module.exports = _defineProperty, module.exports.__esModule = true, module.expor
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.34.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"04cbb155c6fa273b976f979fd0722e6760ec3f0f"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.35.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"e49e807aebae907627399a98ad1c4743fa360eea"}');
 
 /***/ }),
 /* 46 */
