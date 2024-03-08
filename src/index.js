@@ -85,7 +85,7 @@ class SoshContentScript extends ContentScript {
         checkBox.parentNode.parentNode.style.visibility = 'hidden'
       }
     }
-    this.log('info', 'password element found, adding listener')
+    this.log('info', 'adding listener')
     addClickListener.bind(this)()
   }
 
@@ -100,14 +100,14 @@ class SoshContentScript extends ContentScript {
   }
 
   /**
-   * Sometimes, depending on the device, #undefined-label may not be clickable yet
+   * Sometimes, depending on the device, button[data-testid="choose-other-account"] may not be clickable yet
    * we click on it until it disappears
    */
   async waitForUndefinedLabelReallyClicked() {
     await waitFor(
       function clickOnElementUntilItDisapear() {
         const elem = document.querySelector(
-          '[data-testid=choose-other-account]'
+          'button[data-testid="choose-other-account"]'
         )
         if (elem) {
           elem.click()
@@ -174,7 +174,7 @@ class SoshContentScript extends ContentScript {
       document.querySelector('#password') && !isLoginPage
     )
     const isAccountList = Boolean(
-      document.querySelector('[data-testid=choose-other-account]')
+      document.querySelector('button[data-testid="choose-other-account"]')
     )
     const isReloadButton = Boolean(
       document.querySelector('button[data-testid="button-reload"]')
@@ -315,24 +315,6 @@ class SoshContentScript extends ContentScript {
       }
     }
     return false
-  }
-
-  async autoFill(credentials) {
-    if (credentials.login) {
-      const loginElement = document.querySelector('#login')
-      if (loginElement) {
-        loginElement.addEventListener('click', () => {
-          loginElement.value = credentials.login
-        })
-        const submitElement = document.querySelector('#btnSubmit')
-        submitElement.addEventListener('click', async () => {
-          await this.waitForElementNoReload('#password')
-          const passwordElement = document.querySelector('#password')
-          passwordElement.focus()
-          passwordElement.value = credentials.password
-        })
-      }
-    }
   }
 
   async waitForUserAuthentication() {
@@ -640,7 +622,7 @@ class SoshContentScript extends ContentScript {
         'a[data-e2e="btn-contact-info-modifier-votre-identite"]'
       ),
       this.waitForElementInWorker(
-        'a[data-e2e="btn-contact-info-modifier-vos-coordonnees"]'
+        'a[data-e2e="btn-contact-info-phone-modifier"]'
       ),
       this.waitForElementInWorker(
         'a[data-e2e="btn-contact-info-modifier-vos-adresses-postales"]'
@@ -698,16 +680,22 @@ class SoshContentScript extends ContentScript {
     return interceptor.recentBills
   }
 
-  async fillForm(credentials) {
-    if (document.querySelector('#login')) {
-      this.log('info', 'filling email field')
-      document.querySelector('#login').value = credentials.login
-      return
-    }
-    if (document.querySelector('#password')) {
-      this.log('info', 'filling password field')
-      document.querySelector('#password').value = credentials.password
-      return
+  async autoFill(credentials) {
+    this.log('info', '📍️ autoFill starts')
+    if (credentials.login) {
+      const loginElement = document.querySelector('#login')
+      if (loginElement) {
+        loginElement.addEventListener('click', () => {
+          loginElement.value = credentials.login
+        })
+        const submitElement = document.querySelector('#btnSubmit')
+        submitElement.addEventListener('click', async () => {
+          await this.waitForElementNoReload('#password')
+          const passwordElement = document.querySelector('#password')
+          passwordElement.focus()
+          passwordElement.value = credentials.password
+        })
+      }
     }
   }
 
@@ -722,10 +710,24 @@ class SoshContentScript extends ContentScript {
   }
 
   async getIdentity() {
-    this.log('info', 'getIdentity starts')
+    this.log('info', '📍️ getIdentity starts')
+    const idInfos = interceptor.userInfos?.identification?.identity
+    const contactInfos =
+      interceptor.userInfos?.identification?.contactInformation
     const addressInfos = interceptor.userInfos.billingAddresses?.[0]
-    const phoneNumber =
-      interceptor.userInfos.portfolio?.contracts?.[0]?.telco?.publicNumber
+    const mobileNumber =
+      contactInfos.mobile?.status === 'valid'
+        ? contactInfos.mobile.number
+        : null
+    const homeNumber =
+      contactInfos.landline?.status === 'valid'
+        ? contactInfos.landline.number
+        : null
+    const email =
+      contactInfos?.email?.status === 'valid'
+        ? contactInfos?.email?.address
+        : null
+
     const address = []
     if (addressInfos) {
       const streetNumber = addressInfos.postalAddress?.streetNumber?.number
@@ -749,26 +751,31 @@ class SoshContentScript extends ContentScript {
     }
     const infosIdentity = {
       name: {
-        givenName:
-          interceptor.identification?.contracts?.[0]?.holder?.firstName,
-        lastName: interceptor.identification?.contracts?.[0]?.holder?.lastName
+        givenName: idInfos?.firstName,
+        lastName: idInfos?.lastName
       },
-      email: [
-        {
-          address:
-            interceptor.identification?.contactInformation?.email?.address
-        }
-      ],
       address
     }
-
-    if (phoneNumber && phoneNumber.match) {
-      infosIdentity.phone = [
-        {
-          type: phoneNumber.match(/^06|07|\+336|\+337/g) ? 'mobile' : 'home',
-          number: phoneNumber
-        }
-      ]
+    if (email) {
+      infosIdentity.email = []
+      infosIdentity.email.push({
+        address: email
+      })
+    }
+    if (mobileNumber || homeNumber) {
+      infosIdentity.phone = []
+      if (mobileNumber) {
+        infosIdentity.phone.push({
+          type: 'mobile',
+          number: mobileNumber
+        })
+      }
+      if (homeNumber) {
+        infosIdentity.phone.push({
+          type: 'home',
+          number: homeNumber
+        })
+      }
     }
 
     await this.sendToPilot({
@@ -790,7 +797,9 @@ class SoshContentScript extends ContentScript {
   async checkCaptchaResolution() {
     const passwordInput = document.querySelector('#password')
     const loginInput = document.querySelector('#login')
-    const otherAccountButton = document.querySelector('#undefined-label')
+    const otherAccountButton = document.querySelector(
+      'button[data-testid="choose-other-account"]'
+    )
     const stayLoggedButton = document.querySelector(
       'button[data-testid="button-keepconnected"]'
     )
@@ -820,7 +829,6 @@ connector
   .init({
     additionalExposedMethodsNames: [
       'getUserMail',
-      'fillForm',
       'getIdentity',
       'checkForCaptcha',
       'waitForCaptchaResolution',
