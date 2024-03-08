@@ -85,7 +85,7 @@ class SoshContentScript extends ContentScript {
         checkBox.parentNode.parentNode.style.visibility = 'hidden'
       }
     }
-    this.log('info', 'password element found, adding listener')
+    this.log('info', 'adding listener')
     addClickListener.bind(this)()
   }
 
@@ -100,14 +100,14 @@ class SoshContentScript extends ContentScript {
   }
 
   /**
-   * Sometimes, depending on the device, #undefined-label may not be clickable yet
+   * Sometimes, depending on the device, button[data-testid="choose-other-account"] may not be clickable yet
    * we click on it until it disappears
    */
   async waitForUndefinedLabelReallyClicked() {
     await waitFor(
       function clickOnElementUntilItDisapear() {
         const elem = document.querySelector(
-          '[data-testid=choose-other-account]'
+          'button[data-testid="choose-other-account"]'
         )
         if (elem) {
           elem.click()
@@ -174,7 +174,7 @@ class SoshContentScript extends ContentScript {
       document.querySelector('#password') && !isLoginPage
     )
     const isAccountList = Boolean(
-      document.querySelector('[data-testid=choose-other-account]')
+      document.querySelector('button[data-testid="choose-other-account"]')
     )
     const isReloadButton = Boolean(
       document.querySelector('button[data-testid="button-reload"]')
@@ -640,7 +640,7 @@ class SoshContentScript extends ContentScript {
         'a[data-e2e="btn-contact-info-modifier-votre-identite"]'
       ),
       this.waitForElementInWorker(
-        'a[data-e2e="btn-contact-info-modifier-vos-coordonnees"]'
+        'a[data-e2e="btn-contact-info-phone-modifier"]'
       ),
       this.waitForElementInWorker(
         'a[data-e2e="btn-contact-info-modifier-vos-adresses-postales"]'
@@ -699,15 +699,21 @@ class SoshContentScript extends ContentScript {
   }
 
   async fillForm(credentials) {
-    if (document.querySelector('#login')) {
-      this.log('info', 'filling email field')
-      document.querySelector('#login').value = credentials.login
-      return
-    }
-    if (document.querySelector('#password')) {
-      this.log('info', 'filling password field')
-      document.querySelector('#password').value = credentials.password
-      return
+    this.log('info', '📍️ fillForm starts')
+    if (credentials.login) {
+      const loginElement = document.querySelector('#login')
+      if (loginElement) {
+        loginElement.addEventListener('click', () => {
+          loginElement.value = credentials.login
+        })
+        const submitElement = document.querySelector('#btnSubmit')
+        submitElement.addEventListener('click', async () => {
+          await this.waitForElementNoReload('#password')
+          const passwordElement = document.querySelector('#password')
+          passwordElement.focus()
+          passwordElement.value = credentials.password
+        })
+      }
     }
   }
 
@@ -790,7 +796,9 @@ class SoshContentScript extends ContentScript {
   async checkCaptchaResolution() {
     const passwordInput = document.querySelector('#password')
     const loginInput = document.querySelector('#login')
-    const otherAccountButton = document.querySelector('#undefined-label')
+    const otherAccountButton = document.querySelector(
+      'button[data-testid="choose-other-account"]'
+    )
     const stayLoggedButton = document.querySelector(
       'button[data-testid="button-keepconnected"]'
     )
