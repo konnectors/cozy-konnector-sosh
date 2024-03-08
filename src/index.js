@@ -728,10 +728,24 @@ class SoshContentScript extends ContentScript {
   }
 
   async getIdentity() {
-    this.log('info', 'getIdentity starts')
+    this.log('info', '📍️ getIdentity starts')
+    const idInfos = interceptor.userInfos?.identification?.identity
+    const contactInfos =
+      interceptor.userInfos?.identification?.contactInformation
     const addressInfos = interceptor.userInfos.billingAddresses?.[0]
-    const phoneNumber =
-      interceptor.userInfos.portfolio?.contracts?.[0]?.telco?.publicNumber
+    const mobileNumber =
+      contactInfos.mobile?.status === 'valid'
+        ? contactInfos.mobile.number
+        : null
+    const homeNumber =
+      contactInfos.landline?.status === 'valid'
+        ? contactInfos.landline.number
+        : null
+    const email =
+      contactInfos?.email?.status === 'valid'
+        ? contactInfos?.email?.address
+        : null
+
     const address = []
     if (addressInfos) {
       const streetNumber = addressInfos.postalAddress?.streetNumber?.number
@@ -755,26 +769,31 @@ class SoshContentScript extends ContentScript {
     }
     const infosIdentity = {
       name: {
-        givenName:
-          interceptor.identification?.contracts?.[0]?.holder?.firstName,
-        lastName: interceptor.identification?.contracts?.[0]?.holder?.lastName
+        givenName: idInfos?.firstName,
+        lastName: idInfos?.lastName
       },
-      email: [
-        {
-          address:
-            interceptor.identification?.contactInformation?.email?.address
-        }
-      ],
       address
     }
-
-    if (phoneNumber && phoneNumber.match) {
-      infosIdentity.phone = [
-        {
-          type: phoneNumber.match(/^06|07|\+336|\+337/g) ? 'mobile' : 'home',
-          number: phoneNumber
-        }
-      ]
+    if (email) {
+      infosIdentity.email = []
+      infosIdentity.email.push({
+        address: email
+      })
+    }
+    if (mobileNumber || homeNumber) {
+      infosIdentity.phone = []
+      if (mobileNumber) {
+        infosIdentity.phone.push({
+          type: 'mobile',
+          number: mobileNumber
+        })
+      }
+      if (homeNumber) {
+        infosIdentity.phone.push({
+          type: 'home',
+          number: homeNumber
+        })
+      }
     }
 
     await this.sendToPilot({
