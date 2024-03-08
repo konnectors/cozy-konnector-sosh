@@ -317,24 +317,6 @@ class SoshContentScript extends ContentScript {
     return false
   }
 
-  async autoFill(credentials) {
-    if (credentials.login) {
-      const loginElement = document.querySelector('#login')
-      if (loginElement) {
-        loginElement.addEventListener('click', () => {
-          loginElement.value = credentials.login
-        })
-        const submitElement = document.querySelector('#btnSubmit')
-        submitElement.addEventListener('click', async () => {
-          await this.waitForElementNoReload('#password')
-          const passwordElement = document.querySelector('#password')
-          passwordElement.focus()
-          passwordElement.value = credentials.password
-        })
-      }
-    }
-  }
-
   async waitForUserAuthentication() {
     this.log('info', '🤖 waitForUserAuthentication start')
     await this.setWorkerState({ visible: true })
@@ -698,8 +680,8 @@ class SoshContentScript extends ContentScript {
     return interceptor.recentBills
   }
 
-  async fillForm(credentials) {
-    this.log('info', '📍️ fillForm starts')
+  async autoFill(credentials) {
+    this.log('info', '📍️ autoFill starts')
     if (credentials.login) {
       const loginElement = document.querySelector('#login')
       if (loginElement) {
@@ -847,7 +829,6 @@ connector
   .init({
     additionalExposedMethodsNames: [
       'getUserMail',
-      'fillForm',
       'getIdentity',
       'checkForCaptcha',
       'waitForCaptchaResolution',
