@@ -22,7 +22,7 @@ script:
 deploy:
 - provider: script
   skip-cleanup: true
-  script: DEPLOY_BRANCH=build yarn deploy && yarn cozyPublish
+  script: if [[ "${TRAVIS_EVENT_TYPE}" != "cron" ]]; then DEPLOY_BRANCH=build yarn deploy && yarn cozyPublish; else true; fi
   on:
     branch: master
 - provider: script
