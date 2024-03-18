@@ -6176,6 +6176,10 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         qualificationLabel:
           contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
+      if (!oldBillsUrl) {
+        this.log('warn', 'Cannot fetch oldBills, url to fetch is not valid')
+        throw new Error('UNKNOWN_ERROR.PARTIAL_SYNC')
+      }
       if (FORCE_FETCH_ALL) {
         const oldBills = await this.fetchOldBills({
           oldBillsUrl,
@@ -6222,10 +6226,17 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async fetchOldBills({ oldBillsUrl, vendorId }) {
     this.log('info', 'fetching old bills')
-    const { oldBills } = await this.runInWorker(
+    const oldBills = await this.runInWorker(
       'getOldBillsFromWorker',
       oldBillsUrl
     )
+    if (!oldBills) {
+      this.log(
+        'error',
+        'Url seems to be valid, but something unexpected happened when fetching it'
+      )
+      throw new Error('UNKNOWN_ERROR.PARTIAL_SYNC')
+    }
     const cid = vendorId
 
     const saveBillsEntries = []
@@ -6291,6 +6302,19 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
     let billsToFetch
     const recentBills = await this.runInWorker('getRecentBillsFromInterceptor')
+
+    // Keep this log around for debug, to remove next time if not needed anymore
+    this.log(
+      'info',
+      `Object.keys(recentBills) : ${JSON.stringify(Object.keys(recentBills))}`
+    )
+    this.log(
+      'info',
+      `Object.keys(recentBills.billsHistory) : ${JSON.stringify(
+        Object.keys(recentBills.billsHistory)
+      )}`
+    )
+
     const saveBillsEntries = []
     if (!FORCE_FETCH_ALL) {
       const allRecentBills = recentBills.billsHistory.billList
@@ -6347,7 +6371,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     }
 
     // will be used to fetch old bills if needed
-    const oldBillsUrl = recentBills.billsHistory.oldBillsHref
+    const oldBillsUrl = recentBills.billsHistory?.oldBillsHref
     return { recentBills: saveBillsEntries, oldBillsUrl }
   }
 
@@ -6436,15 +6460,28 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   // ////////
 
   async getOldBillsFromWorker(oldBillsUrl) {
+    if (!oldBillsUrl) {
+      this.log('warn', 'oldBillsUrl is falsy ')
+      return null
+    }
     const OLD_BILLS_URL_PREFIX =
       'https://espace-client.orange.fr/ecd_wp/facture/historicBills'
-    return await ky_umd__WEBPACK_IMPORTED_MODULE_4___default().get(OLD_BILLS_URL_PREFIX + oldBillsUrl, {
-        headers: {
-          ...ORANGE_SPECIAL_HEADERS,
-          ...JSON_HEADERS
-        }
-      })
-      .json()
+    let jsonResp
+    try {
+      jsonResp = await ky_umd__WEBPACK_IMPORTED_MODULE_4___default().get(OLD_BILLS_URL_PREFIX + oldBillsUrl, {
+          headers: {
+            ...ORANGE_SPECIAL_HEADERS,
+            ...JSON_HEADERS
+          }
+        })
+        .json()
+    } catch (error) {
+      this.log(
+        'error',
+        `error when requesting oldBills url :${JSON.stringify(error)}`
+      )
+    }
+    return jsonResp?.oldBills
   }
 
   async getRecentBillsFromInterceptor() {
