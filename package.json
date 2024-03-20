@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@cozy/minilog": "1.0.0",
-    "cozy-clisk": "^0.36.0",
+    "cozy-clisk": "^0.36.1",
     "date-fns": "3.2.0",
     "p-wait-for": "5.0.2"
   },
