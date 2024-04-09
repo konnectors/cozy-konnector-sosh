@@ -221,6 +221,7 @@ class SoshContentScript extends ContentScript {
         '#oecs__zone-identity-layer_client_disconnect'
       )
     } else if (currentState === 'passwordAlonePage') {
+      await this.waitForElementInWorker('[data-testid=change-account]')
       await this.runInWorker('click', '[data-testid=change-account]')
     } else if (currentState === 'captchaPage') {
       await this.handleCaptcha()
@@ -404,11 +405,11 @@ class SoshContentScript extends ContentScript {
         qualificationLabel:
           contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
-      if (!oldBillsUrl) {
-        this.log('warn', 'Cannot fetch oldBills, url to fetch is not valid')
-        throw new Error('UNKNOWN_ERROR.PARTIAL_SYNC')
-      }
-      if (FORCE_FETCH_ALL) {
+      // Due to recent changes in Orange's way to handle contracts
+      // oldbillsUrl might not be present in the intercepted response
+      // Perhaps it will appears differently if it does (when newly created contract will have an history to show)
+      // Unfortunately the account we dispose to develop has only one contract, so we'll take Orange as a reference if it happen
+      if (FORCE_FETCH_ALL && oldBillsUrl) {
         const oldBills = await this.fetchOldBills({
           oldBillsUrl,
           vendorId: contract.vendorId
