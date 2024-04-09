@@ -54,15 +54,15 @@ var _toConsumableArray2 = _interopRequireDefault(__webpack_require__(7));
 var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(13));
 var _classCallCheck2 = _interopRequireDefault(__webpack_require__(14));
 var _createClass2 = _interopRequireDefault(__webpack_require__(15));
-var _pWaitFor = _interopRequireWildcard(__webpack_require__(18));
-var _pTimeout = _interopRequireDefault(__webpack_require__(19));
-var _minilog = _interopRequireDefault(__webpack_require__(20));
-var _LauncherBridge = _interopRequireDefault(__webpack_require__(32));
-var _utils = __webpack_require__(41);
-var _wrapTimer = __webpack_require__(42);
-var _umd = _interopRequireDefault(__webpack_require__(44));
-var _package = _interopRequireDefault(__webpack_require__(45));
-var _utils2 = __webpack_require__(46);
+var _minilog = _interopRequireDefault(__webpack_require__(18));
+var _umd = _interopRequireDefault(__webpack_require__(30));
+var _pTimeout = _interopRequireDefault(__webpack_require__(31));
+var _pWaitFor = _interopRequireWildcard(__webpack_require__(32));
+var _utils = __webpack_require__(33);
+var _package = _interopRequireDefault(__webpack_require__(34));
+var _LauncherBridge = _interopRequireDefault(__webpack_require__(35));
+var _utils2 = __webpack_require__(44);
+var _wrapTimer = __webpack_require__(49);
 var _window; // @ts-check
 function _getRequireWildcardCache(e) { if ("function" != typeof WeakMap) return null; var r = new WeakMap(), t = new WeakMap(); return (_getRequireWildcardCache = function _getRequireWildcardCache(e) { return e ? t : r; })(e); }
 function _interopRequireWildcard(e, r) { if (!r && e && e.__esModule) return e; if (null === e || "object" != typeof e && "function" != typeof e) return { default: e }; var t = _getRequireWildcardCache(r); if (t && t.has(e)) return t.get(e); var n = { __proto__: null }, a = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var u in e) if ("default" !== u && Object.prototype.hasOwnProperty.call(e, u)) { var i = a ? Object.getOwnPropertyDescriptor(e, u) : null; i && (i.get || i.set) ? Object.defineProperty(n, u, i) : n[u] = e[u]; } return n.default = e, t && t.set(e, n), n; }
@@ -2325,74 +2325,1086 @@ module.exports = _toPrimitive, module.exports.__esModule = true, module.exports[
 
 /***/ }),
 /* 18 */
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+/***/ ((module, exports, __webpack_require__) => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "TimeoutError": () => (/* reexport safe */ p_timeout__WEBPACK_IMPORTED_MODULE_0__.TimeoutError),
-/* harmony export */   "default": () => (/* binding */ pWaitFor)
-/* harmony export */ });
-/* harmony import */ var p_timeout__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(19);
+var Minilog = __webpack_require__(19);
 
+var oldEnable = Minilog.enable,
+    oldDisable = Minilog.disable,
+    isChrome = (typeof navigator != 'undefined' && /chrome/i.test(navigator.userAgent)),
+    console = __webpack_require__(23);
 
-const resolveValue = Symbol('resolveValue');
+// Use a more capable logging backend if on Chrome
+Minilog.defaultBackend = (isChrome ? console.minilog : console);
 
-async function pWaitFor(condition, options = {}) {
-	const {
-		interval = 20,
-		timeout = Number.POSITIVE_INFINITY,
-		before = true,
-	} = options;
-
-	let retryTimeout;
-	let abort = false;
-
-	const promise = new Promise((resolve, reject) => {
-		const check = async () => {
-			try {
-				const value = await condition();
-
-				if (typeof value === 'object' && value[resolveValue]) {
-					resolve(value[resolveValue]);
-				} else if (typeof value !== 'boolean') {
-					throw new TypeError('Expected condition to return a boolean');
-				} else if (value === true) {
-					resolve();
-				} else if (!abort) {
-					retryTimeout = setTimeout(check, interval);
-				}
-			} catch (error) {
-				reject(error);
-			}
-		};
-
-		if (before) {
-			check();
-		} else {
-			retryTimeout = setTimeout(check, interval);
-		}
-	});
-
-	if (timeout === Number.POSITIVE_INFINITY) {
-		return promise;
-	}
-
-	try {
-		return await (0,p_timeout__WEBPACK_IMPORTED_MODULE_0__["default"])(promise, typeof timeout === 'number' ? {milliseconds: timeout} : timeout);
-	} finally {
-		abort = true;
-		clearTimeout(retryTimeout);
-	}
+// apply enable inputs from localStorage and from the URL
+if(typeof window != 'undefined') {
+  try {
+    Minilog.enable(JSON.parse(window.localStorage['minilogSettings']));
+  } catch(e) {}
+  if(window.location && window.location.search) {
+    var match = RegExp('[?&]minilog=([^&]*)').exec(window.location.search);
+    match && Minilog.enable(decodeURIComponent(match[1]));
+  }
 }
 
-pWaitFor.resolveWith = value => ({[resolveValue]: value});
+// Make enable also add to localStorage
+Minilog.enable = function() {
+  oldEnable.call(Minilog, true);
+  try { window.localStorage['minilogSettings'] = JSON.stringify(true); } catch(e) {}
+  return this;
+};
 
+Minilog.disable = function() {
+  oldDisable.call(Minilog);
+  try { delete window.localStorage.minilogSettings; } catch(e) {}
+  return this;
+};
 
+exports = module.exports = Minilog;
+
+exports.backends = {
+  array: __webpack_require__(27),
+  browser: Minilog.defaultBackend,
+  localStorage: __webpack_require__(28),
+  jQuery: __webpack_require__(29)
+};
 
 
 /***/ }),
 /* 19 */
+/***/ ((module, exports, __webpack_require__) => {
+
+var Transform = __webpack_require__(20),
+    Filter = __webpack_require__(22);
+
+var log = new Transform(),
+    slice = Array.prototype.slice;
+
+exports = module.exports = function create(name) {
+  var o   = function() { log.write(name, undefined, slice.call(arguments)); return o; };
+  o.debug = function() { log.write(name, 'debug', slice.call(arguments)); return o; };
+  o.info  = function() { log.write(name, 'info',  slice.call(arguments)); return o; };
+  o.warn  = function() { log.write(name, 'warn',  slice.call(arguments)); return o; };
+  o.error = function() { log.write(name, 'error', slice.call(arguments)); return o; };
+  o.group = function() { log.write(name, 'group', slice.call(arguments)); return o; };
+  o.groupEnd = function() { log.write(name, 'groupEnd', slice.call(arguments)); return o; };
+  o.log   = o.debug; // for interface compliance with Node and browser consoles
+  o.suggest = exports.suggest;
+  o.format = log.format;
+  return o;
+};
+
+// filled in separately
+exports.defaultBackend = exports.defaultFormatter = null;
+
+exports.pipe = function(dest) {
+  return log.pipe(dest);
+};
+
+exports.end = exports.unpipe = exports.disable = function(from) {
+  return log.unpipe(from);
+};
+
+exports.Transform = Transform;
+exports.Filter = Filter;
+// this is the default filter that's applied when .enable() is called normally
+// you can bypass it completely and set up your own pipes
+exports.suggest = new Filter();
+
+exports.enable = function() {
+  if(exports.defaultFormatter) {
+    return log.pipe(exports.suggest) // filter
+              .pipe(exports.defaultFormatter) // formatter
+              .pipe(exports.defaultBackend); // backend
+  }
+  return log.pipe(exports.suggest) // filter
+            .pipe(exports.defaultBackend); // formatter
+};
+
+
+
+/***/ }),
+/* 20 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var microee = __webpack_require__(21);
+
+// Implements a subset of Node's stream.Transform - in a cross-platform manner.
+function Transform() {}
+
+microee.mixin(Transform);
+
+// The write() signature is different from Node's
+// --> makes it much easier to work with objects in logs.
+// One of the lessons from v1 was that it's better to target
+// a good browser rather than the lowest common denominator
+// internally.
+// If you want to use external streams, pipe() to ./stringify.js first.
+Transform.prototype.write = function(name, level, args) {
+  this.emit('item', name, level, args);
+};
+
+Transform.prototype.end = function() {
+  this.emit('end');
+  this.removeAllListeners();
+};
+
+Transform.prototype.pipe = function(dest) {
+  var s = this;
+  // prevent double piping
+  s.emit('unpipe', dest);
+  // tell the dest that it's being piped to
+  dest.emit('pipe', s);
+
+  function onItem() {
+    dest.write.apply(dest, Array.prototype.slice.call(arguments));
+  }
+  function onEnd() { !dest._isStdio && dest.end(); }
+
+  s.on('item', onItem);
+  s.on('end', onEnd);
+
+  s.when('unpipe', function(from) {
+    var match = (from === dest) || typeof from == 'undefined';
+    if(match) {
+      s.removeListener('item', onItem);
+      s.removeListener('end', onEnd);
+      dest.emit('unpipe');
+    }
+    return match;
+  });
+
+  return dest;
+};
+
+Transform.prototype.unpipe = function(from) {
+  this.emit('unpipe', from);
+  return this;
+};
+
+Transform.prototype.format = function(dest) {
+  throw new Error([
+    'Warning: .format() is deprecated in Minilog v2! Use .pipe() instead. For example:',
+    'var Minilog = require(\'minilog\');',
+    'Minilog',
+    '  .pipe(Minilog.backends.console.formatClean)',
+    '  .pipe(Minilog.backends.console);'].join('\n'));
+};
+
+Transform.mixin = function(dest) {
+  var o = Transform.prototype, k;
+  for (k in o) {
+    o.hasOwnProperty(k) && (dest.prototype[k] = o[k]);
+  }
+};
+
+module.exports = Transform;
+
+
+/***/ }),
+/* 21 */
+/***/ ((module) => {
+
+function M() { this._events = {}; }
+M.prototype = {
+  on: function(ev, cb) {
+    this._events || (this._events = {});
+    var e = this._events;
+    (e[ev] || (e[ev] = [])).push(cb);
+    return this;
+  },
+  removeListener: function(ev, cb) {
+    var e = this._events[ev] || [], i;
+    for(i = e.length-1; i >= 0 && e[i]; i--){
+      if(e[i] === cb || e[i].cb === cb) { e.splice(i, 1); }
+    }
+  },
+  removeAllListeners: function(ev) {
+    if(!ev) { this._events = {}; }
+    else { this._events[ev] && (this._events[ev] = []); }
+  },
+  listeners: function(ev) {
+    return (this._events ? this._events[ev] || [] : []);
+  },
+  emit: function(ev) {
+    this._events || (this._events = {});
+    var args = Array.prototype.slice.call(arguments, 1), i, e = this._events[ev] || [];
+    for(i = e.length-1; i >= 0 && e[i]; i--){
+      e[i].apply(this, args);
+    }
+    return this;
+  },
+  when: function(ev, cb) {
+    return this.once(ev, cb, true);
+  },
+  once: function(ev, cb, when) {
+    if(!cb) return this;
+    function c() {
+      if(!when) this.removeListener(ev, c);
+      if(cb.apply(this, arguments) && when) this.removeListener(ev, c);
+    }
+    c.cb = cb;
+    this.on(ev, c);
+    return this;
+  }
+};
+M.mixin = function(dest) {
+  var o = M.prototype, k;
+  for (k in o) {
+    o.hasOwnProperty(k) && (dest.prototype[k] = o[k]);
+  }
+};
+module.exports = M;
+
+
+/***/ }),
+/* 22 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+// default filter
+var Transform = __webpack_require__(20);
+
+var levelMap = { debug: 1, info: 2, warn: 3, error: 4 };
+
+function Filter() {
+  this.enabled = true;
+  this.defaultResult = true;
+  this.clear();
+}
+
+Transform.mixin(Filter);
+
+// allow all matching, with level >= given level
+Filter.prototype.allow = function(name, level) {
+  this._white.push({ n: name, l: levelMap[level] });
+  return this;
+};
+
+// deny all matching, with level <= given level
+Filter.prototype.deny = function(name, level) {
+  this._black.push({ n: name, l: levelMap[level] });
+  return this;
+};
+
+Filter.prototype.clear = function() {
+  this._white = [];
+  this._black = [];
+  return this;
+};
+
+function test(rule, name) {
+  // use .test for RegExps
+  return (rule.n.test ? rule.n.test(name) : rule.n == name);
+};
+
+Filter.prototype.test = function(name, level) {
+  var i, len = Math.max(this._white.length, this._black.length);
+  for(i = 0; i < len; i++) {
+    if(this._white[i] && test(this._white[i], name) && levelMap[level] >= this._white[i].l) {
+      return true;
+    }
+    if(this._black[i] && test(this._black[i], name) && levelMap[level] <= this._black[i].l) {
+      return false;
+    }
+  }
+  return this.defaultResult;
+};
+
+Filter.prototype.write = function(name, level, args) {
+  if(!this.enabled || this.test(name, level)) {
+    return this.emit('item', name, level, args);
+  }
+};
+
+module.exports = Filter;
+
+
+/***/ }),
+/* 23 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var Transform = __webpack_require__(20);
+
+var newlines = /\n+$/,
+    logger = new Transform();
+
+logger.write = function(name, level, args) {
+  var i = args.length-1;
+  if (typeof console === 'undefined' || !console.log) {
+    return;
+  }
+  if(console.log.apply) {
+    return console.log.apply(console, [name, level].concat(args));
+  } else if(JSON && JSON.stringify) {
+    // console.log.apply is undefined in IE8 and IE9
+    // for IE8/9: make console.log at least a bit less awful
+    if(args[i] && typeof args[i] == 'string') {
+      args[i] = args[i].replace(newlines, '');
+    }
+    try {
+      for(i = 0; i < args.length; i++) {
+        args[i] = JSON.stringify(args[i]);
+      }
+    } catch(e) {}
+    console.log(args.join(' '));
+  }
+};
+
+logger.formatters = ['color', 'minilog'];
+logger.color = __webpack_require__(24);
+logger.minilog = __webpack_require__(26);
+
+module.exports = logger;
+
+
+/***/ }),
+/* 24 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var Transform = __webpack_require__(20),
+    color = __webpack_require__(25);
+
+var colors = { debug: ['cyan'], info: ['purple' ], warn: [ 'yellow', true ], error: [ 'red', true ] },
+    logger = new Transform();
+
+logger.write = function(name, level, args) {
+  var fn = console.log;
+  if(console[level] && console[level].apply) {
+    fn = console[level];
+    fn.apply(console, [ '%c'+name+' %c'+level, color('gray'), color.apply(color, colors[level])].concat(args));
+  }
+};
+
+// NOP, because piping the formatted logs can only cause trouble.
+logger.pipe = function() { };
+
+module.exports = logger;
+
+
+/***/ }),
+/* 25 */
+/***/ ((module) => {
+
+var hex = {
+  black: '#000',
+  red: '#c23621',
+  green: '#25bc26',
+  yellow: '#bbbb00',
+  blue:  '#492ee1',
+  magenta: '#d338d3',
+  cyan: '#33bbc8',
+  gray: '#808080',
+  purple: '#708'
+};
+function color(fg, isInverse) {
+  if(isInverse) {
+    return 'color: #fff; background: '+hex[fg]+';';
+  } else {
+    return 'color: '+hex[fg]+';';
+  }
+}
+
+module.exports = color;
+
+
+/***/ }),
+/* 26 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var Transform = __webpack_require__(20),
+    color = __webpack_require__(25),
+    colors = { debug: ['gray'], info: ['purple' ], warn: [ 'yellow', true ], error: [ 'red', true ] },
+    logger = new Transform();
+
+logger.write = function(name, level, args) {
+  var fn = console.log;
+  if(level != 'debug' && console[level]) {
+    fn = console[level];
+  }
+
+  var subset = [], i = 0;
+  if(level != 'info') {
+    for(; i < args.length; i++) {
+      if(typeof args[i] != 'string') break;
+    }
+    fn.apply(console, [ '%c'+name +' '+ args.slice(0, i).join(' '), color.apply(color, colors[level]) ].concat(args.slice(i)));
+  } else {
+    fn.apply(console, [ '%c'+name, color.apply(color, colors[level]) ].concat(args));
+  }
+};
+
+// NOP, because piping the formatted logs can only cause trouble.
+logger.pipe = function() { };
+
+module.exports = logger;
+
+
+/***/ }),
+/* 27 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var Transform = __webpack_require__(20),
+    cache = [ ];
+
+var logger = new Transform();
+
+logger.write = function(name, level, args) {
+  cache.push([ name, level, args ]);
+};
+
+// utility functions
+logger.get = function() { return cache; };
+logger.empty = function() { cache = []; };
+
+module.exports = logger;
+
+
+/***/ }),
+/* 28 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var Transform = __webpack_require__(20),
+    cache = false;
+
+var logger = new Transform();
+
+logger.write = function(name, level, args) {
+  if(typeof window == 'undefined' || typeof JSON == 'undefined' || !JSON.stringify || !JSON.parse) return;
+  try {
+    if(!cache) { cache = (window.localStorage.minilog ? JSON.parse(window.localStorage.minilog) : []); }
+    cache.push([ new Date().toString(), name, level, args ]);
+    window.localStorage.minilog = JSON.stringify(cache);
+  } catch(e) {}
+};
+
+module.exports = logger;
+
+/***/ }),
+/* 29 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var Transform = __webpack_require__(20);
+
+var cid = new Date().valueOf().toString(36);
+
+function AjaxLogger(options) {
+  this.url = options.url || '';
+  this.cache = [];
+  this.timer = null;
+  this.interval = options.interval || 30*1000;
+  this.enabled = true;
+  this.jQuery = window.jQuery;
+  this.extras = {};
+}
+
+Transform.mixin(AjaxLogger);
+
+AjaxLogger.prototype.write = function(name, level, args) {
+  if(!this.timer) { this.init(); }
+  this.cache.push([name, level].concat(args));
+};
+
+AjaxLogger.prototype.init = function() {
+  if(!this.enabled || !this.jQuery) return;
+  var self = this;
+  this.timer = setTimeout(function() {
+    var i, logs = [], ajaxData, url = self.url;
+    if(self.cache.length == 0) return self.init();
+    // Test each log line and only log the ones that are valid (e.g. don't have circular references).
+    // Slight performance hit but benefit is we log all valid lines.
+    for(i = 0; i < self.cache.length; i++) {
+      try {
+        JSON.stringify(self.cache[i]);
+        logs.push(self.cache[i]);
+      } catch(e) { }
+    }
+    if(self.jQuery.isEmptyObject(self.extras)) {
+        ajaxData = JSON.stringify({ logs: logs });
+        url = self.url + '?client_id=' + cid;
+    } else {
+        ajaxData = JSON.stringify(self.jQuery.extend({logs: logs}, self.extras));
+    }
+
+    self.jQuery.ajax(url, {
+      type: 'POST',
+      cache: false,
+      processData: false,
+      data: ajaxData,
+      contentType: 'application/json',
+      timeout: 10000
+    }).success(function(data, status, jqxhr) {
+      if(data.interval) {
+        self.interval = Math.max(1000, data.interval);
+      }
+    }).error(function() {
+      self.interval = 30000;
+    }).always(function() {
+      self.init();
+    });
+    self.cache = [];
+  }, this.interval);
+};
+
+AjaxLogger.prototype.end = function() {};
+
+// wait until jQuery is defined. Useful if you don't control the load order.
+AjaxLogger.jQueryWait = function(onDone) {
+  if(typeof window !== 'undefined' && (window.jQuery || window.$)) {
+    return onDone(window.jQuery || window.$);
+  } else if (typeof window !== 'undefined') {
+    setTimeout(function() { AjaxLogger.jQueryWait(onDone); }, 200);
+  }
+};
+
+module.exports = AjaxLogger;
+
+
+/***/ }),
+/* 30 */
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
+
+(function (global, factory) {
+	 true ? module.exports = factory() :
+	0;
+}(this, (function () { 'use strict';
+
+	/*! MIT License © Sindre Sorhus */
+
+	const globals = {};
+
+	const getGlobal = property => {
+		/* istanbul ignore next */
+		if (typeof self !== 'undefined' && self && property in self) {
+			return self;
+		}
+
+		/* istanbul ignore next */
+		if (typeof window !== 'undefined' && window && property in window) {
+			return window;
+		}
+
+		if (typeof __webpack_require__.g !== 'undefined' && __webpack_require__.g && property in __webpack_require__.g) {
+			return __webpack_require__.g;
+		}
+
+		/* istanbul ignore next */
+		if (typeof globalThis !== 'undefined' && globalThis) {
+			return globalThis;
+		}
+	};
+
+	const globalProperties = [
+		'Headers',
+		'Request',
+		'Response',
+		'ReadableStream',
+		'fetch',
+		'AbortController',
+		'FormData'
+	];
+
+	for (const property of globalProperties) {
+		Object.defineProperty(globals, property, {
+			get() {
+				const globalObject = getGlobal(property);
+				const value = globalObject && globalObject[property];
+				return typeof value === 'function' ? value.bind(globalObject) : value;
+			}
+		});
+	}
+
+	const isObject = value => value !== null && typeof value === 'object';
+	const supportsAbortController = typeof globals.AbortController === 'function';
+	const supportsStreams = typeof globals.ReadableStream === 'function';
+	const supportsFormData = typeof globals.FormData === 'function';
+
+	const mergeHeaders = (source1, source2) => {
+		const result = new globals.Headers(source1 || {});
+		const isHeadersInstance = source2 instanceof globals.Headers;
+		const source = new globals.Headers(source2 || {});
+
+		for (const [key, value] of source) {
+			if ((isHeadersInstance && value === 'undefined') || value === undefined) {
+				result.delete(key);
+			} else {
+				result.set(key, value);
+			}
+		}
+
+		return result;
+	};
+
+	const deepMerge = (...sources) => {
+		let returnValue = {};
+		let headers = {};
+
+		for (const source of sources) {
+			if (Array.isArray(source)) {
+				if (!(Array.isArray(returnValue))) {
+					returnValue = [];
+				}
+
+				returnValue = [...returnValue, ...source];
+			} else if (isObject(source)) {
+				for (let [key, value] of Object.entries(source)) {
+					if (isObject(value) && (key in returnValue)) {
+						value = deepMerge(returnValue[key], value);
+					}
+
+					returnValue = {...returnValue, [key]: value};
+				}
+
+				if (isObject(source.headers)) {
+					headers = mergeHeaders(headers, source.headers);
+				}
+			}
+
+			returnValue.headers = headers;
+		}
+
+		return returnValue;
+	};
+
+	const requestMethods = [
+		'get',
+		'post',
+		'put',
+		'patch',
+		'head',
+		'delete'
+	];
+
+	const responseTypes = {
+		json: 'application/json',
+		text: 'text/*',
+		formData: 'multipart/form-data',
+		arrayBuffer: '*/*',
+		blob: '*/*'
+	};
+
+	const retryMethods = [
+		'get',
+		'put',
+		'head',
+		'delete',
+		'options',
+		'trace'
+	];
+
+	const retryStatusCodes = [
+		408,
+		413,
+		429,
+		500,
+		502,
+		503,
+		504
+	];
+
+	const retryAfterStatusCodes = [
+		413,
+		429,
+		503
+	];
+
+	const stop = Symbol('stop');
+
+	class HTTPError extends Error {
+		constructor(response) {
+			// Set the message to the status text, such as Unauthorized,
+			// with some fallbacks. This message should never be undefined.
+			super(
+				response.statusText ||
+				String(
+					(response.status === 0 || response.status) ?
+						response.status : 'Unknown response error'
+				)
+			);
+			this.name = 'HTTPError';
+			this.response = response;
+		}
+	}
+
+	class TimeoutError extends Error {
+		constructor(request) {
+			super('Request timed out');
+			this.name = 'TimeoutError';
+			this.request = request;
+		}
+	}
+
+	const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+	// `Promise.race()` workaround (#91)
+	const timeout = (request, abortController, options) =>
+		new Promise((resolve, reject) => {
+			const timeoutID = setTimeout(() => {
+				if (abortController) {
+					abortController.abort();
+				}
+
+				reject(new TimeoutError(request));
+			}, options.timeout);
+
+			/* eslint-disable promise/prefer-await-to-then */
+			options.fetch(request)
+				.then(resolve)
+				.catch(reject)
+				.then(() => {
+					clearTimeout(timeoutID);
+				});
+			/* eslint-enable promise/prefer-await-to-then */
+		});
+
+	const normalizeRequestMethod = input => requestMethods.includes(input) ? input.toUpperCase() : input;
+
+	const defaultRetryOptions = {
+		limit: 2,
+		methods: retryMethods,
+		statusCodes: retryStatusCodes,
+		afterStatusCodes: retryAfterStatusCodes
+	};
+
+	const normalizeRetryOptions = (retry = {}) => {
+		if (typeof retry === 'number') {
+			return {
+				...defaultRetryOptions,
+				limit: retry
+			};
+		}
+
+		if (retry.methods && !Array.isArray(retry.methods)) {
+			throw new Error('retry.methods must be an array');
+		}
+
+		if (retry.statusCodes && !Array.isArray(retry.statusCodes)) {
+			throw new Error('retry.statusCodes must be an array');
+		}
+
+		return {
+			...defaultRetryOptions,
+			...retry,
+			afterStatusCodes: retryAfterStatusCodes
+		};
+	};
+
+	// The maximum value of a 32bit int (see issue #117)
+	const maxSafeTimeout = 2147483647;
+
+	class Ky {
+		constructor(input, options = {}) {
+			this._retryCount = 0;
+			this._input = input;
+			this._options = {
+				// TODO: credentials can be removed when the spec change is implemented in all browsers. Context: https://www.chromestatus.com/feature/4539473312350208
+				credentials: this._input.credentials || 'same-origin',
+				...options,
+				headers: mergeHeaders(this._input.headers, options.headers),
+				hooks: deepMerge({
+					beforeRequest: [],
+					beforeRetry: [],
+					afterResponse: []
+				}, options.hooks),
+				method: normalizeRequestMethod(options.method || this._input.method),
+				prefixUrl: String(options.prefixUrl || ''),
+				retry: normalizeRetryOptions(options.retry),
+				throwHttpErrors: options.throwHttpErrors !== false,
+				timeout: typeof options.timeout === 'undefined' ? 10000 : options.timeout,
+				fetch: options.fetch || globals.fetch
+			};
+
+			if (typeof this._input !== 'string' && !(this._input instanceof URL || this._input instanceof globals.Request)) {
+				throw new TypeError('`input` must be a string, URL, or Request');
+			}
+
+			if (this._options.prefixUrl && typeof this._input === 'string') {
+				if (this._input.startsWith('/')) {
+					throw new Error('`input` must not begin with a slash when using `prefixUrl`');
+				}
+
+				if (!this._options.prefixUrl.endsWith('/')) {
+					this._options.prefixUrl += '/';
+				}
+
+				this._input = this._options.prefixUrl + this._input;
+			}
+
+			if (supportsAbortController) {
+				this.abortController = new globals.AbortController();
+				if (this._options.signal) {
+					this._options.signal.addEventListener('abort', () => {
+						this.abortController.abort();
+					});
+				}
+
+				this._options.signal = this.abortController.signal;
+			}
+
+			this.request = new globals.Request(this._input, this._options);
+
+			if (this._options.searchParams) {
+				const searchParams = '?' + new URLSearchParams(this._options.searchParams).toString();
+				const url = this.request.url.replace(/(?:\?.*?)?(?=#|$)/, searchParams);
+
+				// To provide correct form boundary, Content-Type header should be deleted each time when new Request instantiated from another one
+				if (((supportsFormData && this._options.body instanceof globals.FormData) || this._options.body instanceof URLSearchParams) && !(this._options.headers && this._options.headers['content-type'])) {
+					this.request.headers.delete('content-type');
+				}
+
+				this.request = new globals.Request(new globals.Request(url, this.request), this._options);
+			}
+
+			if (this._options.json !== undefined) {
+				this._options.body = JSON.stringify(this._options.json);
+				this.request.headers.set('content-type', 'application/json');
+				this.request = new globals.Request(this.request, {body: this._options.body});
+			}
+
+			const fn = async () => {
+				if (this._options.timeout > maxSafeTimeout) {
+					throw new RangeError(`The \`timeout\` option cannot be greater than ${maxSafeTimeout}`);
+				}
+
+				await delay(1);
+				let response = await this._fetch();
+
+				for (const hook of this._options.hooks.afterResponse) {
+					// eslint-disable-next-line no-await-in-loop
+					const modifiedResponse = await hook(
+						this.request,
+						this._options,
+						this._decorateResponse(response.clone())
+					);
+
+					if (modifiedResponse instanceof globals.Response) {
+						response = modifiedResponse;
+					}
+				}
+
+				this._decorateResponse(response);
+
+				if (!response.ok && this._options.throwHttpErrors) {
+					throw new HTTPError(response);
+				}
+
+				// If `onDownloadProgress` is passed, it uses the stream API internally
+				/* istanbul ignore next */
+				if (this._options.onDownloadProgress) {
+					if (typeof this._options.onDownloadProgress !== 'function') {
+						throw new TypeError('The `onDownloadProgress` option must be a function');
+					}
+
+					if (!supportsStreams) {
+						throw new Error('Streams are not supported in your environment. `ReadableStream` is missing.');
+					}
+
+					return this._stream(response.clone(), this._options.onDownloadProgress);
+				}
+
+				return response;
+			};
+
+			const isRetriableMethod = this._options.retry.methods.includes(this.request.method.toLowerCase());
+			const result = isRetriableMethod ? this._retry(fn) : fn();
+
+			for (const [type, mimeType] of Object.entries(responseTypes)) {
+				result[type] = async () => {
+					this.request.headers.set('accept', this.request.headers.get('accept') || mimeType);
+
+					const response = (await result).clone();
+
+					if (type === 'json') {
+						if (response.status === 204) {
+							return '';
+						}
+
+						if (options.parseJson) {
+							return options.parseJson(await response.text());
+						}
+					}
+
+					return response[type]();
+				};
+			}
+
+			return result;
+		}
+
+		_calculateRetryDelay(error) {
+			this._retryCount++;
+
+			if (this._retryCount < this._options.retry.limit && !(error instanceof TimeoutError)) {
+				if (error instanceof HTTPError) {
+					if (!this._options.retry.statusCodes.includes(error.response.status)) {
+						return 0;
+					}
+
+					const retryAfter = error.response.headers.get('Retry-After');
+					if (retryAfter && this._options.retry.afterStatusCodes.includes(error.response.status)) {
+						let after = Number(retryAfter);
+						if (Number.isNaN(after)) {
+							after = Date.parse(retryAfter) - Date.now();
+						} else {
+							after *= 1000;
+						}
+
+						if (typeof this._options.retry.maxRetryAfter !== 'undefined' && after > this._options.retry.maxRetryAfter) {
+							return 0;
+						}
+
+						return after;
+					}
+
+					if (error.response.status === 413) {
+						return 0;
+					}
+				}
+
+				const BACKOFF_FACTOR = 0.3;
+				return BACKOFF_FACTOR * (2 ** (this._retryCount - 1)) * 1000;
+			}
+
+			return 0;
+		}
+
+		_decorateResponse(response) {
+			if (this._options.parseJson) {
+				response.json = async () => {
+					return this._options.parseJson(await response.text());
+				};
+			}
+
+			return response;
+		}
+
+		async _retry(fn) {
+			try {
+				return await fn();
+			} catch (error) {
+				const ms = Math.min(this._calculateRetryDelay(error), maxSafeTimeout);
+				if (ms !== 0 && this._retryCount > 0) {
+					await delay(ms);
+
+					for (const hook of this._options.hooks.beforeRetry) {
+						// eslint-disable-next-line no-await-in-loop
+						const hookResult = await hook({
+							request: this.request,
+							options: this._options,
+							error,
+							retryCount: this._retryCount
+						});
+
+						// If `stop` is returned from the hook, the retry process is stopped
+						if (hookResult === stop) {
+							return;
+						}
+					}
+
+					return this._retry(fn);
+				}
+
+				if (this._options.throwHttpErrors) {
+					throw error;
+				}
+			}
+		}
+
+		async _fetch() {
+			for (const hook of this._options.hooks.beforeRequest) {
+				// eslint-disable-next-line no-await-in-loop
+				const result = await hook(this.request, this._options);
+
+				if (result instanceof Request) {
+					this.request = result;
+					break;
+				}
+
+				if (result instanceof Response) {
+					return result;
+				}
+			}
+
+			if (this._options.timeout === false) {
+				return this._options.fetch(this.request.clone());
+			}
+
+			return timeout(this.request.clone(), this.abortController, this._options);
+		}
+
+		/* istanbul ignore next */
+		_stream(response, onDownloadProgress) {
+			const totalBytes = Number(response.headers.get('content-length')) || 0;
+			let transferredBytes = 0;
+
+			return new globals.Response(
+				new globals.ReadableStream({
+					start(controller) {
+						const reader = response.body.getReader();
+
+						if (onDownloadProgress) {
+							onDownloadProgress({percent: 0, transferredBytes: 0, totalBytes}, new Uint8Array());
+						}
+
+						async function read() {
+							const {done, value} = await reader.read();
+							if (done) {
+								controller.close();
+								return;
+							}
+
+							if (onDownloadProgress) {
+								transferredBytes += value.byteLength;
+								const percent = totalBytes === 0 ? 0 : transferredBytes / totalBytes;
+								onDownloadProgress({percent, transferredBytes, totalBytes}, value);
+							}
+
+							controller.enqueue(value);
+							read();
+						}
+
+						read();
+					}
+				})
+			);
+		}
+	}
+
+	const validateAndMerge = (...sources) => {
+		for (const source of sources) {
+			if ((!isObject(source) || Array.isArray(source)) && typeof source !== 'undefined') {
+				throw new TypeError('The `options` argument must be an object');
+			}
+		}
+
+		return deepMerge({}, ...sources);
+	};
+
+	const createInstance = defaults => {
+		const ky = (input, options) => new Ky(input, validateAndMerge(defaults, options));
+
+		for (const method of requestMethods) {
+			ky[method] = (input, options) => new Ky(input, validateAndMerge(defaults, options, {method}));
+		}
+
+		ky.HTTPError = HTTPError;
+		ky.TimeoutError = TimeoutError;
+		ky.create = newDefaults => createInstance(validateAndMerge(newDefaults));
+		ky.extend = newDefaults => createInstance(validateAndMerge(defaults, newDefaults));
+		ky.stop = stop;
+
+		return ky;
+	};
+
+	var index = createInstance();
+
+	return index;
+
+})));
+
+
+/***/ }),
+/* 31 */
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -2519,544 +3531,176 @@ function pTimeout(promise, options) {
 
 
 /***/ }),
-/* 20 */
-/***/ ((module, exports, __webpack_require__) => {
-
-var Minilog = __webpack_require__(21);
-
-var oldEnable = Minilog.enable,
-    oldDisable = Minilog.disable,
-    isChrome = (typeof navigator != 'undefined' && /chrome/i.test(navigator.userAgent)),
-    console = __webpack_require__(25);
-
-// Use a more capable logging backend if on Chrome
-Minilog.defaultBackend = (isChrome ? console.minilog : console);
-
-// apply enable inputs from localStorage and from the URL
-if(typeof window != 'undefined') {
-  try {
-    Minilog.enable(JSON.parse(window.localStorage['minilogSettings']));
-  } catch(e) {}
-  if(window.location && window.location.search) {
-    var match = RegExp('[?&]minilog=([^&]*)').exec(window.location.search);
-    match && Minilog.enable(decodeURIComponent(match[1]));
-  }
-}
-
-// Make enable also add to localStorage
-Minilog.enable = function() {
-  oldEnable.call(Minilog, true);
-  try { window.localStorage['minilogSettings'] = JSON.stringify(true); } catch(e) {}
-  return this;
-};
-
-Minilog.disable = function() {
-  oldDisable.call(Minilog);
-  try { delete window.localStorage.minilogSettings; } catch(e) {}
-  return this;
-};
-
-exports = module.exports = Minilog;
-
-exports.backends = {
-  array: __webpack_require__(29),
-  browser: Minilog.defaultBackend,
-  localStorage: __webpack_require__(30),
-  jQuery: __webpack_require__(31)
-};
-
-
-/***/ }),
-/* 21 */
-/***/ ((module, exports, __webpack_require__) => {
-
-var Transform = __webpack_require__(22),
-    Filter = __webpack_require__(24);
-
-var log = new Transform(),
-    slice = Array.prototype.slice;
-
-exports = module.exports = function create(name) {
-  var o   = function() { log.write(name, undefined, slice.call(arguments)); return o; };
-  o.debug = function() { log.write(name, 'debug', slice.call(arguments)); return o; };
-  o.info  = function() { log.write(name, 'info',  slice.call(arguments)); return o; };
-  o.warn  = function() { log.write(name, 'warn',  slice.call(arguments)); return o; };
-  o.error = function() { log.write(name, 'error', slice.call(arguments)); return o; };
-  o.group = function() { log.write(name, 'group', slice.call(arguments)); return o; };
-  o.groupEnd = function() { log.write(name, 'groupEnd', slice.call(arguments)); return o; };
-  o.log   = o.debug; // for interface compliance with Node and browser consoles
-  o.suggest = exports.suggest;
-  o.format = log.format;
-  return o;
-};
-
-// filled in separately
-exports.defaultBackend = exports.defaultFormatter = null;
-
-exports.pipe = function(dest) {
-  return log.pipe(dest);
-};
-
-exports.end = exports.unpipe = exports.disable = function(from) {
-  return log.unpipe(from);
-};
-
-exports.Transform = Transform;
-exports.Filter = Filter;
-// this is the default filter that's applied when .enable() is called normally
-// you can bypass it completely and set up your own pipes
-exports.suggest = new Filter();
-
-exports.enable = function() {
-  if(exports.defaultFormatter) {
-    return log.pipe(exports.suggest) // filter
-              .pipe(exports.defaultFormatter) // formatter
-              .pipe(exports.defaultBackend); // backend
-  }
-  return log.pipe(exports.suggest) // filter
-            .pipe(exports.defaultBackend); // formatter
-};
-
-
-
-/***/ }),
-/* 22 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var microee = __webpack_require__(23);
-
-// Implements a subset of Node's stream.Transform - in a cross-platform manner.
-function Transform() {}
-
-microee.mixin(Transform);
-
-// The write() signature is different from Node's
-// --> makes it much easier to work with objects in logs.
-// One of the lessons from v1 was that it's better to target
-// a good browser rather than the lowest common denominator
-// internally.
-// If you want to use external streams, pipe() to ./stringify.js first.
-Transform.prototype.write = function(name, level, args) {
-  this.emit('item', name, level, args);
-};
-
-Transform.prototype.end = function() {
-  this.emit('end');
-  this.removeAllListeners();
-};
-
-Transform.prototype.pipe = function(dest) {
-  var s = this;
-  // prevent double piping
-  s.emit('unpipe', dest);
-  // tell the dest that it's being piped to
-  dest.emit('pipe', s);
-
-  function onItem() {
-    dest.write.apply(dest, Array.prototype.slice.call(arguments));
-  }
-  function onEnd() { !dest._isStdio && dest.end(); }
-
-  s.on('item', onItem);
-  s.on('end', onEnd);
-
-  s.when('unpipe', function(from) {
-    var match = (from === dest) || typeof from == 'undefined';
-    if(match) {
-      s.removeListener('item', onItem);
-      s.removeListener('end', onEnd);
-      dest.emit('unpipe');
-    }
-    return match;
-  });
-
-  return dest;
-};
-
-Transform.prototype.unpipe = function(from) {
-  this.emit('unpipe', from);
-  return this;
-};
-
-Transform.prototype.format = function(dest) {
-  throw new Error([
-    'Warning: .format() is deprecated in Minilog v2! Use .pipe() instead. For example:',
-    'var Minilog = require(\'minilog\');',
-    'Minilog',
-    '  .pipe(Minilog.backends.console.formatClean)',
-    '  .pipe(Minilog.backends.console);'].join('\n'));
-};
-
-Transform.mixin = function(dest) {
-  var o = Transform.prototype, k;
-  for (k in o) {
-    o.hasOwnProperty(k) && (dest.prototype[k] = o[k]);
-  }
-};
-
-module.exports = Transform;
-
-
-/***/ }),
-/* 23 */
-/***/ ((module) => {
-
-function M() { this._events = {}; }
-M.prototype = {
-  on: function(ev, cb) {
-    this._events || (this._events = {});
-    var e = this._events;
-    (e[ev] || (e[ev] = [])).push(cb);
-    return this;
-  },
-  removeListener: function(ev, cb) {
-    var e = this._events[ev] || [], i;
-    for(i = e.length-1; i >= 0 && e[i]; i--){
-      if(e[i] === cb || e[i].cb === cb) { e.splice(i, 1); }
-    }
-  },
-  removeAllListeners: function(ev) {
-    if(!ev) { this._events = {}; }
-    else { this._events[ev] && (this._events[ev] = []); }
-  },
-  listeners: function(ev) {
-    return (this._events ? this._events[ev] || [] : []);
-  },
-  emit: function(ev) {
-    this._events || (this._events = {});
-    var args = Array.prototype.slice.call(arguments, 1), i, e = this._events[ev] || [];
-    for(i = e.length-1; i >= 0 && e[i]; i--){
-      e[i].apply(this, args);
-    }
-    return this;
-  },
-  when: function(ev, cb) {
-    return this.once(ev, cb, true);
-  },
-  once: function(ev, cb, when) {
-    if(!cb) return this;
-    function c() {
-      if(!when) this.removeListener(ev, c);
-      if(cb.apply(this, arguments) && when) this.removeListener(ev, c);
-    }
-    c.cb = cb;
-    this.on(ev, c);
-    return this;
-  }
-};
-M.mixin = function(dest) {
-  var o = M.prototype, k;
-  for (k in o) {
-    o.hasOwnProperty(k) && (dest.prototype[k] = o[k]);
-  }
-};
-module.exports = M;
-
-
-/***/ }),
-/* 24 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-// default filter
-var Transform = __webpack_require__(22);
-
-var levelMap = { debug: 1, info: 2, warn: 3, error: 4 };
-
-function Filter() {
-  this.enabled = true;
-  this.defaultResult = true;
-  this.clear();
-}
-
-Transform.mixin(Filter);
-
-// allow all matching, with level >= given level
-Filter.prototype.allow = function(name, level) {
-  this._white.push({ n: name, l: levelMap[level] });
-  return this;
-};
-
-// deny all matching, with level <= given level
-Filter.prototype.deny = function(name, level) {
-  this._black.push({ n: name, l: levelMap[level] });
-  return this;
-};
-
-Filter.prototype.clear = function() {
-  this._white = [];
-  this._black = [];
-  return this;
-};
-
-function test(rule, name) {
-  // use .test for RegExps
-  return (rule.n.test ? rule.n.test(name) : rule.n == name);
-};
-
-Filter.prototype.test = function(name, level) {
-  var i, len = Math.max(this._white.length, this._black.length);
-  for(i = 0; i < len; i++) {
-    if(this._white[i] && test(this._white[i], name) && levelMap[level] >= this._white[i].l) {
-      return true;
-    }
-    if(this._black[i] && test(this._black[i], name) && levelMap[level] <= this._black[i].l) {
-      return false;
-    }
-  }
-  return this.defaultResult;
-};
-
-Filter.prototype.write = function(name, level, args) {
-  if(!this.enabled || this.test(name, level)) {
-    return this.emit('item', name, level, args);
-  }
-};
-
-module.exports = Filter;
-
-
-/***/ }),
-/* 25 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Transform = __webpack_require__(22);
-
-var newlines = /\n+$/,
-    logger = new Transform();
-
-logger.write = function(name, level, args) {
-  var i = args.length-1;
-  if (typeof console === 'undefined' || !console.log) {
-    return;
-  }
-  if(console.log.apply) {
-    return console.log.apply(console, [name, level].concat(args));
-  } else if(JSON && JSON.stringify) {
-    // console.log.apply is undefined in IE8 and IE9
-    // for IE8/9: make console.log at least a bit less awful
-    if(args[i] && typeof args[i] == 'string') {
-      args[i] = args[i].replace(newlines, '');
-    }
-    try {
-      for(i = 0; i < args.length; i++) {
-        args[i] = JSON.stringify(args[i]);
-      }
-    } catch(e) {}
-    console.log(args.join(' '));
-  }
-};
-
-logger.formatters = ['color', 'minilog'];
-logger.color = __webpack_require__(26);
-logger.minilog = __webpack_require__(28);
-
-module.exports = logger;
-
-
-/***/ }),
-/* 26 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Transform = __webpack_require__(22),
-    color = __webpack_require__(27);
-
-var colors = { debug: ['cyan'], info: ['purple' ], warn: [ 'yellow', true ], error: [ 'red', true ] },
-    logger = new Transform();
-
-logger.write = function(name, level, args) {
-  var fn = console.log;
-  if(console[level] && console[level].apply) {
-    fn = console[level];
-    fn.apply(console, [ '%c'+name+' %c'+level, color('gray'), color.apply(color, colors[level])].concat(args));
-  }
-};
-
-// NOP, because piping the formatted logs can only cause trouble.
-logger.pipe = function() { };
-
-module.exports = logger;
-
-
-/***/ }),
-/* 27 */
-/***/ ((module) => {
-
-var hex = {
-  black: '#000',
-  red: '#c23621',
-  green: '#25bc26',
-  yellow: '#bbbb00',
-  blue:  '#492ee1',
-  magenta: '#d338d3',
-  cyan: '#33bbc8',
-  gray: '#808080',
-  purple: '#708'
-};
-function color(fg, isInverse) {
-  if(isInverse) {
-    return 'color: #fff; background: '+hex[fg]+';';
-  } else {
-    return 'color: '+hex[fg]+';';
-  }
-}
-
-module.exports = color;
-
-
-/***/ }),
-/* 28 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Transform = __webpack_require__(22),
-    color = __webpack_require__(27),
-    colors = { debug: ['gray'], info: ['purple' ], warn: [ 'yellow', true ], error: [ 'red', true ] },
-    logger = new Transform();
-
-logger.write = function(name, level, args) {
-  var fn = console.log;
-  if(level != 'debug' && console[level]) {
-    fn = console[level];
-  }
-
-  var subset = [], i = 0;
-  if(level != 'info') {
-    for(; i < args.length; i++) {
-      if(typeof args[i] != 'string') break;
-    }
-    fn.apply(console, [ '%c'+name +' '+ args.slice(0, i).join(' '), color.apply(color, colors[level]) ].concat(args.slice(i)));
-  } else {
-    fn.apply(console, [ '%c'+name, color.apply(color, colors[level]) ].concat(args));
-  }
-};
-
-// NOP, because piping the formatted logs can only cause trouble.
-logger.pipe = function() { };
-
-module.exports = logger;
-
-
-/***/ }),
-/* 29 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Transform = __webpack_require__(22),
-    cache = [ ];
-
-var logger = new Transform();
-
-logger.write = function(name, level, args) {
-  cache.push([ name, level, args ]);
-};
-
-// utility functions
-logger.get = function() { return cache; };
-logger.empty = function() { cache = []; };
-
-module.exports = logger;
-
-
-/***/ }),
-/* 30 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Transform = __webpack_require__(22),
-    cache = false;
-
-var logger = new Transform();
-
-logger.write = function(name, level, args) {
-  if(typeof window == 'undefined' || typeof JSON == 'undefined' || !JSON.stringify || !JSON.parse) return;
-  try {
-    if(!cache) { cache = (window.localStorage.minilog ? JSON.parse(window.localStorage.minilog) : []); }
-    cache.push([ new Date().toString(), name, level, args ]);
-    window.localStorage.minilog = JSON.stringify(cache);
-  } catch(e) {}
-};
-
-module.exports = logger;
-
-/***/ }),
-/* 31 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var Transform = __webpack_require__(22);
-
-var cid = new Date().valueOf().toString(36);
-
-function AjaxLogger(options) {
-  this.url = options.url || '';
-  this.cache = [];
-  this.timer = null;
-  this.interval = options.interval || 30*1000;
-  this.enabled = true;
-  this.jQuery = window.jQuery;
-  this.extras = {};
-}
-
-Transform.mixin(AjaxLogger);
-
-AjaxLogger.prototype.write = function(name, level, args) {
-  if(!this.timer) { this.init(); }
-  this.cache.push([name, level].concat(args));
-};
-
-AjaxLogger.prototype.init = function() {
-  if(!this.enabled || !this.jQuery) return;
-  var self = this;
-  this.timer = setTimeout(function() {
-    var i, logs = [], ajaxData, url = self.url;
-    if(self.cache.length == 0) return self.init();
-    // Test each log line and only log the ones that are valid (e.g. don't have circular references).
-    // Slight performance hit but benefit is we log all valid lines.
-    for(i = 0; i < self.cache.length; i++) {
-      try {
-        JSON.stringify(self.cache[i]);
-        logs.push(self.cache[i]);
-      } catch(e) { }
-    }
-    if(self.jQuery.isEmptyObject(self.extras)) {
-        ajaxData = JSON.stringify({ logs: logs });
-        url = self.url + '?client_id=' + cid;
-    } else {
-        ajaxData = JSON.stringify(self.jQuery.extend({logs: logs}, self.extras));
-    }
-
-    self.jQuery.ajax(url, {
-      type: 'POST',
-      cache: false,
-      processData: false,
-      data: ajaxData,
-      contentType: 'application/json',
-      timeout: 10000
-    }).success(function(data, status, jqxhr) {
-      if(data.interval) {
-        self.interval = Math.max(1000, data.interval);
-      }
-    }).error(function() {
-      self.interval = 30000;
-    }).always(function() {
-      self.init();
-    });
-    self.cache = [];
-  }, this.interval);
-};
-
-AjaxLogger.prototype.end = function() {};
-
-// wait until jQuery is defined. Useful if you don't control the load order.
-AjaxLogger.jQueryWait = function(onDone) {
-  if(typeof window !== 'undefined' && (window.jQuery || window.$)) {
-    return onDone(window.jQuery || window.$);
-  } else if (typeof window !== 'undefined') {
-    setTimeout(function() { AjaxLogger.jQueryWait(onDone); }, 200);
-  }
-};
-
-module.exports = AjaxLogger;
-
-
-/***/ }),
 /* 32 */
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "TimeoutError": () => (/* reexport safe */ p_timeout__WEBPACK_IMPORTED_MODULE_0__.TimeoutError),
+/* harmony export */   "default": () => (/* binding */ pWaitFor)
+/* harmony export */ });
+/* harmony import */ var p_timeout__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(31);
+
+
+const resolveValue = Symbol('resolveValue');
+
+async function pWaitFor(condition, options = {}) {
+	const {
+		interval = 20,
+		timeout = Number.POSITIVE_INFINITY,
+		before = true,
+	} = options;
+
+	let retryTimeout;
+	let abort = false;
+
+	const promise = new Promise((resolve, reject) => {
+		const check = async () => {
+			try {
+				const value = await condition();
+
+				if (typeof value === 'object' && value[resolveValue]) {
+					resolve(value[resolveValue]);
+				} else if (typeof value !== 'boolean') {
+					throw new TypeError('Expected condition to return a boolean');
+				} else if (value === true) {
+					resolve();
+				} else if (!abort) {
+					retryTimeout = setTimeout(check, interval);
+				}
+			} catch (error) {
+				reject(error);
+			}
+		};
+
+		if (before) {
+			check();
+		} else {
+			retryTimeout = setTimeout(check, interval);
+		}
+	});
+
+	if (timeout === Number.POSITIVE_INFINITY) {
+		return promise;
+	}
+
+	try {
+		return await (0,p_timeout__WEBPACK_IMPORTED_MODULE_0__["default"])(promise, typeof timeout === 'number' ? {milliseconds: timeout} : timeout);
+	} finally {
+		abort = true;
+		clearTimeout(retryTimeout);
+	}
+}
+
+pWaitFor.resolveWith = value => ({[resolveValue]: value});
+
+
+
+
+/***/ }),
+/* 33 */
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+
+var _interopRequireDefault = __webpack_require__(2);
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports.blobToBase64 = blobToBase64;
+exports.callStringFunction = callStringFunction;
+exports.deserializeStringFunction = deserializeStringFunction;
+var _regenerator = _interopRequireDefault(__webpack_require__(4));
+var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(13));
+/**
+ * Convert a blob object to a base64 uri
+ *
+ * @param {Blob} blob : blob object
+ * @returns {Promise.<string>} : base64 form of the blob
+ */
+function blobToBase64(_x) {
+  return _blobToBase.apply(this, arguments);
+}
+/**
+ * Convert a string function to the corresponding function.
+ *
+ * @param {string} fnString - function string to convert
+ * @returns {Function} - the resulting function
+ */
+function _blobToBase() {
+  _blobToBase = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee(blob) {
+    var reader;
+    return _regenerator.default.wrap(function _callee$(_context) {
+      while (1) switch (_context.prev = _context.next) {
+        case 0:
+          reader = new window.FileReader();
+          _context.next = 3;
+          return new Promise(function (resolve, reject) {
+            reader.onload = resolve;
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        case 3:
+          return _context.abrupt("return", reader.result);
+        case 4:
+        case "end":
+          return _context.stop();
+      }
+    }, _callee);
+  }));
+  return _blobToBase.apply(this, arguments);
+}
+function deserializeStringFunction(fnString) {
+  return eval('(' + fnString.trim() + ')');
+}
+
+/**
+ * Calls and awaits the given string function with given arguments
+ *
+ * @param {string} fnString - function string to convert
+ * @returns {Promise<any>} - the result of the execution of the string function
+ */
+function callStringFunction(_x2) {
+  return _callStringFunction.apply(this, arguments);
+}
+function _callStringFunction() {
+  _callStringFunction = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee2(fnString) {
+    var fn,
+      _len,
+      args,
+      _key,
+      _args2 = arguments;
+    return _regenerator.default.wrap(function _callee2$(_context2) {
+      while (1) switch (_context2.prev = _context2.next) {
+        case 0:
+          fn = deserializeStringFunction(fnString);
+          for (_len = _args2.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+            args[_key - 1] = _args2[_key];
+          }
+          _context2.next = 4;
+          return fn.apply(void 0, args);
+        case 4:
+          return _context2.abrupt("return", _context2.sent);
+        case 5:
+        case "end":
+          return _context2.stop();
+      }
+    }, _callee2);
+  }));
+  return _callStringFunction.apply(this, arguments);
+}
+
+/***/ }),
+/* 34 */
+/***/ ((module) => {
+
+"use strict";
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.36.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.24.0","babel-jest":"29.7.0","babel-preset-cozy-app":"2.1.0","eslint-plugin-import":"^2.29.1","eslint-plugin-jest":"^27.9.0","eslint-plugin-prettier":"^5.1.3","jest":"29.7.0","jest-environment-jsdom":"29.7.0","prettier":"^3.2.5","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","microee":"^0.0.6","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"2bec3f0f42ddd2e12096c74085171476ca8172b0"}');
+
+/***/ }),
+/* 35 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -3071,12 +3715,12 @@ var _regenerator = _interopRequireDefault(__webpack_require__(4));
 var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(13));
 var _classCallCheck2 = _interopRequireDefault(__webpack_require__(14));
 var _createClass2 = _interopRequireDefault(__webpack_require__(15));
-var _possibleConstructorReturn2 = _interopRequireDefault(__webpack_require__(33));
-var _getPrototypeOf2 = _interopRequireDefault(__webpack_require__(35));
-var _inherits2 = _interopRequireDefault(__webpack_require__(36));
-var _postMe = __webpack_require__(38);
-var _ContentScriptMessenger = _interopRequireDefault(__webpack_require__(39));
-var _bridgeInterfaces = __webpack_require__(40);
+var _possibleConstructorReturn2 = _interopRequireDefault(__webpack_require__(36));
+var _getPrototypeOf2 = _interopRequireDefault(__webpack_require__(38));
+var _inherits2 = _interopRequireDefault(__webpack_require__(39));
+var _postMe = __webpack_require__(41);
+var _ContentScriptMessenger = _interopRequireDefault(__webpack_require__(42));
+var _bridgeInterfaces = __webpack_require__(43);
 function _callSuper(t, o, e) { return o = (0, _getPrototypeOf2.default)(o), (0, _possibleConstructorReturn2.default)(t, _isNativeReflectConstruct() ? Reflect.construct(o, e || [], (0, _getPrototypeOf2.default)(t).constructor) : o.apply(t, e)); }
 function _isNativeReflectConstruct() { try { var t = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {})); } catch (t) {} return (_isNativeReflectConstruct = function _isNativeReflectConstruct() { return !!t; })(); }
 /**
@@ -3136,11 +3780,11 @@ var LauncherBridge = exports["default"] = /*#__PURE__*/function (_Bridge) {
 }(_bridgeInterfaces.Bridge);
 
 /***/ }),
-/* 33 */
+/* 36 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 var _typeof = (__webpack_require__(6)["default"]);
-var assertThisInitialized = __webpack_require__(34);
+var assertThisInitialized = __webpack_require__(37);
 function _possibleConstructorReturn(self, call) {
   if (call && (_typeof(call) === "object" || typeof call === "function")) {
     return call;
@@ -3152,7 +3796,7 @@ function _possibleConstructorReturn(self, call) {
 module.exports = _possibleConstructorReturn, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 34 */
+/* 37 */
 /***/ ((module) => {
 
 function _assertThisInitialized(self) {
@@ -3164,7 +3808,7 @@ function _assertThisInitialized(self) {
 module.exports = _assertThisInitialized, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 35 */
+/* 38 */
 /***/ ((module) => {
 
 function _getPrototypeOf(o) {
@@ -3176,10 +3820,10 @@ function _getPrototypeOf(o) {
 module.exports = _getPrototypeOf, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 36 */
+/* 39 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
-var setPrototypeOf = __webpack_require__(37);
+var setPrototypeOf = __webpack_require__(40);
 function _inherits(subClass, superClass) {
   if (typeof superClass !== "function" && superClass !== null) {
     throw new TypeError("Super expression must either be null or a function");
@@ -3199,7 +3843,7 @@ function _inherits(subClass, superClass) {
 module.exports = _inherits, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 37 */
+/* 40 */
 /***/ ((module) => {
 
 function _setPrototypeOf(o, p) {
@@ -3212,7 +3856,7 @@ function _setPrototypeOf(o, p) {
 module.exports = _setPrototypeOf, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 38 */
+/* 41 */
 /***/ (function(module, exports) {
 
 var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
@@ -4197,7 +4841,7 @@ var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_
 
 
 /***/ }),
-/* 39 */
+/* 42 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -4210,10 +4854,10 @@ Object.defineProperty(exports, "__esModule", ({
 exports["default"] = void 0;
 var _classCallCheck2 = _interopRequireDefault(__webpack_require__(14));
 var _createClass2 = _interopRequireDefault(__webpack_require__(15));
-var _possibleConstructorReturn2 = _interopRequireDefault(__webpack_require__(33));
-var _getPrototypeOf2 = _interopRequireDefault(__webpack_require__(35));
-var _inherits2 = _interopRequireDefault(__webpack_require__(36));
-var _bridgeInterfaces = __webpack_require__(40);
+var _possibleConstructorReturn2 = _interopRequireDefault(__webpack_require__(36));
+var _getPrototypeOf2 = _interopRequireDefault(__webpack_require__(38));
+var _inherits2 = _interopRequireDefault(__webpack_require__(39));
+var _bridgeInterfaces = __webpack_require__(43);
 function _callSuper(t, o, e) { return o = (0, _getPrototypeOf2.default)(o), (0, _possibleConstructorReturn2.default)(t, _isNativeReflectConstruct() ? Reflect.construct(o, e || [], (0, _getPrototypeOf2.default)(t).constructor) : o.apply(t, e)); }
 function _isNativeReflectConstruct() { try { var t = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {})); } catch (t) {} return (_isNativeReflectConstruct = function _isNativeReflectConstruct() { return !!t; })(); } // @ts-check
 /**
@@ -4258,7 +4902,7 @@ var ReactNativeWebviewMessenger = exports["default"] = /*#__PURE__*/function (_M
 }(_bridgeInterfaces.MessengerInterface);
 
 /***/ }),
-/* 40 */
+/* 43 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -4432,7 +5076,7 @@ var MessengerInterface = exports.MessengerInterface = /*#__PURE__*/function () {
 }();
 
 /***/ }),
-/* 41 */
+/* 44 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -4442,91 +5086,120 @@ var _interopRequireDefault = __webpack_require__(2);
 Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
-exports.blobToBase64 = blobToBase64;
-exports.callStringFunction = callStringFunction;
-exports.deserializeStringFunction = deserializeStringFunction;
-var _regenerator = _interopRequireDefault(__webpack_require__(4));
-var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(13));
+exports.dataUriToArrayBuffer = exports.calculateFileKey = void 0;
+var _slicedToArray2 = _interopRequireDefault(__webpack_require__(45));
 /**
- * Convert a blob object to a base64 uri
- *
- * @param {Blob} blob : blob object
- * @returns {Promise.<string>} : base64 form of the blob
+ * @typedef ArrayBufferWithContentType
+ * @property {string} contentType - dataUri included content type
+ * @property {ArrayBuffer} arrayBuffer - resulting decoded data
  */
-function blobToBase64(_x) {
-  return _blobToBase.apply(this, arguments);
-}
-/**
- * Convert a string function to the corresponding function.
- *
- * @param {string} fnString - function string to convert
- * @returns {Function} - the resulting function
- */
-function _blobToBase() {
-  _blobToBase = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee(blob) {
-    var reader;
-    return _regenerator.default.wrap(function _callee$(_context) {
-      while (1) switch (_context.prev = _context.next) {
-        case 0:
-          reader = new window.FileReader();
-          _context.next = 3;
-          return new Promise(function (resolve, reject) {
-            reader.onload = resolve;
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        case 3:
-          return _context.abrupt("return", reader.result);
-        case 4:
-        case "end":
-          return _context.stop();
-      }
-    }, _callee);
-  }));
-  return _blobToBase.apply(this, arguments);
-}
-function deserializeStringFunction(fnString) {
-  return eval('(' + fnString.trim() + ')');
-}
 
 /**
- * Calls and awaits the given string function with given arguments
+ * Converts a data URI string to an Array Buffer with its content Type
  *
- * @param {string} fnString - function string to convert
- * @returns {Promise<any>} - the result of the execution of the string function
+ * @param {string} dataURI - data URI string containing content type and base64 encoded data
+ * @returns {ArrayBufferWithContentType} : array buffer with content type
  */
-function callStringFunction(_x2) {
-  return _callStringFunction.apply(this, arguments);
-}
-function _callStringFunction() {
-  _callStringFunction = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee2(fnString) {
-    var fn,
-      _len,
-      args,
-      _key,
-      _args2 = arguments;
-    return _regenerator.default.wrap(function _callee2$(_context2) {
-      while (1) switch (_context2.prev = _context2.next) {
-        case 0:
-          fn = deserializeStringFunction(fnString);
-          for (_len = _args2.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-            args[_key - 1] = _args2[_key];
-          }
-          _context2.next = 4;
-          return fn.apply(void 0, args);
-        case 4:
-          return _context2.abrupt("return", _context2.sent);
-        case 5:
-        case "end":
-          return _context2.stop();
-      }
-    }, _callee2);
-  }));
-  return _callStringFunction.apply(this, arguments);
-}
+var dataUriToArrayBuffer = exports.dataUriToArrayBuffer = function dataUriToArrayBuffer(dataURI) {
+  var parsed = dataURI.match(/^data:(.*);base64,(.*)$/);
+  if (parsed === null) {
+    throw new Error('dataUriToArrayBuffer: dataURI is malformed. Should be in the form data:...;base64,...');
+  }
+  var _parsed$slice = parsed.slice(1),
+    _parsed$slice2 = (0, _slicedToArray2.default)(_parsed$slice, 2),
+    contentType = _parsed$slice2[0],
+    base64String = _parsed$slice2[1];
+  var byteString = __webpack_require__.g.atob(base64String);
+  var arrayBuffer = new ArrayBuffer(byteString.length);
+  var ia = new Uint8Array(arrayBuffer);
+  for (var i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  return {
+    contentType: contentType,
+    arrayBuffer: arrayBuffer
+  };
+};
+
+/**
+ * Calculate the file key from an entry given to saveFiles
+ *
+ * @param {import('../launcher/saveFiles').saveFilesEntry} entry - a savefiles entry
+ * @param {Array<string>} fileIdAttributes - list of entry attributes which will be used to identify the entry in a unique way
+ * @returns {string} - The resulting file key
+ */
+var calculateFileKey = exports.calculateFileKey = function calculateFileKey(entry, fileIdAttributes) {
+  return fileIdAttributes.sort().map(function (key) {
+    return entry === null || entry === void 0 ? void 0 : entry[key];
+  }).join('####');
+};
 
 /***/ }),
-/* 42 */
+/* 45 */
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+var arrayWithHoles = __webpack_require__(46);
+var iterableToArrayLimit = __webpack_require__(47);
+var unsupportedIterableToArray = __webpack_require__(11);
+var nonIterableRest = __webpack_require__(48);
+function _slicedToArray(arr, i) {
+  return arrayWithHoles(arr) || iterableToArrayLimit(arr, i) || unsupportedIterableToArray(arr, i) || nonIterableRest();
+}
+module.exports = _slicedToArray, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+/***/ }),
+/* 46 */
+/***/ ((module) => {
+
+function _arrayWithHoles(arr) {
+  if (Array.isArray(arr)) return arr;
+}
+module.exports = _arrayWithHoles, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+/***/ }),
+/* 47 */
+/***/ ((module) => {
+
+function _iterableToArrayLimit(arr, i) {
+  var _i = null == arr ? null : "undefined" != typeof Symbol && arr[Symbol.iterator] || arr["@@iterator"];
+  if (null != _i) {
+    var _s,
+      _e,
+      _x,
+      _r,
+      _arr = [],
+      _n = !0,
+      _d = !1;
+    try {
+      if (_x = (_i = _i.call(arr)).next, 0 === i) {
+        if (Object(_i) !== _i) return;
+        _n = !1;
+      } else for (; !(_n = (_s = _x.call(_i)).done) && (_arr.push(_s.value), _arr.length !== i); _n = !0);
+    } catch (err) {
+      _d = !0, _e = err;
+    } finally {
+      try {
+        if (!_n && null != _i["return"] && (_r = _i["return"](), Object(_r) !== _r)) return;
+      } finally {
+        if (_d) throw _e;
+      }
+    }
+    return _arr;
+  }
+}
+module.exports = _iterableToArrayLimit, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+/***/ }),
+/* 48 */
+/***/ ((module) => {
+
+function _nonIterableRest() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+module.exports = _nonIterableRest, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+/***/ }),
+/* 49 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -4539,7 +5212,7 @@ Object.defineProperty(exports, "__esModule", ({
 exports.wrapTimerFactory = exports.wrapTimer = void 0;
 var _regenerator = _interopRequireDefault(__webpack_require__(4));
 var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(13));
-var _defineProperty2 = _interopRequireDefault(__webpack_require__(43));
+var _defineProperty2 = _interopRequireDefault(__webpack_require__(50));
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { (0, _defineProperty2.default)(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 /**
@@ -4609,7 +5282,7 @@ var wrapTimer = exports.wrapTimer = function wrapTimer(obj, name) {
  */
 
 /***/ }),
-/* 43 */
+/* 50 */
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 var toPropertyKey = __webpack_require__(16);
@@ -4630,679 +5303,6 @@ function _defineProperty(obj, key, value) {
 module.exports = _defineProperty, module.exports.__esModule = true, module.exports["default"] = module.exports;
 
 /***/ }),
-/* 44 */
-/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
-
-(function (global, factory) {
-	 true ? module.exports = factory() :
-	0;
-}(this, (function () { 'use strict';
-
-	/*! MIT License © Sindre Sorhus */
-
-	const globals = {};
-
-	const getGlobal = property => {
-		/* istanbul ignore next */
-		if (typeof self !== 'undefined' && self && property in self) {
-			return self;
-		}
-
-		/* istanbul ignore next */
-		if (typeof window !== 'undefined' && window && property in window) {
-			return window;
-		}
-
-		if (typeof __webpack_require__.g !== 'undefined' && __webpack_require__.g && property in __webpack_require__.g) {
-			return __webpack_require__.g;
-		}
-
-		/* istanbul ignore next */
-		if (typeof globalThis !== 'undefined' && globalThis) {
-			return globalThis;
-		}
-	};
-
-	const globalProperties = [
-		'Headers',
-		'Request',
-		'Response',
-		'ReadableStream',
-		'fetch',
-		'AbortController',
-		'FormData'
-	];
-
-	for (const property of globalProperties) {
-		Object.defineProperty(globals, property, {
-			get() {
-				const globalObject = getGlobal(property);
-				const value = globalObject && globalObject[property];
-				return typeof value === 'function' ? value.bind(globalObject) : value;
-			}
-		});
-	}
-
-	const isObject = value => value !== null && typeof value === 'object';
-	const supportsAbortController = typeof globals.AbortController === 'function';
-	const supportsStreams = typeof globals.ReadableStream === 'function';
-	const supportsFormData = typeof globals.FormData === 'function';
-
-	const mergeHeaders = (source1, source2) => {
-		const result = new globals.Headers(source1 || {});
-		const isHeadersInstance = source2 instanceof globals.Headers;
-		const source = new globals.Headers(source2 || {});
-
-		for (const [key, value] of source) {
-			if ((isHeadersInstance && value === 'undefined') || value === undefined) {
-				result.delete(key);
-			} else {
-				result.set(key, value);
-			}
-		}
-
-		return result;
-	};
-
-	const deepMerge = (...sources) => {
-		let returnValue = {};
-		let headers = {};
-
-		for (const source of sources) {
-			if (Array.isArray(source)) {
-				if (!(Array.isArray(returnValue))) {
-					returnValue = [];
-				}
-
-				returnValue = [...returnValue, ...source];
-			} else if (isObject(source)) {
-				for (let [key, value] of Object.entries(source)) {
-					if (isObject(value) && (key in returnValue)) {
-						value = deepMerge(returnValue[key], value);
-					}
-
-					returnValue = {...returnValue, [key]: value};
-				}
-
-				if (isObject(source.headers)) {
-					headers = mergeHeaders(headers, source.headers);
-				}
-			}
-
-			returnValue.headers = headers;
-		}
-
-		return returnValue;
-	};
-
-	const requestMethods = [
-		'get',
-		'post',
-		'put',
-		'patch',
-		'head',
-		'delete'
-	];
-
-	const responseTypes = {
-		json: 'application/json',
-		text: 'text/*',
-		formData: 'multipart/form-data',
-		arrayBuffer: '*/*',
-		blob: '*/*'
-	};
-
-	const retryMethods = [
-		'get',
-		'put',
-		'head',
-		'delete',
-		'options',
-		'trace'
-	];
-
-	const retryStatusCodes = [
-		408,
-		413,
-		429,
-		500,
-		502,
-		503,
-		504
-	];
-
-	const retryAfterStatusCodes = [
-		413,
-		429,
-		503
-	];
-
-	const stop = Symbol('stop');
-
-	class HTTPError extends Error {
-		constructor(response) {
-			// Set the message to the status text, such as Unauthorized,
-			// with some fallbacks. This message should never be undefined.
-			super(
-				response.statusText ||
-				String(
-					(response.status === 0 || response.status) ?
-						response.status : 'Unknown response error'
-				)
-			);
-			this.name = 'HTTPError';
-			this.response = response;
-		}
-	}
-
-	class TimeoutError extends Error {
-		constructor(request) {
-			super('Request timed out');
-			this.name = 'TimeoutError';
-			this.request = request;
-		}
-	}
-
-	const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-	// `Promise.race()` workaround (#91)
-	const timeout = (request, abortController, options) =>
-		new Promise((resolve, reject) => {
-			const timeoutID = setTimeout(() => {
-				if (abortController) {
-					abortController.abort();
-				}
-
-				reject(new TimeoutError(request));
-			}, options.timeout);
-
-			/* eslint-disable promise/prefer-await-to-then */
-			options.fetch(request)
-				.then(resolve)
-				.catch(reject)
-				.then(() => {
-					clearTimeout(timeoutID);
-				});
-			/* eslint-enable promise/prefer-await-to-then */
-		});
-
-	const normalizeRequestMethod = input => requestMethods.includes(input) ? input.toUpperCase() : input;
-
-	const defaultRetryOptions = {
-		limit: 2,
-		methods: retryMethods,
-		statusCodes: retryStatusCodes,
-		afterStatusCodes: retryAfterStatusCodes
-	};
-
-	const normalizeRetryOptions = (retry = {}) => {
-		if (typeof retry === 'number') {
-			return {
-				...defaultRetryOptions,
-				limit: retry
-			};
-		}
-
-		if (retry.methods && !Array.isArray(retry.methods)) {
-			throw new Error('retry.methods must be an array');
-		}
-
-		if (retry.statusCodes && !Array.isArray(retry.statusCodes)) {
-			throw new Error('retry.statusCodes must be an array');
-		}
-
-		return {
-			...defaultRetryOptions,
-			...retry,
-			afterStatusCodes: retryAfterStatusCodes
-		};
-	};
-
-	// The maximum value of a 32bit int (see issue #117)
-	const maxSafeTimeout = 2147483647;
-
-	class Ky {
-		constructor(input, options = {}) {
-			this._retryCount = 0;
-			this._input = input;
-			this._options = {
-				// TODO: credentials can be removed when the spec change is implemented in all browsers. Context: https://www.chromestatus.com/feature/4539473312350208
-				credentials: this._input.credentials || 'same-origin',
-				...options,
-				headers: mergeHeaders(this._input.headers, options.headers),
-				hooks: deepMerge({
-					beforeRequest: [],
-					beforeRetry: [],
-					afterResponse: []
-				}, options.hooks),
-				method: normalizeRequestMethod(options.method || this._input.method),
-				prefixUrl: String(options.prefixUrl || ''),
-				retry: normalizeRetryOptions(options.retry),
-				throwHttpErrors: options.throwHttpErrors !== false,
-				timeout: typeof options.timeout === 'undefined' ? 10000 : options.timeout,
-				fetch: options.fetch || globals.fetch
-			};
-
-			if (typeof this._input !== 'string' && !(this._input instanceof URL || this._input instanceof globals.Request)) {
-				throw new TypeError('`input` must be a string, URL, or Request');
-			}
-
-			if (this._options.prefixUrl && typeof this._input === 'string') {
-				if (this._input.startsWith('/')) {
-					throw new Error('`input` must not begin with a slash when using `prefixUrl`');
-				}
-
-				if (!this._options.prefixUrl.endsWith('/')) {
-					this._options.prefixUrl += '/';
-				}
-
-				this._input = this._options.prefixUrl + this._input;
-			}
-
-			if (supportsAbortController) {
-				this.abortController = new globals.AbortController();
-				if (this._options.signal) {
-					this._options.signal.addEventListener('abort', () => {
-						this.abortController.abort();
-					});
-				}
-
-				this._options.signal = this.abortController.signal;
-			}
-
-			this.request = new globals.Request(this._input, this._options);
-
-			if (this._options.searchParams) {
-				const searchParams = '?' + new URLSearchParams(this._options.searchParams).toString();
-				const url = this.request.url.replace(/(?:\?.*?)?(?=#|$)/, searchParams);
-
-				// To provide correct form boundary, Content-Type header should be deleted each time when new Request instantiated from another one
-				if (((supportsFormData && this._options.body instanceof globals.FormData) || this._options.body instanceof URLSearchParams) && !(this._options.headers && this._options.headers['content-type'])) {
-					this.request.headers.delete('content-type');
-				}
-
-				this.request = new globals.Request(new globals.Request(url, this.request), this._options);
-			}
-
-			if (this._options.json !== undefined) {
-				this._options.body = JSON.stringify(this._options.json);
-				this.request.headers.set('content-type', 'application/json');
-				this.request = new globals.Request(this.request, {body: this._options.body});
-			}
-
-			const fn = async () => {
-				if (this._options.timeout > maxSafeTimeout) {
-					throw new RangeError(`The \`timeout\` option cannot be greater than ${maxSafeTimeout}`);
-				}
-
-				await delay(1);
-				let response = await this._fetch();
-
-				for (const hook of this._options.hooks.afterResponse) {
-					// eslint-disable-next-line no-await-in-loop
-					const modifiedResponse = await hook(
-						this.request,
-						this._options,
-						this._decorateResponse(response.clone())
-					);
-
-					if (modifiedResponse instanceof globals.Response) {
-						response = modifiedResponse;
-					}
-				}
-
-				this._decorateResponse(response);
-
-				if (!response.ok && this._options.throwHttpErrors) {
-					throw new HTTPError(response);
-				}
-
-				// If `onDownloadProgress` is passed, it uses the stream API internally
-				/* istanbul ignore next */
-				if (this._options.onDownloadProgress) {
-					if (typeof this._options.onDownloadProgress !== 'function') {
-						throw new TypeError('The `onDownloadProgress` option must be a function');
-					}
-
-					if (!supportsStreams) {
-						throw new Error('Streams are not supported in your environment. `ReadableStream` is missing.');
-					}
-
-					return this._stream(response.clone(), this._options.onDownloadProgress);
-				}
-
-				return response;
-			};
-
-			const isRetriableMethod = this._options.retry.methods.includes(this.request.method.toLowerCase());
-			const result = isRetriableMethod ? this._retry(fn) : fn();
-
-			for (const [type, mimeType] of Object.entries(responseTypes)) {
-				result[type] = async () => {
-					this.request.headers.set('accept', this.request.headers.get('accept') || mimeType);
-
-					const response = (await result).clone();
-
-					if (type === 'json') {
-						if (response.status === 204) {
-							return '';
-						}
-
-						if (options.parseJson) {
-							return options.parseJson(await response.text());
-						}
-					}
-
-					return response[type]();
-				};
-			}
-
-			return result;
-		}
-
-		_calculateRetryDelay(error) {
-			this._retryCount++;
-
-			if (this._retryCount < this._options.retry.limit && !(error instanceof TimeoutError)) {
-				if (error instanceof HTTPError) {
-					if (!this._options.retry.statusCodes.includes(error.response.status)) {
-						return 0;
-					}
-
-					const retryAfter = error.response.headers.get('Retry-After');
-					if (retryAfter && this._options.retry.afterStatusCodes.includes(error.response.status)) {
-						let after = Number(retryAfter);
-						if (Number.isNaN(after)) {
-							after = Date.parse(retryAfter) - Date.now();
-						} else {
-							after *= 1000;
-						}
-
-						if (typeof this._options.retry.maxRetryAfter !== 'undefined' && after > this._options.retry.maxRetryAfter) {
-							return 0;
-						}
-
-						return after;
-					}
-
-					if (error.response.status === 413) {
-						return 0;
-					}
-				}
-
-				const BACKOFF_FACTOR = 0.3;
-				return BACKOFF_FACTOR * (2 ** (this._retryCount - 1)) * 1000;
-			}
-
-			return 0;
-		}
-
-		_decorateResponse(response) {
-			if (this._options.parseJson) {
-				response.json = async () => {
-					return this._options.parseJson(await response.text());
-				};
-			}
-
-			return response;
-		}
-
-		async _retry(fn) {
-			try {
-				return await fn();
-			} catch (error) {
-				const ms = Math.min(this._calculateRetryDelay(error), maxSafeTimeout);
-				if (ms !== 0 && this._retryCount > 0) {
-					await delay(ms);
-
-					for (const hook of this._options.hooks.beforeRetry) {
-						// eslint-disable-next-line no-await-in-loop
-						const hookResult = await hook({
-							request: this.request,
-							options: this._options,
-							error,
-							retryCount: this._retryCount
-						});
-
-						// If `stop` is returned from the hook, the retry process is stopped
-						if (hookResult === stop) {
-							return;
-						}
-					}
-
-					return this._retry(fn);
-				}
-
-				if (this._options.throwHttpErrors) {
-					throw error;
-				}
-			}
-		}
-
-		async _fetch() {
-			for (const hook of this._options.hooks.beforeRequest) {
-				// eslint-disable-next-line no-await-in-loop
-				const result = await hook(this.request, this._options);
-
-				if (result instanceof Request) {
-					this.request = result;
-					break;
-				}
-
-				if (result instanceof Response) {
-					return result;
-				}
-			}
-
-			if (this._options.timeout === false) {
-				return this._options.fetch(this.request.clone());
-			}
-
-			return timeout(this.request.clone(), this.abortController, this._options);
-		}
-
-		/* istanbul ignore next */
-		_stream(response, onDownloadProgress) {
-			const totalBytes = Number(response.headers.get('content-length')) || 0;
-			let transferredBytes = 0;
-
-			return new globals.Response(
-				new globals.ReadableStream({
-					start(controller) {
-						const reader = response.body.getReader();
-
-						if (onDownloadProgress) {
-							onDownloadProgress({percent: 0, transferredBytes: 0, totalBytes}, new Uint8Array());
-						}
-
-						async function read() {
-							const {done, value} = await reader.read();
-							if (done) {
-								controller.close();
-								return;
-							}
-
-							if (onDownloadProgress) {
-								transferredBytes += value.byteLength;
-								const percent = totalBytes === 0 ? 0 : transferredBytes / totalBytes;
-								onDownloadProgress({percent, transferredBytes, totalBytes}, value);
-							}
-
-							controller.enqueue(value);
-							read();
-						}
-
-						read();
-					}
-				})
-			);
-		}
-	}
-
-	const validateAndMerge = (...sources) => {
-		for (const source of sources) {
-			if ((!isObject(source) || Array.isArray(source)) && typeof source !== 'undefined') {
-				throw new TypeError('The `options` argument must be an object');
-			}
-		}
-
-		return deepMerge({}, ...sources);
-	};
-
-	const createInstance = defaults => {
-		const ky = (input, options) => new Ky(input, validateAndMerge(defaults, options));
-
-		for (const method of requestMethods) {
-			ky[method] = (input, options) => new Ky(input, validateAndMerge(defaults, options, {method}));
-		}
-
-		ky.HTTPError = HTTPError;
-		ky.TimeoutError = TimeoutError;
-		ky.create = newDefaults => createInstance(validateAndMerge(newDefaults));
-		ky.extend = newDefaults => createInstance(validateAndMerge(defaults, newDefaults));
-		ky.stop = stop;
-
-		return ky;
-	};
-
-	var index = createInstance();
-
-	return index;
-
-})));
-
-
-/***/ }),
-/* 45 */
-/***/ ((module) => {
-
-"use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.35.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.20.12","babel-jest":"29.3.1","babel-preset-cozy-app":"2.0.4","jest":"29.3.1","jest-environment-jsdom":"29.3.1","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"e49e807aebae907627399a98ad1c4743fa360eea"}');
-
-/***/ }),
-/* 46 */
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-
-var _interopRequireDefault = __webpack_require__(2);
-Object.defineProperty(exports, "__esModule", ({
-  value: true
-}));
-exports.dataUriToArrayBuffer = exports.calculateFileKey = void 0;
-var _slicedToArray2 = _interopRequireDefault(__webpack_require__(47));
-/**
- * @typedef ArrayBufferWithContentType
- * @property {string} contentType - dataUri included content type
- * @property {ArrayBuffer} arrayBuffer - resulting decoded data
- */
-
-/**
- * Converts a data URI string to an Array Buffer with its content Type
- *
- * @param {string} dataURI - data URI string containing content type and base64 encoded data
- * @returns {ArrayBufferWithContentType} : array buffer with content type
- */
-var dataUriToArrayBuffer = exports.dataUriToArrayBuffer = function dataUriToArrayBuffer(dataURI) {
-  var parsed = dataURI.match(/^data:(.*);base64,(.*)$/);
-  if (parsed === null) {
-    throw new Error('dataUriToArrayBuffer: dataURI is malformed. Should be in the form data:...;base64,...');
-  }
-  var _parsed$slice = parsed.slice(1),
-    _parsed$slice2 = (0, _slicedToArray2.default)(_parsed$slice, 2),
-    contentType = _parsed$slice2[0],
-    base64String = _parsed$slice2[1];
-  var byteString = __webpack_require__.g.atob(base64String);
-  var arrayBuffer = new ArrayBuffer(byteString.length);
-  var ia = new Uint8Array(arrayBuffer);
-  for (var i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
-  }
-  return {
-    contentType: contentType,
-    arrayBuffer: arrayBuffer
-  };
-};
-
-/**
- * Calculate the file key from an entry given to saveFiles
- *
- * @param {import('../launcher/saveFiles').saveFilesEntry} entry - a savefiles entry
- * @param {Array<string>} fileIdAttributes - list of entry attributes which will be used to identify the entry in a unique way
- * @returns {string} - The resulting file key
- */
-var calculateFileKey = exports.calculateFileKey = function calculateFileKey(entry, fileIdAttributes) {
-  return fileIdAttributes.sort().map(function (key) {
-    return entry === null || entry === void 0 ? void 0 : entry[key];
-  }).join('####');
-};
-
-/***/ }),
-/* 47 */
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var arrayWithHoles = __webpack_require__(48);
-var iterableToArrayLimit = __webpack_require__(49);
-var unsupportedIterableToArray = __webpack_require__(11);
-var nonIterableRest = __webpack_require__(50);
-function _slicedToArray(arr, i) {
-  return arrayWithHoles(arr) || iterableToArrayLimit(arr, i) || unsupportedIterableToArray(arr, i) || nonIterableRest();
-}
-module.exports = _slicedToArray, module.exports.__esModule = true, module.exports["default"] = module.exports;
-
-/***/ }),
-/* 48 */
-/***/ ((module) => {
-
-function _arrayWithHoles(arr) {
-  if (Array.isArray(arr)) return arr;
-}
-module.exports = _arrayWithHoles, module.exports.__esModule = true, module.exports["default"] = module.exports;
-
-/***/ }),
-/* 49 */
-/***/ ((module) => {
-
-function _iterableToArrayLimit(arr, i) {
-  var _i = null == arr ? null : "undefined" != typeof Symbol && arr[Symbol.iterator] || arr["@@iterator"];
-  if (null != _i) {
-    var _s,
-      _e,
-      _x,
-      _r,
-      _arr = [],
-      _n = !0,
-      _d = !1;
-    try {
-      if (_x = (_i = _i.call(arr)).next, 0 === i) {
-        if (Object(_i) !== _i) return;
-        _n = !1;
-      } else for (; !(_n = (_s = _x.call(_i)).done) && (_arr.push(_s.value), _arr.length !== i); _n = !0);
-    } catch (err) {
-      _d = !0, _e = err;
-    } finally {
-      try {
-        if (!_n && null != _i["return"] && (_r = _i["return"](), Object(_r) !== _r)) return;
-      } finally {
-        if (_d) throw _e;
-      }
-    }
-    return _arr;
-  }
-}
-module.exports = _iterableToArrayLimit, module.exports.__esModule = true, module.exports["default"] = module.exports;
-
-/***/ }),
-/* 50 */
-/***/ ((module) => {
-
-function _nonIterableRest() {
-  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-}
-module.exports = _nonIterableRest, module.exports.__esModule = true, module.exports["default"] = module.exports;
-
-/***/ }),
 /* 51 */
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -5316,11 +5316,11 @@ Object.defineProperty(exports, "__esModule", ({
 exports["default"] = void 0;
 var _regenerator = _interopRequireDefault(__webpack_require__(4));
 var _asyncToGenerator2 = _interopRequireDefault(__webpack_require__(13));
-var _slicedToArray2 = _interopRequireDefault(__webpack_require__(47));
+var _slicedToArray2 = _interopRequireDefault(__webpack_require__(45));
 var _classCallCheck2 = _interopRequireDefault(__webpack_require__(14));
 var _createClass2 = _interopRequireDefault(__webpack_require__(15));
-var _microee = _interopRequireDefault(__webpack_require__(23));
-var _utils = __webpack_require__(41);
+var _microee = _interopRequireDefault(__webpack_require__(21));
+var _utils = __webpack_require__(33);
 function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it.return != null) it.return(); } finally { if (didErr) throw err; } } }; }
 function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
 function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i]; return arr2; } /* eslint no-console: off */
@@ -5764,10 +5764,10 @@ var __webpack_exports__ = {};
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
-/* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(20);
+/* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(18);
 /* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_cozy_minilog__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var p_wait_for__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(18);
-/* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(44);
+/* harmony import */ var p_wait_for__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(32);
+/* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(30);
 /* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(ky_umd__WEBPACK_IMPORTED_MODULE_4__);
 /* harmony import */ var _interceptor__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(52);
 /* eslint-disable no-console */
@@ -5993,6 +5993,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         '#oecs__zone-identity-layer_client_disconnect'
       )
     } else if (currentState === 'passwordAlonePage') {
+      await this.waitForElementInWorker('[data-testid=change-account]')
       await this.runInWorker('click', '[data-testid=change-account]')
     } else if (currentState === 'captchaPage') {
       await this.handleCaptcha()
@@ -6176,11 +6177,11 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         qualificationLabel:
           contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
-      if (!oldBillsUrl) {
-        this.log('warn', 'Cannot fetch oldBills, url to fetch is not valid')
-        throw new Error('UNKNOWN_ERROR.PARTIAL_SYNC')
-      }
-      if (FORCE_FETCH_ALL) {
+      // Due to recent changes in Orange's way to handle contracts
+      // oldbillsUrl might not be present in the intercepted response
+      // Perhaps it will appears differently if it does (when newly created contract will have an history to show)
+      // Unfortunately the account we dispose to develop has only one contract, so we'll take Orange as a reference if it happen
+      if (FORCE_FETCH_ALL && oldBillsUrl) {
         const oldBills = await this.fetchOldBills({
           oldBillsUrl,
           vendorId: contract.vendorId
