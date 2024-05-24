@@ -1,5 +1,5 @@
 {
-  "version": "2.15.0",
+  "version": "2.16.0",
   "name": "Sosh",
   "type": "konnector",
   "language": "node",
@@ -10,7 +10,6 @@
   "editor": "Cozy",
   "vendor_link": "https://www.sosh.fr/mentions-legales#information-legales",
   "categories": [
-    "telecom",
     "isp"
   ],
   "folders": [
