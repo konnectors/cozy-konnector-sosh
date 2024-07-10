@@ -437,8 +437,13 @@ class SoshContentScript extends ContentScript {
     const { trigger } = context
     // force fetch all data (the long way) when last trigger execution is older than 90 days
     // or when the last job was an error
+    const isFirstJob =
+      !trigger.current_state?.last_failure &&
+      !trigger.current_state?.last_success
     const isLastJobError =
+      !isFirstJob &&
       trigger.current_state?.last_failure > trigger.current_state?.last_success
+
     const hasLastExecution = Boolean(trigger.current_state?.last_execution)
     const distanceInDays = getDateDistanceInDays(
       trigger.current_state?.last_execution
