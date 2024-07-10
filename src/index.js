@@ -424,6 +424,10 @@ class SoshContentScript extends ContentScript {
     }
 
     await this.navigateToPersonalInfos()
+    if (this.store.skippingIdentity) {
+      this.log('warn', 'Identity scraping skipped')
+      return true
+    }
     await this.runInWorker('getIdentity')
     await this.saveIdentity({ contact: this.store.infosIdentity })
   }
@@ -649,9 +653,26 @@ class SoshContentScript extends ContentScript {
   async navigateToPersonalInfos() {
     this.log('info', 'navigateToPersonalInfos starts')
     await this.runInWorker('click', 'a[href="/compte?sosh="]')
-    await this.waitForElementInWorker('p', {
-      includesText: 'Infos de contact'
-    })
+    await this.PromiseRaceWithError(
+      [
+        this.runInWorker('checkAccessibilityUrl'),
+        this.waitForElementInWorker('p', {
+          includesText: 'Infos de contact'
+        })
+      ],
+      'navigateToPersonalInfos: checking landing page'
+    )
+    if (
+      !(await this.isElementInWorker('p', {
+        includesText: 'Infos de contact'
+      }))
+    ) {
+      this.log(
+        'warn',
+        'Something went wrong when accessing personal info page, skipping identity scraping'
+      )
+      this.store.skippingIdentity = true
+    }
     await this.runInWorker('click', 'p', { includesText: 'Infos de contact' })
     await Promise.all([
       this.waitForElementInWorker(
@@ -871,6 +892,24 @@ class SoshContentScript extends ContentScript {
     const shortenedId = digestId.substr(0, 5)
     return `${date}_sosh_${amount}€_${shortenedId}.pdf`
   }
+
+  async checkAccessibilityUrl() {
+    this.log('info', '📍️ checkAccessibilityUrl starts')
+    await waitFor(
+      () => {
+        const currentUrl = document.location.href
+        if (currentUrl.includes('/accessibilite?sosh=oui&')) {
+          this.log('warn', 'Found accessibility score url')
+          return true
+        } else return false
+      },
+      {
+        interval: 1000,
+        timeout: 30 * 1000
+      }
+    )
+    return true
+  }
 }
 
 const connector = new SoshContentScript()
@@ -890,7 +929,8 @@ connector
       'getContracts',
       'waitForNextState',
       'getCurrentState',
-      'autoFill'
+      'autoFill',
+      'checkAccessibilityUrl'
     ]
   })
   .catch(err => {
