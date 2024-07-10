@@ -389,9 +389,7 @@ class SoshContentScript extends ContentScript {
     }
     await this.goto('https://espace-client.orange.fr/accueil?sosh=')
     await this.waitForElementInWorker('.menu')
-
     const contracts = await this.runInWorker('getContracts')
-
     for (const contract of contracts) {
       const { recentBills, oldBillsUrl } = await this.fetchRecentBills(
         contract.vendorId,
@@ -513,7 +511,20 @@ class SoshContentScript extends ContentScript {
     await this.goto(
       'https://espace-client.orange.fr/facture-paiement/' + vendorId
     )
-    await this.waitForElementInWorker('a[href*="/historique-des-factures"]')
+    await Promise.race([
+      this.waitForElementInWorker('a[href*="/historique-des-factures"]'),
+      this.waitForElementInWorker('span', {
+        includesText: 'Pas de facture disponible'
+      })
+    ])
+    if (
+      await this.isElementInWorker('span', {
+        includesText: 'Pas de facture disponible'
+      })
+    ) {
+      this.log('warn', 'No bills to download for this contract')
+      return { recentBills: [], oldBillsUrl: undefined }
+    }
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
     await this.PromiseRaceWithError(
       [
