@@ -5,6 +5,7 @@ import Minilog from '@cozy/minilog'
 import waitFor, { TimeoutError } from 'p-wait-for'
 import ky from 'ky/umd'
 import XhrInterceptor from './interceptor'
+import { blobToBase64 } from 'cozy-clisk/dist/contentscript/utils'
 
 const log = Minilog('ContentScript')
 Minilog.enable('soshCCC')
@@ -403,10 +404,6 @@ class SoshContentScript extends ContentScript {
         qualificationLabel:
           contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
-      // Due to recent changes in Orange's way to handle contracts
-      // oldbillsUrl might not be present in the intercepted response
-      // Perhaps it will appears differently if it does (when newly created contract will have an history to show)
-      // Unfortunately the account we dispose to develop has only one contract, so we'll take Orange as a reference if it happen
       if (FORCE_FETCH_ALL && oldBillsUrl) {
         const oldBills = await this.fetchOldBills({
           oldBillsUrl,
@@ -914,6 +911,30 @@ class SoshContentScript extends ContentScript {
       }
     )
     return true
+  }
+
+  async downloadFileInWorker(entry) {
+    // overload ContentScript.downloadFileInWorker to be able to check the status of the file. Since not-so-long ago, recent bills on some account are all receiving a 403 error, issue is on their side, either on browser desktop/mobile.
+    // This does not affect bills older than one year (so called oldBills) for the moment
+    this.log('debug', 'downloading file in worker')
+    let response
+    response = await fetch(entry.fileurl, {
+      headers: {
+        ...ORANGE_SPECIAL_HEADERS,
+        ...JSON_HEADERS
+      }
+    })
+    const clonedResponse = await response.clone()
+    const respToText = await clonedResponse.text()
+    if (respToText.match('403 Forbidden')) {
+      this.log('warn', 'This file received a 403, check on the website')
+      return null
+    }
+    entry.blob = await response.blob()
+    entry.dataUri = await blobToBase64(entry.blob)
+    if (entry.dataUri) {
+      return entry.dataUri
+    }
   }
 }
 
