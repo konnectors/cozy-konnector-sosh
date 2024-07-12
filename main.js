@@ -566,6 +566,7 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
      * @param {object} options        - options object
      * @param {string} options.method - name of the method to run
      * @param {number} [options.timeout] - number of miliseconds before the function sends a timeout error. Default Infinity
+     * @param {string} [options.suffix] - suffix used in timeout error message, to better identify error source
      * @param {Array} [options.args] - array of args to pass to the method
      * @returns {Promise<boolean>} - true
      * @throws {TimeoutError} - if timeout expired
@@ -575,11 +576,11 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
     key: "runInWorkerUntilTrue",
     value: (function () {
       var _runInWorkerUntilTrue = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee9(_ref3) {
-        var method, _ref3$timeout, timeout, _ref3$args, args, result, start, isTimeout;
+        var method, _ref3$timeout, timeout, _ref3$suffix, suffix, _ref3$args, args, result, start, isTimeout;
         return _regenerator.default.wrap(function _callee9$(_context9) {
           while (1) switch (_context9.prev = _context9.next) {
             case 0:
-              method = _ref3.method, _ref3$timeout = _ref3.timeout, timeout = _ref3$timeout === void 0 ? Infinity : _ref3$timeout, _ref3$args = _ref3.args, args = _ref3$args === void 0 ? [] : _ref3$args;
+              method = _ref3.method, _ref3$timeout = _ref3.timeout, timeout = _ref3$timeout === void 0 ? Infinity : _ref3$timeout, _ref3$suffix = _ref3.suffix, suffix = _ref3$suffix === void 0 ? '' : _ref3$suffix, _ref3$args = _ref3.args, args = _ref3$args === void 0 ? [] : _ref3$args;
               this.onlyIn(PILOT_TYPE, 'runInWorkerUntilTrue');
               _log.debug('runInWorkerUntilTrue', method);
               result = false;
@@ -596,7 +597,7 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
                 _context9.next = 9;
                 break;
               }
-              throw new _pWaitFor.TimeoutError("runInWorkerUntilTrue ".concat(method, " Timeout error after ").concat(timeout));
+              throw new _pWaitFor.TimeoutError("runInWorkerUntilTrue ".concat(method).concat(suffix, " Timeout error after ").concat(timeout));
             case 9:
               _log.debug('runInWorker call', method);
               _context9.next = 12;
@@ -644,6 +645,7 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
               _context10.next = 4;
               return this.runInWorkerUntilTrue({
                 method: 'waitForElementNoReload',
+                suffix: selector,
                 timeout: (_options$timeout2 = options === null || options === void 0 ? void 0 : options.timeout) !== null && _options$timeout2 !== void 0 ? _options$timeout2 : DEFAULT_WAIT_FOR_ELEMENT_ACCROSS_PAGES_TIMEOUT,
                 args: [selector, {
                   includesText: options.includesText
@@ -3697,7 +3699,7 @@ function _callStringFunction() {
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.36.1","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.24.0","babel-jest":"29.7.0","babel-preset-cozy-app":"2.1.0","eslint-plugin-import":"^2.29.1","eslint-plugin-jest":"^27.9.0","eslint-plugin-prettier":"^5.1.3","jest":"29.7.0","jest-environment-jsdom":"29.7.0","prettier":"^3.2.5","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","microee":"^0.0.6","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"2bec3f0f42ddd2e12096c74085171476ca8172b0"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.37.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.24.0","babel-jest":"29.7.0","babel-preset-cozy-app":"2.1.0","eslint-plugin-import":"^2.29.1","eslint-plugin-jest":"^27.9.0","eslint-plugin-prettier":"^5.1.3","jest":"29.7.0","jest-environment-jsdom":"29.7.0","prettier":"^3.2.5","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","microee":"^0.0.6","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"d8bbed286c6633aacf90c09983d2f02def0d8b85"}');
 
 /***/ }),
 /* 35 */
@@ -5767,10 +5769,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(18);
 /* harmony import */ var _cozy_minilog__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_cozy_minilog__WEBPACK_IMPORTED_MODULE_1__);
 /* harmony import */ var p_wait_for__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(32);
-/* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(30);
-/* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(ky_umd__WEBPACK_IMPORTED_MODULE_4__);
+/* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(30);
+/* harmony import */ var ky_umd__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__webpack_require__.n(ky_umd__WEBPACK_IMPORTED_MODULE_5__);
 /* harmony import */ var _interceptor__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(52);
+/* harmony import */ var cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(33);
 /* eslint-disable no-console */
+
 
 
 
@@ -6161,9 +6165,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     }
     await this.goto('https://espace-client.orange.fr/accueil?sosh=')
     await this.waitForElementInWorker('.menu')
-
     const contracts = await this.runInWorker('getContracts')
-
     for (const contract of contracts) {
       const { recentBills, oldBillsUrl } = await this.fetchRecentBills(
         contract.vendorId,
@@ -6177,10 +6179,6 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         qualificationLabel:
           contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
-      // Due to recent changes in Orange's way to handle contracts
-      // oldbillsUrl might not be present in the intercepted response
-      // Perhaps it will appears differently if it does (when newly created contract will have an history to show)
-      // Unfortunately the account we dispose to develop has only one contract, so we'll take Orange as a reference if it happen
       if (FORCE_FETCH_ALL && oldBillsUrl) {
         const oldBills = await this.fetchOldBills({
           oldBillsUrl,
@@ -6198,6 +6196,10 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     }
 
     await this.navigateToPersonalInfos()
+    if (this.store.skippingIdentity) {
+      this.log('warn', 'Identity scraping skipped')
+      return true
+    }
     await this.runInWorker('getIdentity')
     await this.saveIdentity({ contact: this.store.infosIdentity })
   }
@@ -6207,8 +6209,13 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     const { trigger } = context
     // force fetch all data (the long way) when last trigger execution is older than 90 days
     // or when the last job was an error
+    const isFirstJob =
+      !trigger.current_state?.last_failure &&
+      !trigger.current_state?.last_success
     const isLastJobError =
+      !isFirstJob &&
       trigger.current_state?.last_failure > trigger.current_state?.last_success
+
     const hasLastExecution = Boolean(trigger.current_state?.last_execution)
     const distanceInDays = getDateDistanceInDays(
       trigger.current_state?.last_execution
@@ -6285,7 +6292,20 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.goto(
       'https://espace-client.orange.fr/facture-paiement/' + vendorId
     )
-    await this.waitForElementInWorker('a[href*="/historique-des-factures"]')
+    await Promise.race([
+      this.waitForElementInWorker('a[href*="/historique-des-factures"]'),
+      this.waitForElementInWorker('span', {
+        includesText: 'Pas de facture disponible'
+      })
+    ])
+    if (
+      await this.isElementInWorker('span', {
+        includesText: 'Pas de facture disponible'
+      })
+    ) {
+      this.log('warn', 'No bills to download for this contract')
+      return { recentBills: [], oldBillsUrl: undefined }
+    }
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
     await this.PromiseRaceWithError(
       [
@@ -6410,9 +6430,26 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   async navigateToPersonalInfos() {
     this.log('info', 'navigateToPersonalInfos starts')
     await this.runInWorker('click', 'a[href="/compte?sosh="]')
-    await this.waitForElementInWorker('p', {
-      includesText: 'Infos de contact'
-    })
+    await this.PromiseRaceWithError(
+      [
+        this.runInWorker('checkAccessibilityUrl'),
+        this.waitForElementInWorker('p', {
+          includesText: 'Infos de contact'
+        })
+      ],
+      'navigateToPersonalInfos: checking landing page'
+    )
+    if (
+      !(await this.isElementInWorker('p', {
+        includesText: 'Infos de contact'
+      }))
+    ) {
+      this.log(
+        'warn',
+        'Something went wrong when accessing personal info page, skipping identity scraping'
+      )
+      this.store.skippingIdentity = true
+    }
     await this.runInWorker('click', 'p', { includesText: 'Infos de contact' })
     await Promise.all([
       this.waitForElementInWorker(
@@ -6469,7 +6506,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       'https://espace-client.orange.fr/ecd_wp/facture/historicBills'
     let jsonResp
     try {
-      jsonResp = await ky_umd__WEBPACK_IMPORTED_MODULE_4___default().get(OLD_BILLS_URL_PREFIX + oldBillsUrl, {
+      jsonResp = await ky_umd__WEBPACK_IMPORTED_MODULE_5___default().get(OLD_BILLS_URL_PREFIX + oldBillsUrl, {
           headers: {
             ...ORANGE_SPECIAL_HEADERS,
             ...JSON_HEADERS
@@ -6631,6 +6668,48 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     const shortenedId = digestId.substr(0, 5)
     return `${date}_sosh_${amount}€_${shortenedId}.pdf`
   }
+
+  async checkAccessibilityUrl() {
+    this.log('info', '📍️ checkAccessibilityUrl starts')
+    await (0,p_wait_for__WEBPACK_IMPORTED_MODULE_2__["default"])(
+      () => {
+        const currentUrl = document.location.href
+        if (currentUrl.includes('/accessibilite?sosh=oui&')) {
+          this.log('warn', 'Found accessibility score url')
+          return true
+        } else return false
+      },
+      {
+        interval: 1000,
+        timeout: 30 * 1000
+      }
+    )
+    return true
+  }
+
+  async downloadFileInWorker(entry) {
+    // overload ContentScript.downloadFileInWorker to be able to check the status of the file. Since not-so-long ago, recent bills on some account are all receiving a 403 error, issue is on their side, either on browser desktop/mobile.
+    // This does not affect bills older than one year (so called oldBills) for the moment
+    this.log('debug', 'downloading file in worker')
+    let response
+    response = await fetch(entry.fileurl, {
+      headers: {
+        ...ORANGE_SPECIAL_HEADERS,
+        ...JSON_HEADERS
+      }
+    })
+    const clonedResponse = await response.clone()
+    const respToText = await clonedResponse.text()
+    if (respToText.match('403 Forbidden')) {
+      this.log('warn', 'This file received a 403, check on the website')
+      return null
+    }
+    entry.blob = await response.blob()
+    entry.dataUri = await (0,cozy_clisk_dist_contentscript_utils__WEBPACK_IMPORTED_MODULE_4__.blobToBase64)(entry.blob)
+    if (entry.dataUri) {
+      return entry.dataUri
+    }
+  }
 }
 
 const connector = new SoshContentScript()
@@ -6650,7 +6729,8 @@ connector
       'getContracts',
       'waitForNextState',
       'getCurrentState',
-      'autoFill'
+      'autoFill',
+      'checkAccessibilityUrl'
     ]
   })
   .catch(err => {
