@@ -5,6 +5,7 @@ import Minilog from '@cozy/minilog'
 import waitFor, { TimeoutError } from 'p-wait-for'
 import ky from 'ky/umd'
 import XhrInterceptor from './interceptor'
+import { blobToBase64 } from 'cozy-clisk/dist/contentscript/utils'
 
 const log = Minilog('ContentScript')
 Minilog.enable('soshCCC')
@@ -389,9 +390,7 @@ class SoshContentScript extends ContentScript {
     }
     await this.goto('https://espace-client.orange.fr/accueil?sosh=')
     await this.waitForElementInWorker('.menu')
-
     const contracts = await this.runInWorker('getContracts')
-
     for (const contract of contracts) {
       const { recentBills, oldBillsUrl } = await this.fetchRecentBills(
         contract.vendorId,
@@ -405,10 +404,6 @@ class SoshContentScript extends ContentScript {
         qualificationLabel:
           contract.type === 'phone' ? 'phone_invoice' : 'isp_invoice'
       })
-      // Due to recent changes in Orange's way to handle contracts
-      // oldbillsUrl might not be present in the intercepted response
-      // Perhaps it will appears differently if it does (when newly created contract will have an history to show)
-      // Unfortunately the account we dispose to develop has only one contract, so we'll take Orange as a reference if it happen
       if (FORCE_FETCH_ALL && oldBillsUrl) {
         const oldBills = await this.fetchOldBills({
           oldBillsUrl,
@@ -426,6 +421,10 @@ class SoshContentScript extends ContentScript {
     }
 
     await this.navigateToPersonalInfos()
+    if (this.store.skippingIdentity) {
+      this.log('warn', 'Identity scraping skipped')
+      return true
+    }
     await this.runInWorker('getIdentity')
     await this.saveIdentity({ contact: this.store.infosIdentity })
   }
@@ -435,8 +434,13 @@ class SoshContentScript extends ContentScript {
     const { trigger } = context
     // force fetch all data (the long way) when last trigger execution is older than 90 days
     // or when the last job was an error
+    const isFirstJob =
+      !trigger.current_state?.last_failure &&
+      !trigger.current_state?.last_success
     const isLastJobError =
+      !isFirstJob &&
       trigger.current_state?.last_failure > trigger.current_state?.last_success
+
     const hasLastExecution = Boolean(trigger.current_state?.last_execution)
     const distanceInDays = getDateDistanceInDays(
       trigger.current_state?.last_execution
@@ -513,7 +517,20 @@ class SoshContentScript extends ContentScript {
     await this.goto(
       'https://espace-client.orange.fr/facture-paiement/' + vendorId
     )
-    await this.waitForElementInWorker('a[href*="/historique-des-factures"]')
+    await Promise.race([
+      this.waitForElementInWorker('a[href*="/historique-des-factures"]'),
+      this.waitForElementInWorker('span', {
+        includesText: 'Pas de facture disponible'
+      })
+    ])
+    if (
+      await this.isElementInWorker('span', {
+        includesText: 'Pas de facture disponible'
+      })
+    ) {
+      this.log('warn', 'No bills to download for this contract')
+      return { recentBills: [], oldBillsUrl: undefined }
+    }
     await this.runInWorker('click', 'a[href*="/historique-des-factures"]')
     await this.PromiseRaceWithError(
       [
@@ -638,9 +655,26 @@ class SoshContentScript extends ContentScript {
   async navigateToPersonalInfos() {
     this.log('info', 'navigateToPersonalInfos starts')
     await this.runInWorker('click', 'a[href="/compte?sosh="]')
-    await this.waitForElementInWorker('p', {
-      includesText: 'Infos de contact'
-    })
+    await this.PromiseRaceWithError(
+      [
+        this.runInWorker('checkAccessibilityUrl'),
+        this.waitForElementInWorker('p', {
+          includesText: 'Infos de contact'
+        })
+      ],
+      'navigateToPersonalInfos: checking landing page'
+    )
+    if (
+      !(await this.isElementInWorker('p', {
+        includesText: 'Infos de contact'
+      }))
+    ) {
+      this.log(
+        'warn',
+        'Something went wrong when accessing personal info page, skipping identity scraping'
+      )
+      this.store.skippingIdentity = true
+    }
     await this.runInWorker('click', 'p', { includesText: 'Infos de contact' })
     await Promise.all([
       this.waitForElementInWorker(
@@ -860,6 +894,48 @@ class SoshContentScript extends ContentScript {
     const shortenedId = digestId.substr(0, 5)
     return `${date}_sosh_${amount}€_${shortenedId}.pdf`
   }
+
+  async checkAccessibilityUrl() {
+    this.log('info', '📍️ checkAccessibilityUrl starts')
+    await waitFor(
+      () => {
+        const currentUrl = document.location.href
+        if (currentUrl.includes('/accessibilite?sosh=oui&')) {
+          this.log('warn', 'Found accessibility score url')
+          return true
+        } else return false
+      },
+      {
+        interval: 1000,
+        timeout: 30 * 1000
+      }
+    )
+    return true
+  }
+
+  async downloadFileInWorker(entry) {
+    // overload ContentScript.downloadFileInWorker to be able to check the status of the file. Since not-so-long ago, recent bills on some account are all receiving a 403 error, issue is on their side, either on browser desktop/mobile.
+    // This does not affect bills older than one year (so called oldBills) for the moment
+    this.log('debug', 'downloading file in worker')
+    let response
+    response = await fetch(entry.fileurl, {
+      headers: {
+        ...ORANGE_SPECIAL_HEADERS,
+        ...JSON_HEADERS
+      }
+    })
+    const clonedResponse = await response.clone()
+    const respToText = await clonedResponse.text()
+    if (respToText.match('403 Forbidden')) {
+      this.log('warn', 'This file received a 403, check on the website')
+      return null
+    }
+    entry.blob = await response.blob()
+    entry.dataUri = await blobToBase64(entry.blob)
+    if (entry.dataUri) {
+      return entry.dataUri
+    }
+  }
 }
 
 const connector = new SoshContentScript()
@@ -879,7 +955,8 @@ connector
       'getContracts',
       'waitForNextState',
       'getCurrentState',
-      'autoFill'
+      'autoFill',
+      'checkAccessibilityUrl'
     ]
   })
   .catch(err => {
