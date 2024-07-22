@@ -312,6 +312,7 @@ class SoshContentScript extends ContentScript {
 
   async checkAuthenticated() {
     const isGoodUrl = document.location.href.includes(DEFAULT_PAGE_URL)
+
     const isConnectedElementPresent = Boolean(
       document.querySelector('#oecs__connecte')
     )
@@ -327,8 +328,17 @@ class SoshContentScript extends ContentScript {
         this.log('info', 'Active session found, returning true')
         return true
       }
+    } else {
+      const isBaseUrl = document.location.href.match(BASE_URL)
+      if (isBaseUrl && isDisconnectElementPresent) {
+        this.log(
+          'info',
+          'Check Authenticated succeeded, but ended on the base url'
+        )
+        return true
+      }
+      return false
     }
-    return false
   }
 
   async waitForUserAuthentication() {
@@ -403,6 +413,13 @@ class SoshContentScript extends ContentScript {
     await this.goto('https://espace-client.orange.fr/accueil?sosh=')
     await this.waitForElementInWorker('.menu')
     const contracts = await this.runInWorker('getContracts')
+    if (!contracts.length) {
+      this.log(
+        'warn',
+        'Seems like no Sosh contracts were found, check if the user is using an Orange account. Execution ended'
+      )
+      return true
+    }
     for (const contract of contracts) {
       const { recentBills, oldBillsUrl } = await this.fetchRecentBills(
         contract.vendorId,
