@@ -38,8 +38,13 @@ class SoshContentScript extends ContentScript {
   async onWorkerEvent({ event, payload }) {
     if (event === 'loginSubmit') {
       const { login, password } = payload || {}
-      if (login && password) {
-        this.store.userCredentials = { login, password }
+      // When the user has chosen mobileConnect option, there is no password request
+      // So wee need to check both separatly to ensure we got at least the user login
+      if (login) {
+        this.store.userCredentials = { ...this.store.userCredentials, login }
+      }
+      if (password) {
+        this.store.userCredentials = { ...this.store.userCredentials, password }
       } else {
         this.log('warn', 'Did not manage to intercept credentials')
       }
@@ -71,7 +76,7 @@ class SoshContentScript extends ContentScript {
     await this.waitForDomReady()
     if (
       !(await this.checkForElement('#remember')) &&
-      (await this.checkForElement('#password'))
+      (await this.checkForElement('[data-testid=selected-account-login]'))
     ) {
       this.log(
         'warn',
@@ -195,6 +200,9 @@ class SoshContentScript extends ContentScript {
     const isConsentPage = Boolean(
       document.querySelector('#didomi-notice-disagree-button')
     )
+    const isMobileconnect = document.querySelector(
+      'button[data-testid="submit-mc"]'
+    )
     if (isErrorUrl) return 'errorPage'
     else if (isLoginPage) return 'loginPage'
     else if (isConnected) return 'connected'
@@ -205,6 +213,7 @@ class SoshContentScript extends ContentScript {
     else if (isReloadButton) return 'reloadButtonPage'
     else if (isDisconnected) return 'disconnectedPage'
     else if (isConsentPage) return 'consentPage'
+    else if (isMobileconnect) return 'mobileConnectPage'
     else return false
   }
 
@@ -221,7 +230,10 @@ class SoshContentScript extends ContentScript {
         'click',
         '#oecs__zone-identity-layer_client_disconnect'
       )
-    } else if (currentState === 'passwordAlonePage') {
+    } else if (
+      currentState === 'passwordAlonePage' ||
+      currentState === 'mobileConnectPage'
+    ) {
       await this.waitForElementInWorker('[data-testid=change-account]')
       await this.runInWorker('click', '[data-testid=change-account]')
     } else if (currentState === 'captchaPage') {
