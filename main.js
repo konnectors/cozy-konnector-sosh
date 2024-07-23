@@ -5813,8 +5813,13 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   async onWorkerEvent({ event, payload }) {
     if (event === 'loginSubmit') {
       const { login, password } = payload || {}
-      if (login && password) {
-        this.store.userCredentials = { login, password }
+      // When the user has chosen mobileConnect option, there is no password request
+      // So wee need to check both separatly to ensure we got at least the user login
+      if (login) {
+        this.store.userCredentials = { ...this.store.userCredentials, login }
+      }
+      if (password) {
+        this.store.userCredentials = { ...this.store.userCredentials, password }
       } else {
         this.log('warn', 'Did not manage to intercept credentials')
       }
@@ -5846,7 +5851,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.waitForDomReady()
     if (
       !(await this.checkForElement('#remember')) &&
-      (await this.checkForElement('#password'))
+      (await this.checkForElement('[data-testid=selected-account-login]'))
     ) {
       this.log(
         'warn',
@@ -5970,6 +5975,9 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     const isConsentPage = Boolean(
       document.querySelector('#didomi-notice-disagree-button')
     )
+    const isMobileconnect = document.querySelector(
+      'button[data-testid="submit-mc"]'
+    )
     if (isErrorUrl) return 'errorPage'
     else if (isLoginPage) return 'loginPage'
     else if (isConnected) return 'connected'
@@ -5980,6 +5988,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     else if (isReloadButton) return 'reloadButtonPage'
     else if (isDisconnected) return 'disconnectedPage'
     else if (isConsentPage) return 'consentPage'
+    else if (isMobileconnect) return 'mobileConnectPage'
     else return false
   }
 
@@ -5996,7 +6005,10 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         'click',
         '#oecs__zone-identity-layer_client_disconnect'
       )
-    } else if (currentState === 'passwordAlonePage') {
+    } else if (
+      currentState === 'passwordAlonePage' ||
+      currentState === 'mobileConnectPage'
+    ) {
       await this.waitForElementInWorker('[data-testid=change-account]')
       await this.runInWorker('click', '[data-testid=change-account]')
     } else if (currentState === 'captchaPage') {
@@ -6075,6 +6087,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async checkAuthenticated() {
     const isGoodUrl = document.location.href.includes(DEFAULT_PAGE_URL)
+
     const isConnectedElementPresent = Boolean(
       document.querySelector('#oecs__connecte')
     )
@@ -6090,8 +6103,17 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
         this.log('info', 'Active session found, returning true')
         return true
       }
+    } else {
+      const isBaseUrl = document.location.href.match(BASE_URL)
+      if (isBaseUrl && isDisconnectElementPresent) {
+        this.log(
+          'info',
+          'Check Authenticated succeeded, but ended on the base url'
+        )
+        return true
+      }
+      return false
     }
-    return false
   }
 
   async waitForUserAuthentication() {
@@ -6166,6 +6188,13 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     await this.goto('https://espace-client.orange.fr/accueil?sosh=')
     await this.waitForElementInWorker('.menu')
     const contracts = await this.runInWorker('getContracts')
+    if (!contracts.length) {
+      this.log(
+        'warn',
+        'Seems like no Sosh contracts were found, check if the user is using an Orange account. Execution ended'
+      )
+      return true
+    }
     for (const contract of contracts) {
       const { recentBills, oldBillsUrl } = await this.fetchRecentBills(
         contract.vendorId,
