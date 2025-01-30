@@ -411,7 +411,7 @@ class SoshContentScript extends ContentScript {
       ])
     }
     await this.goto('https://espace-client.orange.fr/accueil?sosh=')
-    await this.waitForElementInWorker('.menu')
+    await this.waitForElementInWorker('ecm-section-bill')
     const contracts = await this.runInWorker('getContracts')
     if (!contracts.length) {
       this.log(
