@@ -1748,6 +1748,62 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
     }
 
     /**
+     * Determine if the konnector must fetch all or parts of the data.
+     *
+     * @param {object} options - All the data already fetched by the connector in a previous execution.
+     *                                   Useful to optimize connector execution by not fetching data we already have.
+     * @returns {Promise<object>} - Promise that resolves to an object with the following properties:
+     * @property {boolean} shouldFullSync - Indicates if a full synchronization is needed.
+     * @property {number|NaN} distanceInDays - The number of days since the last sync, or NaN if not applicable.
+     */
+  }, {
+    key: "shouldFullSync",
+    value: (function () {
+      var _shouldFullSync = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee40(options) {
+        var _trigger$current_stat, _trigger$current_stat2, _trigger$current_stat3, _trigger$current_stat4, _trigger$current_stat5;
+        var trigger, flags, forceFullSync, flagFullSync, isFirstJob, isLastJobError, hasLastExecution, distanceInDays, _trigger$current_stat6;
+        return _regenerator.default.wrap(function _callee40$(_context40) {
+          while (1) switch (_context40.prev = _context40.next) {
+            case 0:
+              this.onlyIn(PILOT_TYPE, 'shouldFullSync');
+              trigger = options.trigger, flags = options.flags;
+              forceFullSync = false;
+              flagFullSync = false;
+              if (flags['clisk.force-full-sync'] === true) {
+                this.log('info', 'User forces full sync');
+                flagFullSync = true;
+              }
+              isFirstJob = !((_trigger$current_stat = trigger.current_state) !== null && _trigger$current_stat !== void 0 && _trigger$current_stat.last_failure) && !((_trigger$current_stat2 = trigger.current_state) !== null && _trigger$current_stat2 !== void 0 && _trigger$current_stat2.last_success);
+              isLastJobError = !isFirstJob && ((_trigger$current_stat3 = trigger.current_state) === null || _trigger$current_stat3 === void 0 ? void 0 : _trigger$current_stat3.last_failure) > ((_trigger$current_stat4 = trigger.current_state) === null || _trigger$current_stat4 === void 0 ? void 0 : _trigger$current_stat4.last_success);
+              hasLastExecution = Boolean((_trigger$current_stat5 = trigger.current_state) === null || _trigger$current_stat5 === void 0 ? void 0 : _trigger$current_stat5.last_execution);
+              distanceInDays = 0;
+              if (hasLastExecution) {
+                distanceInDays = getDateDistanceInDays((_trigger$current_stat6 = trigger.current_state) === null || _trigger$current_stat6 === void 0 ? void 0 : _trigger$current_stat6.last_execution);
+              }
+              this.log('debug', "distanceInDays: ".concat(distanceInDays));
+              if (flagFullSync || !hasLastExecution || isLastJobError || distanceInDays >= 30) {
+                this.log('info', '🐢️ Long execution');
+                this.log('debug', "isLastJobError: ".concat(isLastJobError, " | hasLastExecution: ").concat(hasLastExecution));
+                forceFullSync = true;
+              } else {
+                this.log('info', '🐇️ Quick execution');
+              }
+              return _context40.abrupt("return", {
+                forceFullSync: forceFullSync,
+                distanceInDays: distanceInDays
+              });
+            case 13:
+            case "end":
+              return _context40.stop();
+          }
+        }, _callee40, this);
+      }));
+      function shouldFullSync(_x32) {
+        return _shouldFullSync.apply(this, arguments);
+      }
+      return shouldFullSync;
+    }()
+    /**
      * Main function, fetches all connector data and save it to the cozy
      *
      * @param {object} options : options object
@@ -1756,19 +1812,20 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
      * @returns {Promise.<object>} : Connector execution result. TBD
      */
     // eslint-disable-next-line no-unused-vars
+    )
   }, {
     key: "fetch",
     value: (function () {
-      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee40(options) {
-        return _regenerator.default.wrap(function _callee40$(_context40) {
-          while (1) switch (_context40.prev = _context40.next) {
+      var _fetch = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee41(options) {
+        return _regenerator.default.wrap(function _callee41$(_context41) {
+          while (1) switch (_context41.prev = _context41.next) {
             case 0:
             case "end":
-              return _context40.stop();
+              return _context41.stop();
           }
-        }, _callee40);
+        }, _callee41);
       }));
-      function fetch(_x32) {
+      function fetch(_x33) {
         return _fetch.apply(this, arguments);
       }
       return fetch;
@@ -1780,16 +1837,16 @@ var ContentScript = exports["default"] = /*#__PURE__*/function () {
   }, {
     key: "getCliskVersion",
     value: (function () {
-      var _getCliskVersion = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee41() {
-        return _regenerator.default.wrap(function _callee41$(_context41) {
-          while (1) switch (_context41.prev = _context41.next) {
+      var _getCliskVersion = (0, _asyncToGenerator2.default)( /*#__PURE__*/_regenerator.default.mark(function _callee42() {
+        return _regenerator.default.wrap(function _callee42$(_context42) {
+          while (1) switch (_context42.prev = _context42.next) {
             case 0:
-              return _context41.abrupt("return", _package.default.version);
+              return _context42.abrupt("return", _package.default.version);
             case 1:
             case "end":
-              return _context41.stop();
+              return _context42.stop();
           }
-        }, _callee41);
+        }, _callee42);
       }));
       function getCliskVersion() {
         return _getCliskVersion.apply(this, arguments);
@@ -1811,6 +1868,11 @@ function sendPageMessage(message) {
   } else {
     _log.error('No window.ReactNativeWebView.postMessage available');
   }
+}
+function getDateDistanceInDays(dateString) {
+  var distanceMs = Date.now() - new Date(dateString).getTime();
+  var days = 1000 * 60 * 60 * 24;
+  return Math.floor(distanceMs / days);
 }
 
 /***/ }),
@@ -3699,7 +3761,7 @@ function _callStringFunction() {
 /***/ ((module) => {
 
 "use strict";
-module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.37.0","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.24.0","babel-jest":"29.7.0","babel-preset-cozy-app":"2.1.0","eslint-plugin-import":"^2.29.1","eslint-plugin-jest":"^27.9.0","eslint-plugin-prettier":"^5.1.3","jest":"29.7.0","jest-environment-jsdom":"29.7.0","prettier":"^3.2.5","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","microee":"^0.0.6","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"d8bbed286c6633aacf90c09983d2f02def0d8b85"}');
+module.exports = JSON.parse('{"name":"cozy-clisk","version":"0.38.2","description":"All the libs needed to run a cozy client connector","repository":{"type":"git","url":"git+https://github.com/konnectors/libs.git"},"files":["dist"],"keywords":["konnector"],"main":"dist/index.js","author":"doubleface <christophe@cozycloud.cc>","license":"MIT","bugs":{"url":"https://github.com/konnectors/libs/issues"},"homepage":"https://github.com/konnectors/libs#readme","scripts":{"lint":"eslint \'src/**/*.js\'","prepublishOnly":"yarn run build","build":"babel --root-mode upward src/ -d dist/ --copy-files --verbose --ignore \'**/*.spec.js\',\'**/*.spec.jsx\'","test":"jest src"},"devDependencies":{"@babel/core":"7.24.0","babel-jest":"29.7.0","babel-preset-cozy-app":"2.1.0","eslint-plugin-import":"^2.29.1","eslint-plugin-jest":"^27.9.0","eslint-plugin-prettier":"^5.1.3","jest":"29.7.0","jest-environment-jsdom":"29.7.0","prettier":"^3.2.5","typescript":"4.9.5"},"dependencies":{"@cozy/minilog":"^1.0.0","bluebird-retry":"^0.11.0","ky":"^0.25.1","lodash":"^4.17.21","microee":"^0.0.6","p-timeout":"^6.0.0","p-wait-for":"^5.0.2","post-me":"^0.4.5"},"peerDependencies":{"cozy-client":">=41.2.0"},"gitHead":"9842e5b91d6df4b059dc691f5c3ace2ebf498759"}');
 
 /***/ }),
 /* 35 */
@@ -6186,7 +6248,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       ])
     }
     await this.goto('https://espace-client.orange.fr/accueil?sosh=')
-    await this.waitForElementInWorker('.menu')
+    await this.waitForElementInWorker('ecm-section-bill')
     const contracts = await this.runInWorker('getContracts')
     if (!contracts.length) {
       this.log(
