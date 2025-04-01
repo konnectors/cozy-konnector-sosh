@@ -6011,6 +6011,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
   }
 
   getCurrentState() {
+    const elcosHeaders = document.querySelector('elcos-header')?.shadowRoot
     const isErrorUrl = window.location.href.includes('error')
     const isLoginPage = Boolean(document.querySelector('#login'))
     const isPasswordAlone = Boolean(
@@ -6029,10 +6030,10 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
       document.querySelector('div[class*="captcha_responseContainer"]')
     )
     const isConnected = Boolean(
-      document.querySelector('#oecs__zone-identity-layer_client_disconnect')
+      elcosHeaders?.querySelector('a[title="Se déconnecter"]')
     )
     const isDisconnected = Boolean(
-      document.querySelector('#oecs__zone-identity-layer_prospect_connect')
+      elcosHeaders?.querySelector('a[title="Se connecter"]')
     )
     const isConsentPage = Boolean(
       document.querySelector('#didomi-notice-disagree-button')
@@ -6063,10 +6064,12 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     } else if (currentState === 'loginPage') {
       return true
     } else if (currentState === 'connected') {
-      await this.runInWorker(
-        'click',
-        '#oecs__zone-identity-layer_client_disconnect'
-      )
+      await this.evaluateInWorker(() => {
+        document
+          .querySelector('elcos-header')
+          .shadowRoot.querySelector('a[title="Se déconnecter"]')
+          .click()
+      })
     } else if (
       currentState === 'passwordAlonePage' ||
       currentState === 'mobileConnectPage'
@@ -6088,10 +6091,12 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     } else if (currentState === 'reloadButtonPage') {
       await this.runInWorker('click', 'button[data-testid="button-reload"]')
     } else if (currentState === 'disconnectedPage') {
-      await this.runInWorker(
-        'click',
-        '#oecs__zone-identity-layer_prospect_connect'
-      )
+      await this.evaluateInWorker(() => {
+        document
+          .querySelector('elcos-header')
+          .shadowRoot.querySelector('a[title="Se connecter"]')
+          .click()
+      })
     } else {
       throw new Error(`Unknown page state: ${currentState}`)
     }
@@ -6149,12 +6154,13 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
 
   async checkAuthenticated() {
     const isGoodUrl = document.location.href.includes(DEFAULT_PAGE_URL)
+    const elcosHeaders = document.querySelector('elcos-header')?.shadowRoot
 
     const isConnectedElementPresent = Boolean(
-      document.querySelector('#oecs__connecte')
+      elcosHeaders?.querySelector('a[title="Se déconnecter"]')
     )
     const isDisconnectElementPresent = Boolean(
-      document.querySelector('#oecs__zone-identity-layer_client_disconnect')
+      elcosHeaders?.querySelector('a[title="Se connecter"]')
     )
     if (isGoodUrl) {
       if (isConnectedElementPresent) {
