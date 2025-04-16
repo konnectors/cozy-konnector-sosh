@@ -740,7 +740,7 @@ class SoshContentScript extends ContentScript {
     // prefer credentials over user email since it may not be know by the user
     let sourceAccountIdentifier = credentialsLogin || storeLogin
     if (!sourceAccountIdentifier) {
-      await this.waitForElementInWorker('.dashboardConso__welcome')
+      await this.waitForElementInWorker('#soshboard')
       sourceAccountIdentifier = await this.runInWorker('getUserMail')
     }
 
