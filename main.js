@@ -18767,7 +18767,7 @@ class SoshContentScript extends cozy_clisk_dist_contentscript__WEBPACK_IMPORTED_
     // prefer credentials over user email since it may not be know by the user
     let sourceAccountIdentifier = credentialsLogin || storeLogin
     if (!sourceAccountIdentifier) {
-      await this.waitForElementInWorker('.dashboardConso__welcome')
+      await this.waitForElementInWorker('#soshboard')
       sourceAccountIdentifier = await this.runInWorker('getUserMail')
     }
 
