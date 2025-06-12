@@ -175,7 +175,9 @@ class SoshContentScript extends ContentScript {
 
   getCurrentState() {
     // There is now two "elcosHeaders" element, one with a define class, the other without. We want he second
-    const elcosHeaders = document.querySelector('elcos-header[class=""]')?.shadowRoot
+    const elcosHeaders = document.querySelector(
+      'elcos-header[class=""]'
+    )?.shadowRoot
     const isErrorUrl = window.location.href.includes('error')
     const isLoginPage = Boolean(document.querySelector('#login'))
     const isPasswordAlone = Boolean(
@@ -318,7 +320,9 @@ class SoshContentScript extends ContentScript {
 
   async checkAuthenticated() {
     const isGoodUrl = document.location.href.includes(DEFAULT_PAGE_URL)
-    const elcosHeaders = document.querySelector('elcos-header[class=""]')?.shadowRoot
+    const elcosHeaders = document.querySelector(
+      'elcos-header[class=""]'
+    )?.shadowRoot
 
     const isConnectedElementPresent = Boolean(
       elcosHeaders?.querySelector('a[title="Se déconnecter"]')
@@ -789,22 +793,48 @@ class SoshContentScript extends ContentScript {
   }
 
   async autoFill(credentials) {
-    this.log('info', '📍️ autoFill starts')
-    if (credentials.login) {
-      const loginElement = document.querySelector('#login')
-      if (loginElement) {
-        loginElement.addEventListener('click', () => {
-          loginElement.value = credentials.login
-        })
-        const submitElement = document.querySelector('#btnSubmit')
-        submitElement.addEventListener('click', async () => {
-          await this.waitForElementNoReload('#password')
-          const passwordElement = document.querySelector('#password')
-          passwordElement.focus()
-          passwordElement.value = credentials.password
-        })
-      }
+    const loginInput = document.querySelector('#login')
+    let passwordInput = document.querySelector('#password')
+    let mobileConnectSumbit = document.querySelector(
+      'button[data-testid="submit-mc"]'
+    )
+    if (credentials.login && loginInput && !passwordInput) {
+      // Fully simulate React event to bypass orange's verifications
+      await this.dispatchReactEvent(loginInput, credentials.login)
+      // Waiting for both password input or mobileConnect submit button
+      await this.waitForElementNoReload(
+        '#password, button[data-testid="submit-mc"]'
+      )
+      this.log('debug', 'Password input or MCSubmit button showed up')
     }
+    // check presence again in case the login autoFill has been done
+    passwordInput = document.querySelector('#password')
+    mobileConnectSumbit = document.querySelector(
+      'button[data-testid="submit-mc"]'
+    )
+    this.log('debug', `Password input : ${Boolean(passwordInput)}`)
+    this.log('debug', `MCSubmit button : ${Boolean(mobileConnectSumbit)}`)
+    if (credentials.password && passwordInput && !mobileConnectSumbit) {
+      await this.dispatchReactEvent(passwordInput, credentials.password)
+    }
+  }
+
+  async dispatchReactEvent(targetInput, credential) {
+    this.log('info', '📍️ dispatchReactEvent starts')
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    ).set
+    targetInput.focus()
+    targetInput.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+    targetInput.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+    targetInput.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    // set value via native setter
+    nativeInputValueSetter.call(targetInput, credential)
+    // dispatch input event React-style
+    const event = new Event('input', { bubbles: true })
+    event.simulated = true // React checks for this
+    targetInput.dispatchEvent(event)
   }
 
   async getUserMail() {
