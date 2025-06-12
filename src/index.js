@@ -174,7 +174,8 @@ class SoshContentScript extends ContentScript {
   }
 
   getCurrentState() {
-    const elcosHeaders = document.querySelector('elcos-header')?.shadowRoot
+    // There is now two "elcosHeaders" element, one with a define class, the other without. We want he second
+    const elcosHeaders = document.querySelector('elcos-header[class=""]')?.shadowRoot
     const isErrorUrl = window.location.href.includes('error')
     const isLoginPage = Boolean(document.querySelector('#login'))
     const isPasswordAlone = Boolean(
@@ -229,7 +230,7 @@ class SoshContentScript extends ContentScript {
     } else if (currentState === 'connected') {
       await this.evaluateInWorker(() => {
         document
-          .querySelector('elcos-header')
+          .querySelector('elcos-header[class=""]')
           .shadowRoot.querySelector('a[title="Se déconnecter"]')
           .click()
       })
@@ -256,7 +257,7 @@ class SoshContentScript extends ContentScript {
     } else if (currentState === 'disconnectedPage') {
       await this.evaluateInWorker(() => {
         document
-          .querySelector('elcos-header')
+          .querySelector('elcos-header[class=""]')
           .shadowRoot.querySelector('a[title="Se connecter"]')
           .click()
       })
@@ -317,7 +318,7 @@ class SoshContentScript extends ContentScript {
 
   async checkAuthenticated() {
     const isGoodUrl = document.location.href.includes(DEFAULT_PAGE_URL)
-    const elcosHeaders = document.querySelector('elcos-header')?.shadowRoot
+    const elcosHeaders = document.querySelector('elcos-header[class=""]')?.shadowRoot
 
     const isConnectedElementPresent = Boolean(
       elcosHeaders?.querySelector('a[title="Se déconnecter"]')
