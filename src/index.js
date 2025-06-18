@@ -716,7 +716,9 @@ class SoshContentScript extends ContentScript {
       this.store.skippingIdentity = true
     }
     await this.runInWorker('click', 'p', { includesText: 'Infos de contact' })
-    await Promise.all([
+
+    // Using allSettle here because we notice some account did not have adresses registered
+    await Promise.allSettled([
       this.waitForElementInWorker(
         'a[data-e2e="btn-contact-info-modifier-votre-identite"]'
       ),
@@ -724,7 +726,7 @@ class SoshContentScript extends ContentScript {
         'a[data-e2e="btn-contact-info-phone-modifier"]'
       ),
       this.waitForElementInWorker(
-        'a[data-e2e="btn-contact-info-modifier-vos-adresses-postales"]'
+        'a[data-e2e="btn-contact-info-modifier-vos-adresses-postales"]', {timeout: 5000}
       )
     ])
   }
