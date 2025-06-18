@@ -722,11 +722,18 @@ class SoshContentScript extends ContentScript {
       ),
       this.waitForElementInWorker(
         'a[data-e2e="btn-contact-info-phone-modifier"]'
-      ),
-      this.waitForElementInWorker(
-        'a[data-e2e="btn-contact-info-modifier-vos-adresses-postales"]'
       )
     ])
+    // Some users does not have any adresse registered on theur account, we got to treat this separatedly to avoid konnector crashing
+    try {
+      await this.waitForElementInWorker(
+        'a[data-e2e="btn-contact-info-modifier-vos-adresses-postales"]',
+        { timeout: 5000 }
+      )
+    } catch (_) {
+      // Catch it so it don't crash, no big deal if not available
+      this.log('warn', 'Address element is not present on the page')
+    }
   }
 
   async waitForUserAction(url) {
